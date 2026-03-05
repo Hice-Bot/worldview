@@ -32,6 +32,8 @@ import EarthquakeLayer from '../layers/EarthquakeLayer';
 import TrafficLayer from '../layers/TrafficLayer';
 import ShipLayer from '../layers/ShipLayer';
 import CCTVLayer from '../layers/CCTVLayer';
+import { ShaderManager } from '../../shaders/postprocess';
+import type { ShaderModeType } from '../../shaders/postprocess';
 
 interface GlobeViewerProps {
   mapTiles: MapTileMode;
@@ -63,6 +65,7 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
     const viewerRef = useRef<CesiumViewer | null>(null);
     const google3dTilesetRef = useRef<Cesium3DTileset | null>(null);
     const osmLayerRef = useRef<ImageryLayer | null>(null);
+    const shaderManagerRef = useRef<ShaderManager>(new ShaderManager());
     const [google3dAvailable, setGoogle3dAvailable] = useState(!!GOOGLE_API_KEY);
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -145,6 +148,19 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
         // Don't destroy on re-renders, only track refs
       };
     }, [props.mapTiles, google3dAvailable]);
+
+    // Manage post-processing shader modes (CRT, NVG, FLIR, STANDARD)
+    useEffect(() => {
+      const viewer = viewerRef.current;
+      if (!viewer || viewer.isDestroyed()) return;
+      shaderManagerRef.current.applyMode(viewer, props.shaderMode as ShaderModeType);
+      return () => {
+        // Cleanup shader on unmount
+        if (viewer && !viewer.isDestroyed()) {
+          shaderManagerRef.current.destroy(viewer);
+        }
+      };
+    }, [props.shaderMode]);
 
     return (
       <Viewer
