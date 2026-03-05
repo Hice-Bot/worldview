@@ -564,6 +564,107 @@ async function collectAISStreamBurst(apiKey, durationMs = 15000) {
 }
 
 // ============================================================================
+// Route Registry - Background callsign-to-route mapping
+// ============================================================================
+
+// In-memory route registry: maps callsign -> { origin, destination, updatedAt }
+const routeRegistry = new Map();
+let routeRegistryLastRefresh = 0;
+const ROUTE_REGISTRY_INTERVAL = 60000; // 60s refresh interval
+const ROUTE_BATCH_SIZE = 50; // Max concurrent route lookups per refresh
+const ROUTE_STALE_MS = 3600000; // Routes older than 1hr are considered stale
+
+// Fetch route for a single callsign from OpenSky routes API
+async function lookupRoute(callsign) {
+  try {
+    const response = await fetch(
+      `https://opensky-network.org/api/routes?callsign=${encodeURIComponent(callsign)}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    if (data.route && data.route.length >= 2) {
+      console.log(`[FLIGHTS] Route found: ${callsign} -> ${data.route.join(' > ')}`);
+      return {
+        origin: data.route[0] || '',
+        destination: data.route[data.route.length - 1] || '',
+        operatorIata: data.operatorIata || '',
+        flightNumber: data.flightNumber || 0,
+        updatedAt: Date.now(),
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error(`[FLIGHTS] Route lookup error for ${callsign}: ${err.message}`);
+    return null;
+  }
+}
+
+// Refresh route registry: fetch routes for callsigns not yet in registry
+async function refreshRouteRegistry() {
+  const now = Date.now();
+  if (now - routeRegistryLastRefresh < ROUTE_REGISTRY_INTERVAL) return;
+  routeRegistryLastRefresh = now;
+
+  // Get active callsigns from cached flights
+  const flights = cache.get('flights') || [];
+  const callsigns = flights
+    .filter(f => f.callsign && f.callsign.length >= 3 && !f.onGround)
+    .map(f => f.callsign)
+    .filter(cs => {
+      const existing = routeRegistry.get(cs);
+      // Skip if already in registry and not stale
+      return !existing || (now - existing.updatedAt > ROUTE_STALE_MS);
+    });
+
+  if (callsigns.length === 0) return;
+
+  // Pick a random batch of callsigns to look up (spread load over time)
+  const shuffled = callsigns.sort(() => Math.random() - 0.5);
+  const batch = shuffled.slice(0, ROUTE_BATCH_SIZE);
+
+  const results = await Promise.allSettled(
+    batch.map(cs => lookupRoute(cs).then(route => ({ callsign: cs, route })))
+  );
+
+  let added = 0;
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.route) {
+      routeRegistry.set(result.value.callsign, result.value.route);
+      added++;
+    }
+  }
+
+  // Prune very old entries (>6 hours)
+  for (const [key, val] of routeRegistry) {
+    if (now - val.updatedAt > 6 * 3600000) {
+      routeRegistry.delete(key);
+    }
+  }
+
+  if (added > 0) {
+    console.log(`[FLIGHTS] Route registry: +${added} routes (${routeRegistry.size} total cached)`);
+  }
+}
+
+// Start background route registry refresh
+setInterval(refreshRouteRegistry, ROUTE_REGISTRY_INTERVAL);
+
+// Enrich aircraft array with route data from registry
+function enrichWithRoutes(aircraft) {
+  for (const ac of aircraft) {
+    if (ac.callsign && routeRegistry.has(ac.callsign)) {
+      const route = routeRegistry.get(ac.callsign);
+      ac.origin = route.origin;
+      ac.destination = route.destination;
+    }
+  }
+  return aircraft;
+}
+
+// ============================================================================
 // Flights Endpoint - FR24 + adsb.fi fallback
 // ============================================================================
 app.get('/api/flights', async (_req, res) => {
@@ -602,7 +703,10 @@ app.get('/api/flights', async (_req, res) => {
         }));
       const airborneCount = aircraft.filter(a => !a.onGround).length;
       console.log(`[FLIGHTS] OpenSky: ${airborneCount} airborne + ${aircraft.length - airborneCount} ground from ${states.length} total states`);
+      enrichWithRoutes(aircraft);
       cache.set('flights', aircraft, 30); // 30s TTL
+      // Trigger background route registry refresh (non-blocking)
+      refreshRouteRegistry().catch(() => {});
       res.json(aircraft);
     } catch (primaryError) {
       console.error('[FLIGHTS] OpenSky failed:', primaryError.message);
@@ -631,9 +735,11 @@ app.get('/api/flights', async (_req, res) => {
             destination: '',
             onGround: ac.alt_baro === 'ground' || !!ac.ground,
           }));
+        enrichWithRoutes(aircraft);
         const fallbackAirborne = aircraft.filter(a => !a.onGround).length;
         console.log(`[FLIGHTS] adsb.fi fallback: ${fallbackAirborne} airborne + ${aircraft.length - fallbackAirborne} ground`);
         cache.set('flights', aircraft, 30);
+        refreshRouteRegistry().catch(() => {});
         res.json(aircraft);
       } catch (fallbackError) {
         console.error('[FLIGHTS] Both sources failed:', fallbackError.message);
@@ -697,6 +803,38 @@ app.get('/api/flights/live', async (req, res) => {
           onGround: !!s[8],
         }));
 
+      // Look up routes for callsigns not yet in registry (wait briefly for results)
+      const unknownCallsigns = aircraft
+        .filter(a => a.callsign && a.callsign.length >= 3 && !a.onGround && !routeRegistry.has(a.callsign))
+        .map(a => a.callsign)
+        .slice(0, 15); // Limit concurrent lookups
+      if (unknownCallsigns.length > 0) {
+        console.log(`[FLIGHTS] Live: looking up ${unknownCallsigns.length} unknown callsigns: ${unknownCallsigns.slice(0, 5).join(', ')}...`);
+        try {
+          const results = await Promise.allSettled(
+            unknownCallsigns.map(cs => lookupRoute(cs).then(route => {
+              if (route) {
+                routeRegistry.set(cs, route);
+                return cs;
+              }
+              return null;
+            }))
+          );
+          const found = results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
+          if (found.length > 0) {
+            console.log(`[FLIGHTS] Live: found routes for: ${found.join(', ')}`);
+          }
+        } catch (err) {
+          console.error(`[FLIGHTS] Live route lookup error: ${err.message}`);
+        }
+      }
+      console.log(`[FLIGHTS] Live: registry size=${routeRegistry.size}, enriching ${aircraft.length} aircraft`);
+
+      // Enrich with route data from registry (including freshly looked-up routes)
+      enrichWithRoutes(aircraft);
+      const enrichedCount = aircraft.filter(a => a.origin && a.origin.length > 0).length;
+      console.log(`[FLIGHTS] Live: enriched ${enrichedCount} aircraft with routes`);
+
       cache.set(cacheKey, aircraft, 4); // 4s TTL
       res.json(aircraft);
     } catch (primaryError) {
@@ -724,6 +862,21 @@ app.get('/api/flights/live', async (req, res) => {
           destination: '',
           onGround: ac.alt_baro === 'ground',
         }));
+        // Look up routes for unknown callsigns
+        const fallbackUnknown = aircraft
+          .filter(a => a.callsign && a.callsign.length >= 3 && !a.onGround && !routeRegistry.has(a.callsign))
+          .map(a => a.callsign)
+          .slice(0, 15);
+        if (fallbackUnknown.length > 0) {
+          try {
+            await Promise.allSettled(
+              fallbackUnknown.map(cs => lookupRoute(cs).then(route => {
+                if (route) routeRegistry.set(cs, route);
+              }))
+            );
+          } catch (_) { /* non-critical */ }
+        }
+        enrichWithRoutes(aircraft);
         cache.set(cacheKey, aircraft, 4);
         res.json(aircraft);
       } catch (fallbackError) {
