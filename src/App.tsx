@@ -13,6 +13,7 @@ import { useSatellites } from './hooks/useSatellites';
 import { useFlights } from './hooks/useFlights';
 import { useCameras } from './hooks/useCameras';
 import { useTraffic } from './hooks/useTraffic';
+import { useShips } from './hooks/useShips';
 import type {
   LayerState,
   ShaderMode,
@@ -22,7 +23,6 @@ import type {
   AltitudeFilters,
   SatelliteFilters,
   IntelEvent,
-  ShipData,
   CameraData,
 } from './types';
 
@@ -90,9 +90,7 @@ export default function App() {
   }, [cameraState.lat, cameraState.lon, cameraState.altitude]);
 
   const { roads: trafficRoads } = useTraffic(layers.traffic, trafficBbox);
-
-  // Remaining data state (to be replaced with hooks as layers are implemented)
-  const [ships, setShips] = useState<ShipData[]>([]);
+  const { ships } = useShips(layers.ships);
 
   // UI state
   const [intelEvents, setIntelEvents] = useState<IntelEvent[]>([]);

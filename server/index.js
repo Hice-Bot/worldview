@@ -371,28 +371,197 @@ app.get('/api/cctv/image', async (req, res) => {
 });
 
 // ============================================================================
-// Ships Endpoint - AIS burst collection
+// Ships Endpoint - AIS vessel data
+// Primary: Finnish Digitraffic (free, no auth, ~18K vessels in Baltic/Nordic)
+// Fallback: AISStream.io WebSocket burst (if API key configured)
 // ============================================================================
+
+// AIS Navigation Status codes
+const NAV_STATUS_ANCHORED = 1;
+const NAV_STATUS_NOT_UNDER_COMMAND = 2;
+const NAV_STATUS_MOORED = 5;
+const NAV_STATUS_AGROUND = 6;
+
 app.get('/api/ships', async (_req, res) => {
   try {
     const cached = cache.get('ships');
     if (cached) return res.json(cached);
 
-    if (!process.env.AISSTREAM_API_KEY) {
-      console.warn('[SHIPS] No AISSTREAM_API_KEY configured');
-      return res.json([]);
+    let ships = [];
+
+    // Primary: Finnish Digitraffic AIS API (free, no auth, gzip required)
+    try {
+      // Fetch vessel positions and metadata concurrently
+      const [posResponse, metaResponse] = await Promise.all([
+        fetch('https://meri.digitraffic.fi/api/ais/v1/locations', {
+          headers: { 'Accept-Encoding': 'gzip' },
+          signal: AbortSignal.timeout(20000),
+        }),
+        fetch('https://meri.digitraffic.fi/api/ais/v1/vessels', {
+          headers: { 'Accept-Encoding': 'gzip' },
+          signal: AbortSignal.timeout(20000),
+        }),
+      ]);
+
+      if (!posResponse.ok) throw new Error(`Digitraffic positions HTTP ${posResponse.status}`);
+      if (!metaResponse.ok) throw new Error(`Digitraffic vessels HTTP ${metaResponse.status}`);
+
+      const posData = await posResponse.json();
+      const metaData = await metaResponse.json();
+
+      // Build MMSI -> metadata lookup
+      const metaMap = new Map();
+      if (Array.isArray(metaData)) {
+        metaData.forEach(v => {
+          if (v.mmsi) metaMap.set(v.mmsi, v);
+        });
+      }
+
+      const features = posData?.features || [];
+
+      ships = features
+        .filter(f => {
+          const props = f.properties || {};
+          const [lon, lat] = f.geometry?.coordinates || [0, 0];
+          // Exclude (0,0) coordinates
+          if (lat === 0 && lon === 0) return false;
+          // Exclude anchored/moored/aground vessels
+          if (props.navStat === NAV_STATUS_ANCHORED ||
+              props.navStat === NAV_STATUS_MOORED ||
+              props.navStat === NAV_STATUS_AGROUND) return false;
+          // Only moving vessels (SOG > 0.5 knots)
+          if ((props.sog || 0) <= 0.5) return false;
+          return true;
+        })
+        .map(f => {
+          const props = f.properties || {};
+          const [lon, lat] = f.geometry.coordinates;
+          const mmsi = String(props.mmsi || f.mmsi || '');
+          const meta = metaMap.get(parseInt(mmsi, 10)) || {};
+
+          return {
+            mmsi,
+            name: (meta.name || '').trim(),
+            imo: meta.imo ? String(meta.imo) : '',
+            callSign: (meta.callSign || '').trim(),
+            lat,
+            lon,
+            sog: props.sog || 0,
+            cog: props.cog || 0,
+            heading: props.heading === 511 ? props.cog || 0 : props.heading || 0,
+            destination: (meta.destination || '').trim(),
+            shipType: meta.shipType || 0,
+            draught: (meta.draught || 0) / 10, // Digitraffic sends decimeters
+            eta: meta.eta ? String(meta.eta) : '',
+          };
+        });
+
+      console.log(`[SHIPS] Digitraffic: ${ships.length} moving vessels (filtered from ${features.length} total, ${metaMap.size} metadata records)`);
+    } catch (primaryError) {
+      console.error('[SHIPS] Digitraffic failed:', primaryError.message);
+
+      // Fallback: AISStream.io WebSocket burst (requires API key)
+      if (process.env.AISSTREAM_API_KEY) {
+        try {
+          ships = await collectAISStreamBurst(process.env.AISSTREAM_API_KEY, 15000);
+          console.log(`[SHIPS] AISStream fallback: ${ships.length} vessels`);
+        } catch (fallbackError) {
+          console.error('[SHIPS] AISStream fallback failed:', fallbackError.message);
+        }
+      } else {
+        console.warn('[SHIPS] No fallback available (AISSTREAM_API_KEY not set)');
+      }
     }
 
-    // TODO: Implement AIS burst collection pattern
-    // Open temporary 20s WebSocket, aggregate messages, deduplicate by MMSI
-    const ships = [];
-    cache.set('ships', ships, 60); // 60s TTL
+    cache.set('ships', ships, 120); // 2min TTL
     res.json(ships);
   } catch (error) {
     console.error('[SHIPS] Error:', error.message);
     res.status(500).json({ error: 'Ship data fetch failed' });
   }
 });
+
+// AISStream.io WebSocket burst collector (fallback when Digitraffic is unavailable)
+async function collectAISStreamBurst(apiKey, durationMs = 15000) {
+  const wsModule = await import('ws');
+  const WsClient = wsModule.default || wsModule.WebSocket;
+
+  return new Promise((resolve, reject) => {
+    const shipMap = new Map();
+    const ws = new WsClient('wss://stream.aisstream.io/v0/stream');
+
+    const timeout = setTimeout(() => {
+      ws.close();
+      resolve(Array.from(shipMap.values()));
+    }, durationMs);
+
+    ws.on('open', () => {
+      ws.send(JSON.stringify({
+        APIKey: apiKey,
+        BoundingBoxes: [[[-90, -180], [90, 180]]],
+        FilterMessageTypes: ['PositionReport', 'ShipStaticData'],
+      }));
+    });
+
+    ws.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        const meta = msg.MetaData || {};
+        const mmsi = String(meta.MMSI || '');
+        if (!mmsi) return;
+        const existing = shipMap.get(mmsi) || {};
+
+        if (msg.MessageType === 'PositionReport') {
+          const pos = msg.Message?.PositionReport || {};
+          shipMap.set(mmsi, {
+            ...existing,
+            mmsi,
+            name: (meta.ShipName || existing.name || '').trim(),
+            lat: meta.latitude || pos.Latitude || existing.lat || 0,
+            lon: meta.longitude || pos.Longitude || existing.lon || 0,
+            sog: pos.Sog ?? existing.sog ?? 0,
+            cog: pos.Cog ?? existing.cog ?? 0,
+            heading: pos.TrueHeading === 511 ? (pos.Cog || 0) : (pos.TrueHeading ?? existing.heading ?? 0),
+            shipType: existing.shipType || 0,
+            imo: existing.imo || '',
+            callSign: existing.callSign || '',
+            destination: existing.destination || '',
+            draught: existing.draught || 0,
+            eta: existing.eta || '',
+          });
+        } else if (msg.MessageType === 'ShipStaticData') {
+          const sd = msg.Message?.ShipStaticData || {};
+          shipMap.set(mmsi, {
+            ...existing,
+            mmsi,
+            name: (sd.Name || meta.ShipName || existing.name || '').trim(),
+            imo: sd.ImoNumber ? String(sd.ImoNumber) : (existing.imo || ''),
+            callSign: (sd.CallSign || existing.callSign || '').trim(),
+            shipType: sd.Type ?? existing.shipType ?? 0,
+            destination: (sd.Destination || existing.destination || '').trim(),
+            draught: sd.MaximumStaticDraught ?? existing.draught ?? 0,
+            eta: sd.Eta ? `${sd.Eta.Month}/${sd.Eta.Day} ${sd.Eta.Hour}:${sd.Eta.Minute}` : (existing.eta || ''),
+            lat: existing.lat || 0,
+            lon: existing.lon || 0,
+            sog: existing.sog || 0,
+            cog: existing.cog || 0,
+            heading: existing.heading || 0,
+          });
+        }
+      } catch (_) { /* skip malformed messages */ }
+    });
+
+    ws.on('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+
+    ws.on('close', () => {
+      clearTimeout(timeout);
+      resolve(Array.from(shipMap.values()));
+    });
+  });
+}
 
 // ============================================================================
 // Flights Endpoint - FR24 + adsb.fi fallback
