@@ -148,3 +148,55 @@
 - Wire remaining data hooks (useFlights, useSatellites, useShips, etc.) in App.tsx
 - Remaining UI components: IntelFeed, StatusBar, CCTVPanel, TrackedEntityPanel, Crosshair
 - Post-processing shaders (CRT, NVG, FLIR)
+
+### Session 5 - 2026-03-05
+
+#### Completed Features:
+- Feature #14: Earthquake proxy returns real USGS data (PASSING)
+  - GET /api/earthquakes returns HTTP 200 with valid GeoJSON FeatureCollection
+  - 47 earthquakes with real coordinates, magnitudes (2.5-5.5), place strings, timestamps
+  - All coordinates within valid ranges (-180 to 180 lon, -90 to 90 lat)
+  - Data from live USGS feed (earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson)
+  - No mock data patterns found
+
+- Feature #65: SatelliteLayer renders satellites with SGP4 propagation (PASSING)
+  - Fixed satellite proxy endpoint to parse CelesTrak 3-line TLE format
+  - CelesTrak primary source, ivanstanojevic.me as fallback
+  - 14,613 satellites from stations + active groups, ISS identifiable (NORAD 25544)
+  - satellite.js SGP4/SDP4 propagation with twoline2satrec, propagate(), eciToGeodetic()
+  - 5Hz (200ms) position updates via setInterval
+  - 32x32 canvas-drawn icons: diamond body + dual solar panels with grid + directional arrow
+  - ISS: cyan (#00D4FF), 0.6 scale; Others: lime green (#39FF14), 0.35 scale
+  - Far-side occlusion via dot-product hemisphere check
+  - Rendered as Cesium Entity components (not imperative primitives)
+  - useSatellites hook wired in App.tsx, fetches from /api/satellites
+  - Deduplication by NORAD ID on server side
+
+- Feature #66: Satellite orbit paths and ground tracks (PASSING)
+  - 30s orbit recomputation interval (ORBIT_UPDATE_MS = 30000)
+  - 90 future positions at 1-minute intervals via propagateSat()
+  - Solid polylines at satellite altitude for orbit paths
+  - Dashed polylines (PolylineDashMaterialProperty) clamped to ground for ground tracks
+  - Nadir lines as semi-transparent (alpha 0.15) verticals
+  - ISS: 3px width, cyan; Others: 2px width, lime green
+  - Toggle via filters.showPaths from OperationsPanel
+
+#### Current Status:
+- 14/205 features passing (6.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 48 modules compile and build successfully (Vite production build OK)
+- Satellite endpoint now properly returns SatelliteData[] format from CelesTrak
+
+#### Key Technical Decisions:
+- Used CelesTrak as primary TLE source (more reliable for group-based queries)
+- ivanstanojevic.me as fallback (was failing for "stations" and "active" search terms)
+- Used dot-product occlusion instead of EllipsoidalOccluder (not in Cesium TS types)
+- Satellite layer uses Entity components (spec-compliant) not imperative primitives
+
+#### What's Next:
+- More data layer implementations: FlightLayer, ShipLayer, TrafficLayer, CCTVLayer
+- Wire remaining data hooks (useFlights, useShips, useCameras, useTraffic) in App.tsx
+- Remaining UI components: StatusBar counts, CCTVPanel, TrackedEntityPanel
+- Post-processing shaders (CRT, NVG, FLIR)
+- Additional satellite features: ISS/Other category filters, starlink/gps-ops/weather groups
