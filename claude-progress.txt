@@ -56,3 +56,53 @@
 - Continue with features #6+ (likely globe viewer, layer components, UI panels)
 - All basic infrastructure is confirmed working
 - Airport data and Sydney road fallback data now populated with real data
+
+### Session 3 - 2026-03-05
+
+#### Completed Features:
+- Feature #41: Globe viewer initializes with Resium Viewer (PASSING)
+  - GlobeViewer renders Resium <Viewer> with full configuration
+  - WebGL context: alpha=false, depth=true, stencil=false, antialias=true
+  - Globe base color BLACK, depthTestAgainstTerrain, showGroundAtmosphere
+  - Logarithmic depth buffer enabled via <Scene>
+  - Viewer ref accessible via useImperativeHandle (fixed TS error)
+  - All 6 layer modules + EntityClickHandler compile without errors
+  - RequestScheduler.maximumRequests=18, maximumRequestsPerServer=12
+
+- Feature #82: EntityClickHandler classifies entity types (PASSING)
+  - scene.drillPick(position, 10) detects clicked entities
+  - Priority: real data entities filtered above helper entities (orbit, trail, nadir)
+  - Falls back to scene.pick if drillPick yields no results
+  - Satellite classification: norad, iss, altitude km, satellite, tle
+  - Aircraft classification: callsign, icao24, aircraft, squawk
+  - Ship classification: mmsi, imo:, call sign, destination
+  - Earthquake classification: magnitude, depth
+  - CCTV classification: duck-type check for lat/lon/source/name properties
+  - Callbacks: onTrackEntity and onCctvClick notify parent components
+  - Camera lock-on with type-specific Cartesian3 viewFrom offsets
+  - ESC key and empty-space click to unlock tracking
+  - ScreenSpaceEventHandler for left click event handling
+
+- Feature #97: OperationsPanel renders all sections (PASSING)
+  - Desktop: fixed 224px (w-56) left sidebar, scrollable with overflow-y-auto
+  - Header with pulsing green indicator dot and WorldView title
+  - Optics Mode: 4 buttons (STANDARD, CRT, NVG, FLIR) with color coding
+  - Map Tiles: GOOGLE 3D and OSM toggle buttons with active states
+  - Data Layers: 6 toggles with loading indicator dots (animate-pulse)
+  - Layer toggles: Live Flights, Satellites, Seismic, Street Traffic, CCTV Feeds, Naval/AIS
+  - Flight Filters (conditional on flights enabled): Route Paths + 5 altitude bands
+  - Satellite Filters (conditional on satellites enabled): Orbit Paths + ISS/Other
+  - Utility: Locate Me + Reset View buttons with SVG icons
+  - Active states clearly visible on all toggles with color transitions
+
+#### Current Status:
+- 8/205 features passing (3.9%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All modules compile (TypeScript noEmit check passes for implemented components)
+
+#### What's Next:
+- Remaining UI components: IntelFeed, StatusBar, CCTVPanel, TrackedEntityPanel, Crosshair
+- Data layer implementations: FlightLayer, SatelliteLayer, EarthquakeLayer, etc.
+- Post-processing shaders
+- Data hooks for real-time fetching
