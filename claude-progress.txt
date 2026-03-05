@@ -1,5 +1,60 @@
 ## WorldView Development Progress
 
+### Session 12 - 2026-03-05
+
+#### Completed Features:
+- Feature #20: Flights live endpoint returns regional data (PASSING)
+  - GET /api/flights/live?lat=-33.8&lon=151.2&dist=100 returns HTTP 200 with 74+ aircraft
+  - OpenSky Network as primary source (bounding box query), adsb.fi as fallback
+  - 4-second cache TTL for near-real-time data
+  - Route enrichment via OpenSky routes API (callsign → origin/destination mapping)
+  - Background route registry with 60s refresh interval, 50 callsigns per batch
+  - Live endpoint awaits route lookups for unknown callsigns (enriches when available)
+  - All ICAO24 codes valid hex, 69/74 have Australian 7C prefix near Sydney
+  - All aircraft have altitude, speed, heading fields
+
+- Feature #61: FlightsLive hook provides regional data (PASSING)
+  - useFlightsLive hook imported and wired in App.tsx
+  - Polls /api/flights/live every 5s when camera altitude < 500,000m
+  - Distance parameter scales with zoom level: max(50, min(250, altitude/2000))
+  - Merges global + live flights with ICAO24 deduplication via useMemo
+  - Live data replaces global data for nearby aircraft
+  - Handles empty sources gracefully (startup, error states)
+
+- Feature #62: Smart flight data merge in App.tsx (PASSING)
+  - Global flights (useFlights) + regional flights (useFlightsLive) combined
+  - ICAO24-based deduplication: live data preferred for nearby aircraft
+  - Merged array passed to FlightLayer, StatusBar counts reflect merged total
+  - Handles edge cases: one/both sources empty, disabled state
+
+#### New/Modified Files:
+- server/index.js — Added route registry system:
+  - routeRegistry Map: callsign → {origin, destination, operatorIata, flightNumber, updatedAt}
+  - lookupRoute(): OpenSky routes API lookup with 5s timeout
+  - refreshRouteRegistry(): 60s background refresh, 50 callsigns per batch
+  - enrichWithRoutes(): enriches aircraft arrays from registry
+  - /api/flights and /api/flights/live both use route enrichment
+  - Live endpoint awaits route lookups for unknown callsigns
+- src/App.tsx — Added useFlightsLive integration:
+  - Import useFlightsLive hook
+  - liveEnabled flag (flights on + altitude < 500km)
+  - useMemo merge with ICAO24 deduplication
+  - Distance parameter scales dynamically with zoom
+
+#### Current Status:
+- 35/205 features passing (17.1%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 55 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Dead reckoning interpolation for flights and ships
+- Flight route arc rendering (PolylineCollection)
+- TrackedEntityPanel type-specific detail views
+- StatusBar live entity counts
+- Additional UI components and features
+
 ### Session 11 - 2026-03-05
 
 #### Completed Features:
