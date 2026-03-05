@@ -1,5 +1,58 @@
 ## WorldView Development Progress
 
+### Session 10 - 2026-03-05
+
+#### Completed Features:
+- Feature #93: CRT shader renders correctly (PASSING)
+  - Barrel distortion warps UV coordinates by distance from center (quadratic warp)
+  - Chromatic aberration offsets R/G/B channels independently
+  - Scanlines visible via sin(uv.y * 800.0) * intensity
+  - Vignette darkens edges via smoothstep
+  - Subtle CRT phosphor tint and horizontal flicker
+  - PostProcessStage added to viewer with SHADER_DEFAULTS uniforms
+  - Time-based uniform for animated flicker effect
+
+- Feature #94: NVG shader renders correctly (PASSING)
+  - Luminance conversion via dot product with 0.299/0.587/0.114
+  - Green phosphor tint via vec3(0.1, 1.0, 0.2) * lum * brightness
+  - Film grain noise overlay (pseudo-random hash, time-varying)
+  - Strong tube vignette effect (dual smoothstep for circular NVG tube shape)
+  - Additive bloom on bright regions (5x5 kernel sampling above threshold)
+  - Entire scene has green-tinted night vision appearance
+
+- Feature #95: FLIR thermal shader renders correctly (PASSING)
+  - Contrast enhancement on base image
+  - Sobel edge detection on neighboring pixel luminance (3x3 kernel, X+Y gradients)
+  - White-hot palette (bright=hot white/yellow, dark=cold blue tint)
+  - Edge highlighting overlay (white edges mixed into thermal image)
+  - Scene appears as thermal imaging view
+
+#### New/Modified Files:
+- src/shaders/postprocess.ts — Full implementation of all 3 shaders + ShaderManager class
+  - CRT_FRAGMENT_SHADER: barrel distortion, chromatic aberration, scanlines, vignette
+  - NVG_FRAGMENT_SHADER: green phosphor, film grain, tube vignette, bloom
+  - FLIR_FRAGMENT_SHADER: contrast, Sobel edges, white-hot palette, edge overlay
+  - ShaderManager: PostProcessStage lifecycle (add/remove/switch/cleanup)
+  - SHADER_DEFAULTS: tuned default parameters for each mode
+- src/components/globe/GlobeViewer.tsx — Added ShaderManager integration
+  - shaderManagerRef persists across renders
+  - useEffect on props.shaderMode triggers applyMode()
+  - Cleanup on unmount via destroy()
+
+#### Current Status:
+- 29/205 features passing (14.1%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 53 modules compile and build successfully (Vite production build OK)
+- All shader mode buttons in OperationsPanel wired to ShaderManager
+
+#### What's Next:
+- ShipLayer implementation with dead reckoning
+- Flight route arc rendering (PolylineCollection)
+- TrackedEntityPanel type-specific detail views
+- StatusBar live entity counts
+- Additional UI components and features
+
 ### Session 1 - 2026-03-05
 
 #### Completed Features:
