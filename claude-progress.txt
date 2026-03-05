@@ -21,8 +21,27 @@
   - Data matches USGS 2.5+ day feed format
   - No mock data patterns found
 
+### Session 2 - 2026-03-05
+
+#### Completed Features:
+- Feature #4: No mock data patterns in codebase (PASSING)
+  - Grepped for mockData, fakeData, MOCK_, FAKE_, hardcoded*, sample*, dummy* — all clean
+  - No JSON files with fake entity arrays in src/ or server/
+  - All 7 data hooks fetch from /api/ endpoints, never from local constants
+  - All server proxy routes call real external URLs (USGS, adsb.fi, CelesTrak, Overpass, TfL, etc.)
+  - Fixed: Populated src/data/airports.ts with 92 real airports (was empty with TODO)
+  - Fixed: Populated server/data/sydneyRoads.js with 427 real OSM road segments (was empty placeholder)
+  - Removed all TODO/placeholder comments matching mock data patterns
+
+- Feature #5: Frontend can fetch from backend proxy (PASSING)
+  - vite.config.ts has proxy: /api → localhost:3001 with changeOrigin:true
+  - fetch('/api/health') through Vite proxy returns 200 with valid JSON
+  - No CORS errors (Vite proxy = same-origin; Express also has CORS headers)
+  - Query params pass through correctly (tested traffic/roads bounding box)
+  - Both servers running simultaneously: Express:3001, Vite:5173, no conflicts
+
 #### Current Status:
-- 3/205 features passing (1.5%)
+- 5/205 features passing (2.4%)
 - Express proxy server: working on port 3001
 - Vite dev server: working on port 5173
 - Dependencies installed via npm install
@@ -34,5 +53,6 @@
 - Test verification done via node scripts and curl
 
 #### What's Next:
-- Continue with features #4+ (likely more proxy endpoints, globe viewer, layer components)
+- Continue with features #6+ (likely globe viewer, layer components, UI panels)
 - All basic infrastructure is confirmed working
+- Airport data and Sydney road fallback data now populated with real data
