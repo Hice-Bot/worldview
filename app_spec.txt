@@ -1,0 +1,599 @@
+<project_specification>
+  <project_name>WorldView</project_name>
+
+  <overview>
+    A browser-based real-time geospatial intelligence dashboard that fuses live global data onto an interactive 3D Earth rendered with CesiumJS and Google Photorealistic 3D Tiles. Tracks 27,000+ aircraft, satellites, ships, earthquakes, street traffic, and CCTV cameras simultaneously. Includes military-style post-processing visual filters (CRT, Night Vision, FLIR) and a tactical operations UI. An Express proxy backend caches upstream API responses, manages credentials server-side, handles CORS for image proxying, and provides WebSocket support. Every data layer fetches through this proxy, never directly from external APIs.
+  </overview>
+
+  <technology_stack>
+    <frontend>
+      <framework>React 19 with TypeScript 5.9 and Vite 7</framework>
+      <styling>Tailwind CSS v4 via @tailwindcss/vite plugin</styling>
+      <state_management>React hooks in App.tsx — no external state library</state_management>
+      <routing>Single-page application, no router needed</routing>
+      <globe>CesiumJS 1.138+ via Resium (React wrapper for declarative Cesium components) and vite-plugin-cesium</globe>
+      <geospatial>satellite.js for SGP4/SDP4 orbit propagation, @turf/turf for geospatial math</geospatial>
+      <port>5173</port>
+    </frontend>
+    <backend>
+      <runtime>Node.js with Express 5 (ESM modules)</runtime>
+      <caching>node-cache for in-memory response caching with per-route TTL</caching>
+      <websocket>ws library for WebSocket server (AIS ship data, flight subscriptions)</websocket>
+      <database>No application database — all data is fetched from external APIs and cached in memory</database>
+      <port>3001</port>
+    </backend>
+    <communication>
+      <api>RESTful proxy endpoints on the backend, consumed by React hooks on the frontend</api>
+      <websocket>WebSocket at /ws for real-time AIS ship data and OpenSky flight subscriptions</websocket>
+      <proxy>Vite dev server proxies /api/* to Express backend on port 3001</proxy>
+    </communication>
+  </technology_stack>
+
+  <prerequisites>
+    <environment_setup>
+      - Node.js 20+ installed
+      - npm package manager
+      - Optional: VITE_GOOGLE_API_KEY for Google Photorealistic 3D Tiles (falls back to OpenStreetMap)
+      - Optional: VITE_CESIUM_ION_TOKEN for Cesium Ion terrain/imagery services
+      - Optional: AISSTREAM_API_KEY for real-time ship/vessel tracking via AISStream.io
+      - Optional: NSW_TRANSPORT_API_KEY for Transport for NSW CCTV cameras
+      - Optional: OPENSKY_CLIENT_ID and OPENSKY_CLIENT_SECRET for OpenSky Network WebSocket
+      - All layers degrade gracefully without API keys — core free APIs (USGS, CelesTrak, adsb.fi, OSM, TfL, Austin TX) require NO authentication
+    </environment_setup>
+  </prerequisites>
+
+  <feature_count>205</feature_count>
+
+  <security_and_access_control>
+    <api_keys>
+      All API keys are stored server-side in server/.env — never exposed to the browser.
+      The Express proxy injects credentials when calling upstream APIs.
+      Client-side .env contains only VITE_GOOGLE_API_KEY and VITE_CESIUM_ION_TOKEN (tiles loaded directly by CesiumJS).
+    </api_keys>
+    <cors>
+      Express backend enables CORS for all origins (development mode).
+      CCTV image proxy endpoint (/api/cctv/image) handles CORS-blocked camera feed images by fetching server-side and relaying to the browser.
+    </cors>
+    <no_auth>
+      No user authentication. No login. No sessions. This is a public dashboard.
+      API keys are for upstream data providers, not for end users.
+    </no_auth>
+  </security_and_access_control>
+
+  <core_features>
+    <express_proxy_backend>
+      Backend Express server acts as a central proxy for all external data sources:
+      - GET /api/health — returns uptime and cache statistics
+      - GET /api/geolocation — detects client IP via ip-api.com, returns lat/lon/city/country
+      - GET /api/earthquakes — proxies USGS GeoJSON feed, 60s cache
+      - GET /api/satellites — proxies TLE data from tle.ivanstanojevic.me (primary) or CelesTrak (fallback), 2hr cache, returns 3-line TLE text format for satellite groups: stations, active, starlink, gps-ops, weather
+      - GET /api/traffic/roads — proxies OpenStreetMap Overpass API with bounding box params (primary) or returns static Sydney CBD road data as fallback (353 segments), 24hr cache, 15s timeout, calculates segment lengths via Haversine
+      - GET /api/cctv — fetches from TfL London + Austin TX + Transport NSW, normalizes to unified schema {id, name, lat, lon, imageUrl, available, region, country, direction}, 300s cache, country filter param
+      - GET /api/cctv/image — CORS image proxy, fetches camera image server-side and relays with original Content-Type
+      - GET /api/ships — AISStream.io WebSocket burst collection: opens temporary 20s WebSocket connection, aggregates PositionReport and ShipStaticData messages, deduplicates by MMSI, caches 60s. This burst pattern is required for Vercel serverless compatibility (30s function timeout)
+      - GET /api/flights — FlightRadar24 cloud API fetching 7 regional zones in parallel (primary), adsb.fi as fallback, 30s cache, 15s minimum between upstream FR24 calls, filters out ground aircraft
+      - GET /api/flights/live — adsb.fi regional data by lat/lon/distance, 4s cache, designed for 5s frontend polling, enriched with FR24 route registry (ICAO24 to origin/destination airport mapping, refreshed every 60s in background)
+      - WebSocket endpoint at /ws for flight subscriptions: clients send { type: "subscribe-flights", bbox: { south, west, north, east } }, server polls OpenSky Network at 10s intervals and broadcasts to connected clients
+      - All routes use try-catch with graceful fallbacks
+      - Promise.allSettled for parallel multi-source requests (CCTV from 3 providers)
+      - Console logging with source prefixes: [SAT], [TRAFFIC], [CCTV], [FLIGHTS], [SHIPS]
+      - node-cache with automatic key expiration per route
+    </express_proxy_backend>
+
+    <globe_viewer>
+      CesiumJS 3D globe initialized via Resium's Viewer component:
+      - Google Photorealistic 3D Tiles via createGooglePhotorealistic3DTileset() when VITE_GOOGLE_API_KEY is set
+      - When using Google 3D Tiles: hide default globe (globe.show = false) to prevent reference system mismatch and black bleed-through
+      - Fallback to OpenStreetMap UrlTemplateImageryProvider (https://tile.openstreetmap.org/) when no Google key or on load failure
+      - When using OSM: globe visible for depth buffer contribution
+      - Toggle between Google 3D and OSM via OperationsPanel
+      - WebGL context: alpha=false, depth=true, stencil=false, antialias=true
+      - Globe base color: black
+      - Depth testing enabled against terrain
+      - Ground atmosphere rendered
+      - Logarithmic depth buffer enabled
+      - Default camera: Sydney, Australia at 20,000,000 meters altitude, top-down (-90 pitch)
+      - Camera state synced to App via camera.changed event (threshold 0.01) reporting lat, lon, altitude, heading, pitch
+      - RequestScheduler.maximumRequests set to 18 (default 6) for faster tile loading
+      - RequestScheduler.maximumRequestsPerServer set to 12 (default 6)
+    </globe_viewer>
+
+    <flight_layer>
+      Renders 27,000+ aircraft using imperative Cesium primitive collections (NOT React Entity components):
+      - BillboardCollection for aircraft icons rotated by heading, scaled inversely by altitude
+      - LabelCollection for callsigns, altitude (ft), speed (kts), route (origin-destination) — hidden when zoomed out
+      - PolylineCollection x2: one for heading trails, one for great-circle route arcs
+      - Dead reckoning between data refreshes: interpolate positions using heading + velocity. Tracked aircraft update every frame via scene preUpdate event. Other aircraft bulk-update every 1 second
+      - EllipsoidalOccluder hides aircraft behind the globe (billboard.show = false for far-side)
+      - Altitude band classification with colors: Cruise ≥35,000ft = cyan, High ≥20,000ft = light blue, Mid ≥10,000ft = gold, Low ≥3,000ft = orange, Ground <3,000ft = red
+      - Billboard scale varies inversely with altitude for visual hierarchy
+      - Route arcs via EllipsoidGeodesic with 12 interpolation segments, geodesic arc (not straight-line-through-globe). Completed segments semi-transparent cyan, remaining bright cyan
+      - Tracked aircraft: enlarges to 1.0 scale (32px), disables depth testing (always visible), camera follows via viewer.trackedEntity with CallbackProperty(isConstant=false) for smooth per-frame position updates
+      - Stale aircraft pruned each refresh. Maps keyed by ICAO24 for incremental add/update/remove
+      - Data: useFlights hook polls /api/flights every 20s with exponential backoff on error (30s start, double, cap 2min). useFlightsLive hook polls /api/flights/live every 5s for zoomed-in regional data
+      - Smart merge in App.tsx: combines global FR24 data with live adsb.fi data, deduplicating by ICAO24 — adsb.fi replaces FR24 for nearby aircraft when zoomed in
+      - Flight data structure: icao24, callsign, registration, lat, lon, altitudeMeters, altitudeFeet, velocityMs, velocityKnots, heading, verticalRate, origin, destination, onGround
+      - Ground aircraft filtered out from display
+      - Intel feed events pushed when airborne count changes by 50+ aircraft
+    </flight_layer>
+
+    <satellite_layer>
+      Client-side orbital propagation using satellite.js with TLE data from backend:
+      - Parse 3-line TLE format into satrec objects
+      - Two propagation cycles:
+        1. Orbit paths: every 30s, compute 90 future positions at 1-minute intervals using propagate() and eciToGeodetic()
+        2. Current positions: every 2s, lightweight propagation for real-time display
+      - Render as Resium Entity components (acceptable performance for satellite count)
+      - 32x32 canvas-drawn satellite icons: diamond body + dual solar panels with grid detail + directional arrow tip
+      - Icon rotation by computed bearing from 10-second future position
+      - ISS: cyan (#00D4FF), 0.6 scale. Others: lime green (#39FF14), 0.35 scale
+      - Category filter: ISS and Other satellites, toggled via OperationsPanel
+      - When showPaths enabled: orbit paths as solid polylines at satellite altitude, ground tracks as dashed polylines on surface, nadir lines as semi-transparent verticals from satellite to ground
+      - Orbit path width: 3px for ISS, 2px for others. Color inherits satellite color with varied alpha
+      - EllipsoidalOccluder hides far-side satellites
+      - Position updates at 5Hz (200ms intervals)
+      - Satellite groups from TLE endpoint: stations (ISS), active, starlink, gps-ops, weather
+    </satellite_layer>
+
+    <earthquake_layer>
+      Pulsing seismic activity markers from USGS:
+      - useEarthquakes hook polls /api/earthquakes every 60s with exponential backoff
+      - Filter to M2.5+ to reduce visual clutter
+      - Cesium point primitives with CallbackProperty for animation
+      - Magnitude-based color: 6+ red, 5-6 orange, 4-5 yellow, 3-4 orange 80% alpha, below 3 orange 40% alpha
+      - Magnitude-based size: 3px (low) to 14px (M6+)
+      - Sinusoidal pulsing animation per earthquake: individual phase offsets derived from earthquake ID hash prevent synchronized pulsing
+      - Higher magnitude = larger pulse amplitude + faster speed
+      - Labels only for M4.5+ events, hidden during entity tracking mode
+      - Intel feed events generated for significant earthquakes
+    </earthquake_layer>
+
+    <traffic_layer>
+      Animated street-level vehicle simulation on OSM road networks:
+      - useTraffic hook fetches /api/traffic/roads with bounding box parameters
+      - Auto-disables fetching when camera altitude exceeds 5,000,000 meters
+      - Single fetch per bounding box (cached via ref), exponential backoff retry
+      - Two-primitive rendering system: PolylineCollection for roads, PointPrimitiveCollection for vehicle particles
+      - Road classification by OSM type with visual properties:
+        Motorway: 3px width, red (#FF6B6B), 2 vehicles/km, 110 km/h
+        Trunk: 2.5px, orange, 1.5 vehicles/km, 90 km/h
+        Primary: 2px, yellow, 1 vehicle/km, 60 km/h
+        Secondary: 1.5px, green, 0.5 vehicles/km, 50 km/h
+        Tertiary: 1px, teal, 0.3 vehicles/km, 40 km/h
+        Residential: 0.8px, blue (#00BFFF), 0.2 vehicles/km, 30 km/h
+      - Vehicle animation at 60fps via requestAnimationFrame
+      - Position update: distance += velocity * deltaTime, wraps around road length for continuous circulation
+      - React state syncs at 5Hz (200ms) to reduce render overhead
+      - Position interpolation along road geometry using Haversine distance accumulation
+      - Vehicle heading calculated from bearing between consecutive road geometry points
+      - Performance target: 500-1000 vehicles at 60fps
+      - Static Sydney CBD fallback data (353 road segments) when Overpass API fails
+    </traffic_layer>
+
+    <ship_layer>
+      AIS vessel tracking rendered via imperative Cesium primitive collections:
+      - useShips hook polls /api/ships every 30s with exponential backoff
+      - Filter: moving vessels only (SOG >0.5 knots, exclude anchored/moored/aground), filter out coordinates (0,0)
+      - BillboardCollection + LabelCollection + PolylineCollection (same pattern as FlightLayer)
+      - 28x28 canvas-drawn top-down vessel silhouette (white, pointing north)
+      - Rotation by true heading or COG (course over ground)
+      - Color by AIS ship type: cargo (70-79) = cyan, tanker (80-89) = orange, passenger (60-69) = green, high-speed (40-49) = yellow, pleasure (36-37) = purple, fishing (30) = teal, military (35) = red, tug (31-32,52) = brown, other = gray
+      - Selected vessel: red (#FF3B30) at 1.5x scale, depth test disabled
+      - Dead reckoning: tracked vessel recalculates every frame, others bulk update every 2s. Speed knots to m/s (*0.514444), trigonometric displacement by heading
+      - Labels: name, speed, destination. Fade at distance thresholds
+      - Trails render conditionally only when vessel moves (SOG >0.5 kt)
+      - Intel feed events when vessel count changes by 30+
+      - Ship type classification function mapping AIS type codes to categories
+    </ship_layer>
+
+    <cctv_layer>
+      CCTV camera locations rendered on globe:
+      - useCameras hook polls /api/cctv every 5 minutes with exponential backoff
+      - Country-based filtering via query parameter
+      - BillboardCollection for camera icons + LabelCollection for names
+      - Canvas-drawn camera icons: rounded rectangular body + triangular lens + red recording dot
+      - Country color coding: GB = cyan (#00D4FF), US = amber (#FF9500), AU = green (#39FF14), default = gray
+      - Distance-based scaling: 1.2x at 5km to 0.4x at 500km. Label opacity fades beyond 50km. Translucency 1.0 at 1km to 0.3 at 2000km
+      - Selected camera: red (#FF3B30) at 1.5x scale, depth test disabled
+      - CCTV lock-on: when selected, temporary Cesium Entity created at camera coordinates with viewFrom offset calculated from camera's compass direction (e.g., "East" = 90 degrees heading offset) for cinematic street-level tracking
+    </cctv_layer>
+
+    <cctv_panel>
+      Side panel UI for browsing and previewing CCTV camera feeds:
+      - Desktop: fixed 320px right-side panel, below IntelFeed, collapsible via header toggle
+      - Mobile: button badge (with online camera count) opens full-screen modal
+      - Country/region filter buttons
+      - Online camera status counter
+      - Selected camera large preview with coordinates and "FLY TO LOCATION" button
+      - Thumbnail grid: 3 columns desktop, 2 mobile
+      - Pagination via "LOAD MORE" for 30-camera chunks
+      - Images proxied through /api/cctv/image for CORS bypass
+      - Loading="lazy" on image tags
+      - Error state shows "SIGNAL LOST" when images fail to load
+      - FLY TO LOCATION animates globe camera to camera lat/lon. Mobile auto-minimizes panel after flight
+    </cctv_panel>
+
+    <entity_click_handler>
+      Click detection and camera lock-on system:
+      - Uses Cesium scene.drillPick (limit 10 entities), prioritizing real data entities over helper entities (orbits, trails, nadir lines)
+      - Falls back to regular scene.pick if drillPick yields no results
+      - Entity classification by inspecting entity names and descriptions for keywords:
+        Satellite: "norad", "iss", altitude with km
+        Aircraft: "callsign", "icao24", "aircraft", "squawk"
+        Ship: "mmsi", "imo:", "call sign", "destination"
+        Earthquake: "magnitude", "depth"
+        CCTV: duck-type check for object with latitude, longitude, source, name properties
+      - Camera lock-on with type-specific viewFrom offsets:
+        Satellite: (0, -500000, 500000) = ~700km
+        Aircraft: (0, -30000, 30000) = ~42km
+        Ship: (0, -1200, 2100) = ~2.4km
+        Other: (0, -200000, 200000) = ~280km
+      - Unlock: click empty space (preserves camera position) or ESC key (resets trackedEntity and selectedEntity to undefined)
+      - Callbacks: onTrackEntity and onCctvClick notify parent components
+    </entity_click_handler>
+
+    <post_processing_shaders>
+      Three military-style visual filter modes applied via Cesium PostProcessStage:
+      - CRT Monitor: barrel distortion warping UV coords by distance from center, chromatic aberration (offset R/G/B channel sampling), scanlines (sin(uv.y * 800.0) * intensity), vignette (smoothstep edge darkening)
+      - Night Vision Goggles (NVG): luminance conversion (dot product with 0.299/0.587/0.114), green phosphor tint (vec3(0.1, 1.0, 0.2) * lum * brightness), film grain noise, strong tube vignette, additive bloom on bright regions
+      - FLIR Thermal: contrast enhancement, Sobel edge detection on neighboring pixel luminance, white-hot palette (inverted luminance with warm tints for hot spots), edge highlighting overlay
+      - SHADER_DEFAULTS config object with tuned default parameters for each mode
+      - ShaderManager handles cleanup when switching modes (remove old PostProcessStage, add new one)
+      - Modes toggled via OperationsPanel buttons: STANDARD, CRT, NVG, FLIR
+    </post_processing_shaders>
+
+    <operations_panel>
+      Primary control interface for layer and display management:
+      - Desktop: fixed 224px-wide left sidebar, scrollable, header with pulsing green indicator
+      - Mobile: floating action button (FAB) with layer count badge, opens full-screen modal
+      - Sections:
+        1. Optics Mode: grid of 4 buttons (STANDARD, CRT, NVG, FLIR) with color coding and active state
+        2. Map Tiles: toggle between GOOGLE 3D and OSM with visual feedback
+        3. Data Layers: 6 toggles with loading indicator dots and animations:
+           Live Flights, Satellites, Seismic, Street Traffic, CCTV Feeds, Naval/AIS
+        4. Flight Filters (conditional, when flights enabled): Route Paths toggle + 5 altitude band filter buttons (Cruise/High/Mid/Low/Ground) with color-coded indicators
+        5. Satellite Filters (conditional, when satellites enabled): Orbit Paths toggle + category filters (ISS, Other) with distinct color schemes
+        6. Utility: Locate Me button (with requesting/success/default states) + Reset View button
+    </operations_panel>
+
+    <intel_feed>
+      Real-time event stream sidebar:
+      - Desktop: fixed 288px right panel at top. Mobile: badge button with event count (excluding system messages) opens full-screen modal
+      - 6 event types with distinct colors: ACFT (aircraft), SEIS (seismic), SATS (satellites), SYS (system), CCTV, AIS (ships)
+      - Format: HH:MM:SS | [TYPE] | message text
+      - Most recent 20 entries displayed
+      - Bootstraps 4 system messages on mount (initialization, engine loading, connection status, display online)
+      - Events generated by data hooks: flight count changes by 50+, new significant earthquakes, camera status changes, ship count changes by 30+
+    </intel_feed>
+
+    <status_bar>
+      Bottom information bar with camera data and entity counts:
+      - Desktop (8px height): three sections
+        Left: LAT (DMS), LON (DMS), ALT (meters below 1km, km above), HDG (degrees)
+        Center: YYYY-MM-DD HH:MM:SS UTC (updates every 1 second via setInterval)
+        Right: ACFT count (green), SATS count (green), SEIS count (amber), CCTV count (red), AIS count (cyan), OPTICS mode name (STD or current shader)
+      - Mobile (28px height): compact single row with abbreviated coords, UTC time, altitude
+      - Glass-morphism styling, cyan/green glows for highlights, color-coded status indicators
+    </status_bar>
+
+    <tracked_entity_panel>
+      Detail view displayed when camera is locked onto an entity:
+      - Shows type-specific information:
+        Aircraft: callsign, ICAO24, registration, altitude, speed, heading, vertical rate, origin, destination
+        Satellite: name, NORAD ID, altitude, orbit path info
+        Ship: name, MMSI, IMO, call sign, speed, heading, destination, vessel type
+        Earthquake: magnitude, depth, location, time
+      - Positioned as floating panel near tracked entity or as side panel
+    </tracked_entity_panel>
+
+    <crosshair_overlay>
+      Center-screen targeting reticle:
+      - CSS-only implementation (no canvas or WebGL)
+      - Always visible regardless of shader mode
+      - Subtle design that doesn't obstruct globe content
+    </crosshair_overlay>
+  </core_features>
+
+  <database_schema>
+    <tables>
+      No application database. All data is fetched from external APIs and cached in-memory via node-cache.
+
+      Backend cache TTLs per route:
+      - /api/earthquakes: 60 seconds
+      - /api/satellites: 2 hours (TLE data changes slowly)
+      - /api/traffic/roads: 24 hours (road networks are static)
+      - /api/cctv: 300 seconds
+      - /api/ships: 60 seconds
+      - /api/flights: 30 seconds
+      - /api/flights/live: 4 seconds
+      - FR24 route registry: 90 seconds (background refresh every 60s)
+    </tables>
+  </database_schema>
+
+  <api_endpoints_summary>
+    <backend_proxy>
+      - GET /api/health — uptime + cache stats, no auth
+      - GET /api/geolocation — client IP geolocation via ip-api.com
+      - GET /api/earthquakes — USGS GeoJSON (https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson)
+      - GET /api/satellites — TLE data from tle.ivanstanojevic.me or CelesTrak, query param: groups (stations, active, starlink, gps-ops, weather)
+      - GET /api/traffic/roads?south=X&west=X&north=X&east=X — OSM Overpass road data by bounding box
+      - GET /api/cctv?country=XX — CCTV cameras from TfL (https://api.tfl.gov.uk/Place/Type/JamCam), Austin TX (https://data.austintexas.gov/resource/b4k4-adkb.json), NSW Transport
+      - GET /api/cctv/image?url=ENCODED_URL — CORS image proxy for camera feeds
+      - GET /api/ships — AIS vessel data via AISStream.io burst collection
+      - GET /api/flights — Global flight data from FlightRadar24 (7 zones) with adsb.fi fallback
+      - GET /api/flights/live?lat=X&lon=X&dist=NM — Regional live flights from adsb.fi (https://api.adsb.fi/v2/lat/{lat}/lon/{lon}/dist/{nm})
+      - WebSocket /ws — flight subscriptions (OpenSky Network polling)
+    </backend_proxy>
+  </api_endpoints_summary>
+
+  <ui_layout>
+    <main_structure>
+      Full-viewport 3D globe with UI overlays positioned at edges:
+      - No header, no footer, no traditional navigation
+      - Globe fills entire viewport
+      - OperationsPanel: fixed left sidebar (desktop) or FAB (mobile)
+      - IntelFeed: fixed right panel top (desktop) or badge button (mobile)
+      - CCTVPanel: fixed right panel below IntelFeed (desktop) or modal (mobile)
+      - StatusBar: bottom bar spanning full width
+      - Crosshair: center of viewport, CSS overlay
+      - TrackedEntityPanel: floating near tracked entity or fixed position
+    </main_structure>
+
+    <responsive_behavior>
+      Desktop (1024px+): all panels visible simultaneously, fixed positions
+      Mobile (below 1024px): panels collapse to floating action buttons/badges that open full-screen modals. StatusBar becomes compact single row. Panels auto-minimize after user actions (e.g., FLY TO dismisses CCTV panel)
+    </responsive_behavior>
+  </ui_layout>
+
+  <design_system>
+    <color_palette>
+      - Background (globe): black when no tiles loaded
+      - Panel backgrounds: glass-morphism (semi-transparent dark with backdrop blur)
+      - Accent: cyan (#00D4FF) — primary highlight color
+      - Flight cruise: cyan, high: light blue, mid: gold (#FFD700), low: orange, ground: red
+      - Satellite ISS: cyan (#00D4FF), other: lime green (#39FF14)
+      - Earthquake: red (M6+), orange (M5-6), yellow (M4-5)
+      - CCTV GB: cyan, US: amber (#FF9500), AU: green (#39FF14)
+      - Ship cargo: cyan, tanker: orange, passenger: green
+      - Selected entity: red (#FF3B30)
+      - Status active indicators: green
+      - StatusBar glows: cyan/green
+      - Error/offline: red
+    </color_palette>
+
+    <typography>
+      - Font family: system-ui, -apple-system, sans-serif (Tailwind defaults)
+      - Monospace for data values in StatusBar: JetBrains Mono, Consolas, monospace
+      - Panel text: small (12-14px), uppercase labels for tactical aesthetic
+      - Status bar: very small (10-12px), dense information display
+    </typography>
+
+    <components>
+      <panels>
+        - Glass-morphism: bg-black/80 backdrop-blur-md, subtle border
+        - Rounded corners, compact padding
+        - Scrollable when content overflows
+        - Collapsible headers
+      </panels>
+
+      <buttons>
+        - Toggle buttons: distinct active/inactive states with color coding
+        - Layer toggles: indicator dot showing loading/active/inactive
+        - Utility buttons: outlined style with hover fill
+        - FAB (mobile): circular with badge count
+      </buttons>
+
+      <data_display>
+        - DMS coordinate format (degrees, minutes, seconds with hemisphere)
+        - Entity counts with color-coded labels
+        - Timestamps in HH:MM:SS or full ISO8601
+        - Abbreviated labels (ACFT, SATS, SEIS, AIS)
+      </data_display>
+    </components>
+
+    <animations>
+      - Camera flyTo: smooth animated transitions (0.5-2s depending on distance)
+      - Earthquake points: sinusoidal pulsing with per-item phase offsets
+      - Traffic vehicles: 60fps requestAnimationFrame loop
+      - Entity tracking: smooth per-frame position interpolation
+      - Layer loading: dot indicator animation
+      - Panel transitions: slide in/out for mobile modals
+    </animations>
+  </design_system>
+
+  <key_interactions>
+    <entity_tracking_flow>
+      1. User clicks entity (aircraft, satellite, ship, CCTV camera, earthquake) on globe
+      2. drillPick detects click, classifies entity type by keyword inspection
+      3. Camera locks on with type-specific viewFrom offset
+      4. TrackedEntityPanel shows type-specific details
+      5. Camera smoothly follows entity in real-time (dead reckoning interpolation)
+      6. User clicks empty space or presses ESC to unlock
+    </entity_tracking_flow>
+
+    <layer_management_flow>
+      1. User opens OperationsPanel (sidebar or FAB)
+      2. Toggles data layers on/off via switches
+      3. Enabled layers begin fetching from proxy backend
+      4. Loading indicators show fetch status
+      5. Data renders on globe as entities/primitives
+      6. Optional sub-filters appear (altitude bands for flights, categories for satellites, countries for CCTV)
+    </layer_management_flow>
+
+    <shader_mode_flow>
+      1. User selects optics mode in OperationsPanel: STANDARD, CRT, NVG, or FLIR
+      2. ShaderManager removes current PostProcessStage
+      3. ShaderManager adds new PostProcessStage with selected mode's fragment shader
+      4. Entire scene renders through the selected filter
+      5. StatusBar OPTICS indicator updates to show current mode
+    </shader_mode_flow>
+
+    <cctv_browsing_flow>
+      1. User enables CCTV layer in OperationsPanel
+      2. Camera icons appear on globe at camera locations
+      3. User opens CCTVPanel to browse thumbnails
+      4. User filters by country/region
+      5. User selects a camera to see large preview
+      6. User clicks FLY TO LOCATION — globe animates to camera position
+      7. Camera enters street-level tracking view with directional offset
+    </cctv_browsing_flow>
+  </key_interactions>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Project Setup</title>
+      <tasks>
+        - Initialize Vite + React + TypeScript project
+        - Install cesium, resium, vite-plugin-cesium, satellite.js, @turf/turf
+        - Install @tailwindcss/vite, tailwindcss
+        - Install express, cors, ws, node-cache, dotenv for backend
+        - Configure vite.config.ts with react, cesium, tailwindcss plugins and /api proxy
+        - Create server/index.js skeleton with Express, CORS, WebSocket, node-cache
+        - Create .env and server/.env with placeholder API keys
+        - Verify both dev servers start (Vite on 5173, Express on 3001)
+      </tasks>
+    </step>
+
+    <step number="2">
+      <title>Express Proxy — Data Endpoints</title>
+      <tasks>
+        - Implement /api/health with uptime and cache stats
+        - Implement /api/earthquakes proxying USGS GeoJSON
+        - Implement /api/satellites proxying TLE data with fallback
+        - Implement /api/traffic/roads proxying Overpass API with Sydney fallback
+        - Implement /api/cctv with multi-source normalization (TfL, Austin, NSW)
+        - Implement /api/cctv/image CORS proxy
+        - Implement /api/ships with AIS burst collection pattern
+        - Implement /api/flights with FR24 zone fetching and route registry
+        - Implement /api/flights/live with adsb.fi regional data
+        - Implement /api/geolocation via ip-api.com
+        - Add WebSocket handler at /ws for flight subscriptions
+      </tasks>
+    </step>
+
+    <step number="3">
+      <title>Globe Viewer Core</title>
+      <tasks>
+        - Create GlobeViewer component with Resium Viewer
+        - Integrate Google 3D Tiles with OSM fallback
+        - Implement camera state sync
+        - Configure RequestScheduler for faster tile loading
+        - Add tile switching (Google 3D vs OSM)
+        - Set globe visual properties (black base, depth testing, atmosphere)
+      </tasks>
+    </step>
+
+    <step number="4">
+      <title>Data Layer Components</title>
+      <tasks>
+        - Build EarthquakeLayer with pulsing animation
+        - Build SatelliteLayer with SGP4 propagation and orbit paths
+        - Build FlightLayer with BillboardCollection and dead reckoning
+        - Build ShipLayer with AIS rendering and dead reckoning
+        - Build TrafficLayer with road rendering and vehicle animation
+        - Build CCTVLayer with camera icons and distance scaling
+        - Build all corresponding data hooks (useEarthquakes, useSatellites, useFlights, useFlightsLive, useShips, useTraffic, useCameras)
+      </tasks>
+    </step>
+
+    <step number="5">
+      <title>Entity Interaction System</title>
+      <tasks>
+        - Build EntityClickHandler with drillPick and entity classification
+        - Implement camera lock-on with type-specific viewFrom offsets
+        - Implement unlock via empty-space click and ESC key
+        - Build TrackedEntityPanel with type-specific detail views
+      </tasks>
+    </step>
+
+    <step number="6">
+      <title>Post-Processing Shaders</title>
+      <tasks>
+        - Write CRT fragment shader (barrel distortion, chromatic aberration, scanlines, vignette)
+        - Write NVG fragment shader (green phosphor, film grain, tube vignette, bloom)
+        - Write FLIR fragment shader (contrast, Sobel edge detection, white-hot palette)
+        - Build ShaderManager for mode switching and cleanup
+        - Configure SHADER_DEFAULTS with tuned parameters
+      </tasks>
+    </step>
+
+    <step number="7">
+      <title>UI Overlay Components</title>
+      <tasks>
+        - Build OperationsPanel with all sections (optics, tiles, layers, filters, utility)
+        - Build IntelFeed with event type styling and system bootstrap messages
+        - Build StatusBar with DMS coordinates, UTC clock, entity counts
+        - Build CCTVPanel with thumbnails, filters, preview, FLY TO
+        - Build Crosshair CSS overlay
+        - Implement mobile responsive variants (FABs, modals, compact status bar)
+      </tasks>
+    </step>
+
+    <step number="8">
+      <title>App State Wiring</title>
+      <tasks>
+        - Wire all state in App.tsx: layers, shaderMode, mapTiles, altitude filters, satellite filters, cameraState, trackedEntity, booted
+        - Implement smart flight merge (FR24 global + adsb.fi live, deduplicate by ICAO24)
+        - Pass props from App through GlobeViewer to all layer components
+        - Connect OperationsPanel controls to state
+        - Connect entity tracking state between layers and UI panels
+      </tasks>
+    </step>
+
+    <step number="9">
+      <title>Testing and Polish</title>
+      <tasks>
+        - Test all layers render correctly with live data
+        - Test entity click/track/unlock cycle for each entity type
+        - Test shader mode switching
+        - Test mobile responsive behavior
+        - Test graceful degradation when API keys are missing
+        - Test exponential backoff on API failures
+        - Verify performance with all layers enabled simultaneously
+        - Polish animations and transitions
+      </tasks>
+    </step>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      - Globe loads with Google 3D Tiles (or OSM fallback) and is fully navigable
+      - All 6 data layers display real data from upstream APIs via proxy backend
+      - Each layer can be independently toggled on/off
+      - Clicking any entity locks camera to it with smooth tracking
+      - ESC or empty-space click unlocks camera
+      - All 3 shader modes (CRT, NVG, FLIR) apply correctly
+      - CCTV panel shows thumbnails with FLY TO navigation
+      - Intel feed shows real-time events from data hooks
+      - Status bar shows accurate camera position, UTC time, and entity counts
+      - Backend gracefully falls back when primary APIs fail
+      - All layers degrade gracefully without API keys
+    </functionality>
+
+    <user_experience>
+      - You open the app. A 3D Earth fills the screen. 27,000 aircraft icons drift across continents. Satellite orbits arc overhead. Earthquake pulses glow in the Pacific. You zoom into London — road traffic particles flow along the A40. CCTV thumbnails populate the side panel. You click a plane — the camera locks on, following it at 42km offset as it descends into Heathrow. You switch to NVG mode. Everything goes green. You scroll the intel feed. The status bar ticks UTC time. That is the whole product working correctly.
+      - Dead reckoning eliminates visible position jumps between data refreshes
+      - Camera transitions are smooth animated flyTo (not instant teleportation)
+      - Mobile UI is usable with FABs and full-screen modals
+    </user_experience>
+
+    <technical_quality>
+      - FlightLayer and ShipLayer use primitive collections (BillboardCollection etc.), NOT individual Entity components
+      - All API calls go through Express proxy, never directly from browser to external APIs
+      - API keys are never exposed client-side (except Google/Cesium tile keys)
+      - node-cache with TTLs on every proxy route
+      - Exponential backoff with cap on all data hooks
+      - No console errors in normal operation
+      - Clean TypeScript with no any types in core logic
+    </technical_quality>
+
+    <design_polish>
+      - Tactical intelligence aesthetic throughout
+      - Glass-morphism panels on dark background
+      - Color-coded entity types across all layers
+      - Consistent uppercase abbreviated labels (ACFT, SATS, SEIS, AIS)
+      - Smooth pulsing animation on earthquake markers
+      - Crosshair always visible and unobtrusive
+    </design_polish>
+  </success_criteria>
+</project_specification>

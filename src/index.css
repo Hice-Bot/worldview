@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #00D4FF;
+  --color-accent-green: #39FF14;
+  --color-accent-amber: #FF9500;
+  --color-accent-red: #FF3B30;
+  --color-cruise: #00D4FF;
+  --color-high: #87CEEB;
+  --color-mid: #FFD700;
+  --color-low: #FFA500;
+  --color-ground: #FF0000;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: black;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Cesium viewer overrides */
+.cesium-viewer {
+  position: absolute !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.cesium-viewer-bottom {
+  display: none !important;
+}
+
+.cesium-viewer-toolbar {
+  display: none !important;
+}
+
+.cesium-viewer-animationContainer {
+  display: none !important;
+}
+
+.cesium-viewer-timelineContainer {
+  display: none !important;
+}
+
+.cesium-viewer-fullscreenContainer {
+  display: none !important;
+}
