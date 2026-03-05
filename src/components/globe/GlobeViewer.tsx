@@ -49,7 +49,8 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
   (props, ref) => {
     const viewerRef = useRef<CesiumViewer | null>(null);
 
-    useImperativeHandle(ref, () => viewerRef.current);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    useImperativeHandle(ref, () => viewerRef.current!, []);
 
     // Configure RequestScheduler for faster tile loading
     useEffect(() => {
