@@ -38,3 +38,9 @@ npm-debug.log*
 
 # Feature database
 features.db
+
+# Test scripts
+test-*.js
+find-port.js
+start-server.js
+test-screenshot.png
