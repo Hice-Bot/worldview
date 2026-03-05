@@ -315,3 +315,55 @@
 - Remaining UI components: StatusBar counts, TrackedEntityPanel improvements
 - Post-processing shaders (CRT, NVG, FLIR)
 - CCTV lock-on with directional offset from camera's compass direction
+
+### Session 8 - 2026-03-05
+
+#### Completed Features:
+- Feature #17: CCTV proxy returns real camera data (PASSING)
+  - GET /api/cctv returns HTTP 200 with 1,862 cameras (884 GB, 978 US)
+  - Each camera has id, name, lat, lon, imageUrl, region, country, direction, available
+  - TfL cameras at London coordinates (51.x lat), Austin cameras at Texas coordinates (30.x lat)
+  - Real image URLs: jamcams.tfl.gov.uk (GB), cctv.austinmobility.io (US)
+  - Real street/junction names: "Piccadilly Circus", "A406 Billet Upass E", etc.
+  - Zero mock data patterns found, upstream API (api.tfl.gov.uk) confirmed
+
+- Feature #72: TrafficLayer renders animated road vehicles (PASSING)
+  - useTraffic hook wired in App.tsx with camera bbox computation
+  - PolylineCollection renders road segments with classification colors/widths
+  - PointPrimitiveCollection renders vehicle particles
+  - Road classification colors: motorway red, trunk orange, primary yellow, secondary green, tertiary teal, residential blue
+  - Road widths: motorway 3px, trunk 2.5px, primary 2px, secondary 1.5px, tertiary 1px, residential 0.8px
+  - Vehicle density: 2/km motorway to 0.2/km residential
+  - Vehicle speeds: 110km/h motorway to 30km/h residential (converted to m/s)
+  - 60fps animation via requestAnimationFrame with deltaTime clamping
+  - Haversine distance accumulation for position interpolation along geometry
+  - Position wraps around road length for continuous circulation
+  - Server-side Haversine length calculation added to /api/traffic/roads endpoint
+  - 984 real roads from OSM Overpass API with proper lengths calculated
+
+- Feature #74: Traffic layer auto-disables at high altitude (PASSING)
+  - Above 5,000,000m altitude: bbox returns null, useTraffic stops fetching, roads cleared
+  - Below 5,000,000m altitude: bbox computed from camera state, fetching enabled
+  - Single fetch per bounding box (cached via lastBboxRef)
+  - useMemo on bbox prevents unnecessary re-renders/fetches
+  - Seamless transition with no visual glitches
+
+#### Current Status:
+- 23/205 features passing (11.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 51 modules compile and build successfully (Vite production build OK)
+
+#### Key Technical Decisions:
+- TrafficLayer uses imperative PolylineCollection + PointPrimitiveCollection (performance-first)
+- Vehicle count capped at 5 per road segment for performance (500-1000 vehicles target)
+- Haversine distance calculation added both server-side and client-side
+- useMemo for bbox prevents unnecessary API calls on camera jitter
+- Roads elevated 2m, vehicles elevated 5m above ground for visibility
+
+#### What's Next:
+- ShipLayer implementation
+- Dead reckoning interpolation for smooth flight/ship movement
+- Flight route arc rendering (PolylineCollection)
+- Remaining UI components: StatusBar counts, TrackedEntityPanel improvements
+- Post-processing shaders (CRT, NVG, FLIR)
