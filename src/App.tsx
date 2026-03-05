@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { Cartesian3 } from 'cesium';
 import type { Viewer as CesiumViewer } from 'cesium';
 import GlobeViewer from './components/globe/GlobeViewer';
 import OperationsPanel from './components/ui/OperationsPanel';
@@ -175,7 +176,14 @@ export default function App() {
         onSelectCamera={setSelectedCamera}
         onFlyTo={(camera) => {
           setSelectedCamera(camera);
-          // Camera flyTo handled by GlobeViewer
+          // Animate globe camera to camera lat/lon
+          const viewer = viewerRef.current;
+          if (viewer && !viewer.isDestroyed()) {
+            viewer.camera.flyTo({
+              destination: Cartesian3.fromDegrees(camera.lon, camera.lat, 2000),
+              duration: 1.5,
+            });
+          }
         }}
       />
 
