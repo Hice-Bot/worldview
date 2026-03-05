@@ -12,6 +12,7 @@ import { useEarthquakes } from './hooks/useEarthquakes';
 import { useSatellites } from './hooks/useSatellites';
 import { useFlights } from './hooks/useFlights';
 import { useCameras } from './hooks/useCameras';
+import { useTraffic } from './hooks/useTraffic';
 import type {
   LayerState,
   ShaderMode,
@@ -23,7 +24,6 @@ import type {
   IntelEvent,
   ShipData,
   CameraData,
-  TrafficRoad,
 } from './types';
 
 const DEFAULT_CAMERA: CameraState = {
@@ -74,9 +74,25 @@ export default function App() {
   const { flights } = useFlights(layers.flights);
   const { cameras } = useCameras(layers.cctv);
 
+  // Compute bounding box from camera state for traffic data
+  // At high altitude the bbox is very large; at low altitude it's tight
+  const trafficBbox = (() => {
+    if (cameraState.altitude > 5_000_000) return null; // Auto-disable at high altitude
+    // Approximate bbox from camera center + altitude-based spread
+    // ~0.01 degrees per 1000m altitude for reasonable road coverage
+    const spread = Math.min(Math.max(cameraState.altitude * 0.00001, 0.005), 2.0);
+    return {
+      south: cameraState.lat - spread,
+      west: cameraState.lon - spread,
+      north: cameraState.lat + spread,
+      east: cameraState.lon + spread,
+    };
+  })();
+
+  const { roads: trafficRoads } = useTraffic(layers.traffic, trafficBbox);
+
   // Remaining data state (to be replaced with hooks as layers are implemented)
   const [ships, setShips] = useState<ShipData[]>([]);
-  const [trafficRoads, setTrafficRoads] = useState<TrafficRoad[]>([]);
 
   // UI state
   const [intelEvents, setIntelEvents] = useState<IntelEvent[]>([]);

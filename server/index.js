@@ -218,14 +218,37 @@ app.get('/api/traffic/roads', async (req, res) => {
       clearTimeout(timeout);
       const data = await response.json();
 
+      // Haversine distance between two [lon, lat] points in meters
+      function haversineDistance(p1, p2) {
+        const R = 6371000; // Earth radius in meters
+        const toRad = (deg) => deg * Math.PI / 180;
+        const dLat = toRad(p2[1] - p1[1]);
+        const dLon = toRad(p2[0] - p1[0]);
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRad(p1[1])) * Math.cos(toRad(p2[1])) * Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+
+      // Calculate total road segment length via Haversine
+      function calcRoadLength(geometry) {
+        let total = 0;
+        for (let i = 1; i < geometry.length; i++) {
+          total += haversineDistance(geometry[i - 1], geometry[i]);
+        }
+        return total;
+      }
+
       // Parse OSM elements into road segments
-      const roads = (data.elements || []).map((el) => ({
-        id: String(el.id),
-        classification: el.tags?.highway || 'residential',
-        geometry: (el.geometry || []).map((p) => [p.lon, p.lat]),
-        length: 0, // TODO: Calculate via Haversine
-        name: el.tags?.name || '',
-      }));
+      const roads = (data.elements || []).map((el) => {
+        const geometry = (el.geometry || []).map((p) => [p.lon, p.lat]);
+        return {
+          id: String(el.id),
+          classification: el.tags?.highway || 'residential',
+          geometry,
+          length: calcRoadLength(geometry),
+          name: el.tags?.name || '',
+        };
+      });
 
       cache.set(cacheKey, roads, 86400); // 24hr TTL
       res.json(roads);
