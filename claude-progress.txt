@@ -1,5 +1,67 @@
 ## WorldView Development Progress
 
+### Session 11 - 2026-03-05
+
+#### Completed Features:
+- Feature #18: Traffic proxy returns real road data (PASSING)
+  - GET /api/traffic/roads returns 984 segments for Sydney CBD bbox
+  - All OSM highway classifications valid (motorway/primary/secondary/tertiary/residential)
+  - Haversine-calculated lengths realistic (1.9m to 2307.1m)
+  - 427-segment static fallback in sydneyRoads.js for Overpass API failures
+  - Coordinates verified as real Sydney streets (avg -33.8719, 151.2064)
+
+- Feature #75: ShipLayer renders AIS vessels with correct types (PASSING)
+  - Server /api/ships now fetches from Finnish Digitraffic API (free, no auth, gzip)
+  - Combines position endpoint (/api/ais/v1/locations) + metadata (/api/ais/v1/vessels)
+  - 14,915 moving vessels with real names, MMSI, IMO, callSign, shipType
+  - Server-side filtering: anchored/moored/aground excluded (navStat), SOG>0.5, no (0,0)
+  - AIS type colors: cargo=cyan, tanker=orange, passenger=green, highspeed=yellow, pleasure=purple, fishing=teal, military=red, tug=brown, other=gray
+  - 28x28 canvas-drawn top-down vessel silhouette (white, pointing north)
+  - Rotation by true heading (fallback to COG when heading=511)
+  - Selected vessel: red (#FF3B30) at 1.5x scale, depth test disabled
+  - BillboardCollection + LabelCollection + PolylineCollection (imperative primitives)
+  - MMSI-keyed map for incremental add/update/remove
+  - Far-side occlusion via dot-product hemisphere check, 2Hz preRender updates
+  - useShips hook wired in App.tsx replacing static state (30s polling)
+  - AISStream.io WebSocket burst as fallback (when API key configured)
+  - Heading=511 (unavailable) mapped to COG for proper ship rotation
+
+- Feature #76: ShipLayer uses imperative primitive collections (PASSING)
+  - BillboardCollection via viewer.scene.primitives.add()
+  - LabelCollection for vessel name + speed
+  - PolylineCollection for vessel trails
+  - No <Entity> JSX components — purely imperative Cesium rendering
+  - Proper cleanup on unmount via primitives.remove()
+  - Incremental add/update/remove via MMSI-keyed Map
+
+#### New/Modified Files:
+- server/index.js — Replaced empty /api/ships endpoint with Digitraffic API integration
+  - Primary: Finnish Digitraffic AIS API (free, no auth, ~18K vessels in Baltic/Nordic)
+  - Fallback: AISStream.io WebSocket burst collector (15s duration, if API key set)
+  - Server-side filtering: navStat exclusion, SOG threshold, (0,0) removal
+  - Draught converted from decimeters to meters
+- src/components/layers/ShipLayer.tsx — Full implementation replacing TODO skeleton
+  - BillboardCollection + LabelCollection + PolylineCollection
+  - Canvas vessel icon, AIS type coloring, tracking integration
+  - Occlusion check, distance-based label visibility, preRender updates
+- src/hooks/useShips.ts — Already existed, now functional with real data
+- src/App.tsx — Replaced static ships state with useShips hook
+
+#### Current Status:
+- 32/205 features passing (15.6%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 54 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Dead reckoning interpolation for ships and flights
+- Ship vessel trails (PolylineCollection already created, needs data)
+- Ship proxy returns real AIS data verification (Feature #19 if assigned)
+- TrackedEntityPanel ship-specific detail view
+- StatusBar ship count updates
+- Flight route arc rendering
+
 ### Session 10 - 2026-03-05
 
 #### Completed Features:
