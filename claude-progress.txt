@@ -106,3 +106,45 @@
 - Data layer implementations: FlightLayer, SatelliteLayer, EarthquakeLayer, etc.
 - Post-processing shaders
 - Data hooks for real-time fetching
+
+### Session 4 - 2026-03-05
+
+#### Completed Features:
+- Feature #13: Google and Cesium tile keys used client-side safely (PASSING)
+  - VITE_GOOGLE_API_KEY used only in GlobeViewer for createGooglePhotorealistic3DTileset()
+  - VITE_CESIUM_ION_TOKEN used only in GlobeViewer for Ion.defaultAccessToken
+  - Neither key appears in server code — client-side only as expected for tile APIs
+  - App works without keys by falling back to OSM via OpenStreetMapImageryProvider
+  - Google 3D Tiles load failure also triggers OSM fallback
+  - Globe hidden when Google 3D active (prevents black bleed-through), visible for OSM
+  - MapTileMode toggle wired between OperationsPanel and GlobeViewer
+
+- Feature #69: EarthquakeLayer renders pulsing seismic markers (PASSING)
+  - useEarthquakes hook wired in App.tsx, polls /api/earthquakes every 60s
+  - PointPrimitiveCollection for seismic markers (performance-first approach)
+  - Magnitude-based color: 6+ red, 5-6 orange, 4-5 yellow, 3-4 orange 80%, <3 orange 40%
+  - Magnitude-based size: 3px (low) to 14px (M6+)
+  - Sinusoidal pulsing via scene.preRender with per-quake phase offsets from ID hash
+  - Higher magnitude = larger pulse amplitude + faster speed
+  - Filters M2.5+ earthquakes, correct epicenter positioning
+  - Real USGS data verified (47 earthquakes from earthquake.usgs.gov)
+
+- Feature #70: Earthquake labels for significant events (PASSING)
+  - LabelCollection for M4.5+ earthquakes
+  - Labels show magnitude and USGS place field (e.g., "M5.2 30 km SW of Hawthorne, Nevada")
+  - Labels hidden during entity tracking mode (labelCollection.show = false)
+  - Monospace font with black outline and semi-transparent background
+  - trackedEntity prop passed from GlobeViewer to EarthquakeLayer
+
+#### Current Status:
+- 11/205 features passing (5.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All 46 modules compile and build successfully
+- Playwright not available in sandbox (Chrome install requires sudo)
+
+#### What's Next:
+- More data layer implementations: FlightLayer, SatelliteLayer, ShipLayer, TrafficLayer, CCTVLayer
+- Wire remaining data hooks (useFlights, useSatellites, useShips, etc.) in App.tsx
+- Remaining UI components: IntelFeed, StatusBar, CCTVPanel, TrackedEntityPanel, Crosshair
+- Post-processing shaders (CRT, NVG, FLIR)
