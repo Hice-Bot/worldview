@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Cartesian3 } from 'cesium';
 import type { Viewer as CesiumViewer } from 'cesium';
 import GlobeViewer from './components/globe/GlobeViewer';
@@ -75,8 +75,8 @@ export default function App() {
   const { cameras } = useCameras(layers.cctv);
 
   // Compute bounding box from camera state for traffic data
-  // At high altitude the bbox is very large; at low altitude it's tight
-  const trafficBbox = (() => {
+  // Auto-disables above 5,000,000m altitude (Feature #74)
+  const trafficBbox = useMemo(() => {
     if (cameraState.altitude > 5_000_000) return null; // Auto-disable at high altitude
     // Approximate bbox from camera center + altitude-based spread
     // ~0.01 degrees per 1000m altitude for reasonable road coverage
@@ -87,7 +87,7 @@ export default function App() {
       north: cameraState.lat + spread,
       east: cameraState.lon + spread,
     };
-  })();
+  }, [cameraState.lat, cameraState.lon, cameraState.altitude]);
 
   const { roads: trafficRoads } = useTraffic(layers.traffic, trafficBbox);
 
