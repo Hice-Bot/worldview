@@ -200,3 +200,55 @@
 - Remaining UI components: StatusBar counts, CCTVPanel, TrackedEntityPanel
 - Post-processing shaders (CRT, NVG, FLIR)
 - Additional satellite features: ISS/Other category filters, starlink/gps-ops/weather groups
+
+### Session 6 - 2026-03-05
+
+#### Completed Features:
+- Feature #15: Satellite proxy returns real TLE data (PASSING)
+  - GET /api/satellites returns HTTP 200 with 14,613 satellites
+  - TLE format valid: line 0 = name, line 1 starts '1 ', line 2 starts '2 '
+  - ISS (ZARYA) present in stations group (NORAD 25544)
+  - satellite.js parses TLEs and produces valid ECI positions
+  - NORAD catalog numbers all real (0 bad IDs)
+  - Multiple groups: stations (33), active (14610), starlink (9741), gps-ops (32), weather (70)
+  - Epoch dates all within 1 day (year 26, day 64)
+
+- Feature #56: FlightLayer renders aircraft from proxy data (PASSING)
+  - Updated /api/flights to use OpenSky Network as primary source (adsb.fi fallback)
+  - 8,400+ real aircraft from OpenSky with real ICAO24 codes, callsigns, positions
+  - FlightLayer implemented with imperative BillboardCollection + LabelCollection
+  - Altitude band coloring: Cruise=cyan, High=light blue, Mid=gold, Low=orange, Ground=red
+  - Billboard scale varies inversely with altitude (0.35-0.7)
+  - Aircraft icons rotated by heading via CesiumMath.toRadians
+  - Far-side occlusion via dot-product hemisphere check
+  - Labels show callsign + flight level, hidden when zoomed out (>3M meters)
+  - Incremental add/update/remove via ICAO24 keyed map
+  - useFlights hook wired in App.tsx replacing static state
+  - 20s polling with exponential backoff on error
+
+- Feature #64: Ground aircraft filtered from display (PASSING)
+  - Server sends all aircraft including ground (onGround field set correctly)
+  - FlightLayer skips rendering when flight.onGround === true
+  - Ground aircraft remain in data array for departure detection
+  - 9,296 total in data: 872 ground + 8,424 airborne
+  - Filter applied after data fetch, before rendering (client-side)
+
+#### Current Status:
+- 17/205 features passing (8.3%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 49 modules compile and build successfully
+
+#### Key Technical Decisions:
+- Switched from adsb.fi (returning 404) to OpenSky Network as primary flight data source
+- OpenSky anonymous API provides ~9,500 states globally, free and no auth needed
+- Ground aircraft included in API response but filtered at rendering layer
+- Used BillboardCollection (imperative) for FlightLayer as spec requires for 27K+ entity performance
+
+#### What's Next:
+- More data layer implementations: ShipLayer, TrafficLayer, CCTVLayer
+- Wire remaining data hooks (useShips, useCameras, useTraffic) in App.tsx
+- Dead reckoning interpolation for smooth flight movement
+- Flight route arc rendering (PolylineCollection)
+- Remaining UI components: StatusBar counts, CCTVPanel, TrackedEntityPanel
+- Post-processing shaders (CRT, NVG, FLIR)

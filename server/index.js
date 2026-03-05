@@ -391,7 +391,7 @@ app.get('/api/flights', async (_req, res) => {
       //   lon, lat, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors,
       //   geo_altitude, squawk, spi, position_source]
       const aircraft = states
-        .filter(s => s[5] !== null && s[6] !== null && !s[8]) // has position and airborne
+        .filter(s => s[5] !== null && s[6] !== null) // has position (include ground for departure detection)
         .map(s => ({
           icao24: (s[0] || '').trim(),
           callsign: (s[1] || '').trim(),
@@ -408,8 +408,8 @@ app.get('/api/flights', async (_req, res) => {
           destination: '',
           onGround: !!s[8],
         }));
-
-      console.log(`[FLIGHTS] OpenSky: ${aircraft.length} airborne aircraft from ${states.length} total states`);
+      const airborneCount = aircraft.filter(a => !a.onGround).length;
+      console.log(`[FLIGHTS] OpenSky: ${airborneCount} airborne + ${aircraft.length - airborneCount} ground from ${states.length} total states`);
       cache.set('flights', aircraft, 30); // 30s TTL
       res.json(aircraft);
     } catch (primaryError) {
@@ -422,25 +422,25 @@ app.get('/api/flights', async (_req, res) => {
         if (!response.ok) throw new Error(`adsb.fi HTTP ${response.status}`);
         const data = await response.json();
         const aircraft = (data?.ac || [])
-          .filter(ac => !ac.alt_baro || ac.alt_baro !== 'ground')
+          .filter(ac => ac.lat && ac.lon) // include ground aircraft for departure detection
           .map(ac => ({
             icao24: ac.hex || '',
             callsign: (ac.flight || '').trim(),
             registration: ac.r || '',
             lat: ac.lat || 0,
             lon: ac.lon || 0,
-            altitudeMeters: (ac.alt_baro || 0) * 0.3048,
-            altitudeFeet: ac.alt_baro || 0,
+            altitudeMeters: ac.alt_baro === 'ground' ? 0 : ((ac.alt_baro || 0) * 0.3048),
+            altitudeFeet: ac.alt_baro === 'ground' ? 0 : (ac.alt_baro || 0),
             velocityMs: (ac.gs || 0) * 0.514444,
             velocityKnots: ac.gs || 0,
             heading: ac.track || 0,
             verticalRate: ac.baro_rate || 0,
             origin: '',
             destination: '',
-            onGround: ac.alt_baro === 'ground',
+            onGround: ac.alt_baro === 'ground' || !!ac.ground,
           }));
-
-        console.log(`[FLIGHTS] adsb.fi fallback: ${aircraft.length} aircraft`);
+        const fallbackAirborne = aircraft.filter(a => !a.onGround).length;
+        console.log(`[FLIGHTS] adsb.fi fallback: ${fallbackAirborne} airborne + ${aircraft.length - fallbackAirborne} ground`);
         cache.set('flights', aircraft, 30);
         res.json(aircraft);
       } catch (fallbackError) {
