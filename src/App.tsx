@@ -10,6 +10,7 @@ import Crosshair from './components/ui/Crosshair';
 import { useEarthquakes } from './hooks/useEarthquakes';
 import { useSatellites } from './hooks/useSatellites';
 import { useFlights } from './hooks/useFlights';
+import { useCameras } from './hooks/useCameras';
 import type {
   LayerState,
   ShaderMode,
@@ -70,10 +71,10 @@ export default function App() {
   const { earthquakes } = useEarthquakes(layers.earthquakes);
   const { satellites } = useSatellites(layers.satellites);
   const { flights } = useFlights(layers.flights);
+  const { cameras } = useCameras(layers.cctv);
 
   // Remaining data state (to be replaced with hooks as layers are implemented)
   const [ships, setShips] = useState<ShipData[]>([]);
-  const [cameras, setCameras] = useState<CameraData[]>([]);
   const [trafficRoads, setTrafficRoads] = useState<TrafficRoad[]>([]);
 
   // UI state

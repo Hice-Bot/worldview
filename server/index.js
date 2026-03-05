@@ -267,15 +267,15 @@ app.get('/api/cctv', async (req, res) => {
           country: 'GB',
           direction: cam.additionalProperties?.find(p => p.key === 'direction')?.value || '',
         }))),
-      // Austin TX
-      fetch('https://data.austintexas.gov/resource/b4k4-adkb.json')
+      // Austin TX — location is GeoJSON Point: {type:"Point", coordinates:[lon, lat]}
+      fetch('https://data.austintexas.gov/resource/b4k4-adkb.json?$limit=2000')
         .then(r => r.json())
-        .then(data => (data || []).map(cam => ({
+        .then(data => (data || []).filter(cam => cam.location && cam.location.coordinates).map(cam => ({
           id: cam.camera_id || cam.location_name,
-          name: cam.location_name || 'Unknown',
-          lat: parseFloat(cam.location_latitude) || 0,
-          lon: parseFloat(cam.location_longitude) || 0,
-          imageUrl: cam.camera_mfg_url || '',
+          name: (cam.location_name || 'Unknown').trim(),
+          lat: cam.location.coordinates[1],
+          lon: cam.location.coordinates[0],
+          imageUrl: cam.screenshot_address || cam.camera_mfg_url || '',
           available: cam.camera_status === 'TURNED_ON',
           region: 'Austin, TX',
           country: 'US',
