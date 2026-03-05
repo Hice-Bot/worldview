@@ -367,3 +367,56 @@
 - Flight route arc rendering (PolylineCollection)
 - Remaining UI components: StatusBar counts, TrackedEntityPanel improvements
 - Post-processing shaders (CRT, NVG, FLIR)
+
+### Session 9 - 2026-03-05
+
+#### Completed Features:
+- Feature #50: Entity tracking locks camera to entity (PASSING)
+  - EntityClickHandler detects both BillboardCollection picks (aircraft, ships, CCTV) and Cesium Entity picks (satellites)
+  - Billboard picks: creates temporary Cesium Entity with CallbackProperty(isConstant=false) position for smooth per-frame camera following
+  - Cesium Entity picks: directly sets viewer.trackedEntity on the Cesium entity
+  - ViewFrom offset applied per entity type: aircraft=42km, satellite=700km, ship=2.4km, earthquake=280km, CCTV=280km
+  - Camera smoothly transitions via viewer.trackedEntity native behavior
+  - Camera rotation (orbit) works while tracking
+  - TrackingManager singleton bridges position updates between layers and tracking entity
+  - FlightLayer updates tracking position when tracked aircraft data refreshes
+  - Billboard pick detection via isBillboardPick() checks for {type, data} id structure
+  - Entity classification uses billboard type field directly (no keyword heuristics needed)
+
+- Feature #51: Entity unlock via empty space click (PASSING)
+  - When drillPick returns 0 results = empty space click
+  - onTrackEntity(null) → setTrackedEntity(null) in App.tsx
+  - onCctvClick(null) → setSelectedCamera(null) in App.tsx
+  - viewer.trackedEntity = undefined (stops camera following)
+  - clearTrackingEntity() removes temporary entity from viewer.entities + clears trackingManager
+  - Camera position preserved (no jump) — native Cesium behavior when untracking
+  - TrackedEntityPanel unmounts when trackedEntity becomes null
+
+- Feature #52: Entity unlock via ESC key (PASSING)
+  - document.addEventListener('keydown', handleKeyDown) registers ESC listener
+  - e.key === 'Escape' triggers same unlock flow as empty space click
+  - onTrackEntity(null), onCctvClick(null), viewer.trackedEntity = undefined
+  - clearTrackingEntity() removes temp entity + clears trackingManager
+  - document.removeEventListener('keydown', handleKeyDown) in cleanup function
+  - Proper cleanup on component unmount or re-render
+
+#### New Files:
+- src/trackingManager.ts — Singleton for cross-component tracking position updates
+  - setTracking(posRef, id, type) — called by EntityClickHandler when billboard entity tracked
+  - clearTracking() — called when tracking is released
+  - updatePosition(id, type, lon, lat, alt) — called by layers to update tracked entity position
+  - getTracked() — returns current tracked id/type or null
+
+#### Current Status:
+- 26/205 features passing (12.7%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 52 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- ShipLayer implementation with dead reckoning
+- Flight route arc rendering (PolylineCollection)
+- TrackedEntityPanel type-specific detail views
+- Post-processing shaders (CRT, NVG, FLIR)
+- StatusBar live entity counts
