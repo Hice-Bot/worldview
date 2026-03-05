@@ -9,6 +9,7 @@ import TrackedEntityPanel from './components/ui/TrackedEntityPanel';
 import Crosshair from './components/ui/Crosshair';
 import { useEarthquakes } from './hooks/useEarthquakes';
 import { useSatellites } from './hooks/useSatellites';
+import { useFlights } from './hooks/useFlights';
 import type {
   LayerState,
   ShaderMode,
@@ -18,7 +19,6 @@ import type {
   AltitudeFilters,
   SatelliteFilters,
   IntelEvent,
-  FlightData,
   ShipData,
   CameraData,
   TrafficRoad,
@@ -69,9 +69,9 @@ export default function App() {
   // Data state — hooks for layers that have been implemented
   const { earthquakes } = useEarthquakes(layers.earthquakes);
   const { satellites } = useSatellites(layers.satellites);
+  const { flights } = useFlights(layers.flights);
 
   // Remaining data state (to be replaced with hooks as layers are implemented)
-  const [flights, setFlights] = useState<FlightData[]>([]);
   const [ships, setShips] = useState<ShipData[]>([]);
   const [cameras, setCameras] = useState<CameraData[]>([]);
   const [trafficRoads, setTrafficRoads] = useState<TrafficRoad[]>([]);

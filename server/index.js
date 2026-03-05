@@ -379,39 +379,74 @@ app.get('/api/flights', async (_req, res) => {
     const cached = cache.get('flights');
     if (cached) return res.json(cached);
 
-    // TODO: Implement FR24 7-zone parallel fetching
-    // TODO: Implement adsb.fi fallback
-    // TODO: Implement 15s minimum between upstream FR24 calls
-    // TODO: Implement route registry enrichment
-
-    // Fallback to adsb.fi for now
+    // Primary: OpenSky Network (free, no auth required for anonymous access)
     try {
-      const response = await fetch('https://api.adsb.fi/v2/all');
+      const response = await fetch('https://opensky-network.org/api/states/all', {
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error(`OpenSky HTTP ${response.status}`);
       const data = await response.json();
-      const aircraft = (data?.ac || [])
-        .filter(ac => !ac.alt_baro || ac.alt_baro !== 'ground')
-        .map(ac => ({
-          icao24: ac.hex || '',
-          callsign: (ac.flight || '').trim(),
-          registration: ac.r || '',
-          lat: ac.lat || 0,
-          lon: ac.lon || 0,
-          altitudeMeters: (ac.alt_baro || 0) * 0.3048,
-          altitudeFeet: ac.alt_baro || 0,
-          velocityMs: (ac.gs || 0) * 0.514444,
-          velocityKnots: ac.gs || 0,
-          heading: ac.track || 0,
-          verticalRate: ac.baro_rate || 0,
+      const states = data?.states || [];
+      // OpenSky state vector format: [icao24, callsign, origin_country, time_position, last_contact,
+      //   lon, lat, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors,
+      //   geo_altitude, squawk, spi, position_source]
+      const aircraft = states
+        .filter(s => s[5] !== null && s[6] !== null && !s[8]) // has position and airborne
+        .map(s => ({
+          icao24: (s[0] || '').trim(),
+          callsign: (s[1] || '').trim(),
+          registration: '',
+          lat: s[6] || 0,
+          lon: s[5] || 0,
+          altitudeMeters: s[7] || 0,
+          altitudeFeet: Math.round((s[7] || 0) * 3.28084),
+          velocityMs: s[9] || 0,
+          velocityKnots: Math.round((s[9] || 0) * 1.94384),
+          heading: s[10] || 0,
+          verticalRate: s[11] || 0,
           origin: '',
           destination: '',
-          onGround: ac.alt_baro === 'ground',
+          onGround: !!s[8],
         }));
 
+      console.log(`[FLIGHTS] OpenSky: ${aircraft.length} airborne aircraft from ${states.length} total states`);
       cache.set('flights', aircraft, 30); // 30s TTL
       res.json(aircraft);
-    } catch (fallbackError) {
-      console.error('[FLIGHTS] adsb.fi fallback failed:', fallbackError.message);
-      res.json([]);
+    } catch (primaryError) {
+      console.error('[FLIGHTS] OpenSky failed:', primaryError.message);
+      // Fallback to adsb.fi
+      try {
+        const response = await fetch('https://api.adsb.fi/v2/all', {
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok) throw new Error(`adsb.fi HTTP ${response.status}`);
+        const data = await response.json();
+        const aircraft = (data?.ac || [])
+          .filter(ac => !ac.alt_baro || ac.alt_baro !== 'ground')
+          .map(ac => ({
+            icao24: ac.hex || '',
+            callsign: (ac.flight || '').trim(),
+            registration: ac.r || '',
+            lat: ac.lat || 0,
+            lon: ac.lon || 0,
+            altitudeMeters: (ac.alt_baro || 0) * 0.3048,
+            altitudeFeet: ac.alt_baro || 0,
+            velocityMs: (ac.gs || 0) * 0.514444,
+            velocityKnots: ac.gs || 0,
+            heading: ac.track || 0,
+            verticalRate: ac.baro_rate || 0,
+            origin: '',
+            destination: '',
+            onGround: ac.alt_baro === 'ground',
+          }));
+
+        console.log(`[FLIGHTS] adsb.fi fallback: ${aircraft.length} aircraft`);
+        cache.set('flights', aircraft, 30);
+        res.json(aircraft);
+      } catch (fallbackError) {
+        console.error('[FLIGHTS] Both sources failed:', fallbackError.message);
+        res.json([]);
+      }
     }
   } catch (error) {
     console.error('[FLIGHTS] Error:', error.message);
@@ -433,28 +468,77 @@ app.get('/api/flights/live', async (req, res) => {
       return res.status(400).json({ error: 'Missing lat/lon parameters' });
     }
 
-    const distance = dist || 100;
-    const response = await fetch(`https://api.adsb.fi/v2/lat/${lat}/lon/${lon}/dist/${distance}`);
-    const data = await response.json();
-    const aircraft = (data?.ac || []).map(ac => ({
-      icao24: ac.hex || '',
-      callsign: (ac.flight || '').trim(),
-      registration: ac.r || '',
-      lat: ac.lat || 0,
-      lon: ac.lon || 0,
-      altitudeMeters: (ac.alt_baro || 0) * 0.3048,
-      altitudeFeet: ac.alt_baro || 0,
-      velocityMs: (ac.gs || 0) * 0.514444,
-      velocityKnots: ac.gs || 0,
-      heading: ac.track || 0,
-      verticalRate: ac.baro_rate || 0,
-      origin: '',
-      destination: '',
-      onGround: ac.alt_baro === 'ground',
-    }));
+    // OpenSky Network bounding box query for regional data
+    // Convert lat/lon/dist to bounding box (dist in nautical miles, convert to degrees approx)
+    const distance = parseFloat(dist) || 100;
+    const latDeg = distance / 60; // rough nautical miles to degrees
+    const lonDeg = distance / (60 * Math.cos((parseFloat(lat) * Math.PI) / 180));
+    const lamin = parseFloat(lat) - latDeg;
+    const lamax = parseFloat(lat) + latDeg;
+    const lomin = parseFloat(lon) - lonDeg;
+    const lomax = parseFloat(lon) + lonDeg;
 
-    cache.set(cacheKey, aircraft, 4); // 4s TTL
-    res.json(aircraft);
+    try {
+      const response = await fetch(
+        `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`,
+        { signal: AbortSignal.timeout(10000) }
+      );
+      if (!response.ok) throw new Error(`OpenSky HTTP ${response.status}`);
+      const data = await response.json();
+      const states = data?.states || [];
+      const aircraft = states
+        .filter(s => s[5] !== null && s[6] !== null)
+        .map(s => ({
+          icao24: (s[0] || '').trim(),
+          callsign: (s[1] || '').trim(),
+          registration: '',
+          lat: s[6] || 0,
+          lon: s[5] || 0,
+          altitudeMeters: s[7] || 0,
+          altitudeFeet: Math.round((s[7] || 0) * 3.28084),
+          velocityMs: s[9] || 0,
+          velocityKnots: Math.round((s[9] || 0) * 1.94384),
+          heading: s[10] || 0,
+          verticalRate: s[11] || 0,
+          origin: '',
+          destination: '',
+          onGround: !!s[8],
+        }));
+
+      cache.set(cacheKey, aircraft, 4); // 4s TTL
+      res.json(aircraft);
+    } catch (primaryError) {
+      console.error('[FLIGHTS] OpenSky live failed:', primaryError.message);
+      // Fallback to adsb.fi
+      try {
+        const response = await fetch(`https://api.adsb.fi/v2/lat/${lat}/lon/${lon}/dist/${distance}`, {
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!response.ok) throw new Error(`adsb.fi HTTP ${response.status}`);
+        const data = await response.json();
+        const aircraft = (data?.ac || []).map(ac => ({
+          icao24: ac.hex || '',
+          callsign: (ac.flight || '').trim(),
+          registration: ac.r || '',
+          lat: ac.lat || 0,
+          lon: ac.lon || 0,
+          altitudeMeters: (ac.alt_baro || 0) * 0.3048,
+          altitudeFeet: ac.alt_baro || 0,
+          velocityMs: (ac.gs || 0) * 0.514444,
+          velocityKnots: ac.gs || 0,
+          heading: ac.track || 0,
+          verticalRate: ac.baro_rate || 0,
+          origin: '',
+          destination: '',
+          onGround: ac.alt_baro === 'ground',
+        }));
+        cache.set(cacheKey, aircraft, 4);
+        res.json(aircraft);
+      } catch (fallbackError) {
+        console.error('[FLIGHTS] Both live sources failed:', fallbackError.message);
+        res.json([]);
+      }
+    }
   } catch (error) {
     console.error('[FLIGHTS] Live error:', error.message);
     res.status(500).json({ error: 'Live flight data fetch failed' });
