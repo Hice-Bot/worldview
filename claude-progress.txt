@@ -252,3 +252,66 @@
 - Flight route arc rendering (PolylineCollection)
 - Remaining UI components: StatusBar counts, CCTVPanel, TrackedEntityPanel
 - Post-processing shaders (CRT, NVG, FLIR)
+
+### Session 7 - 2026-03-05
+
+#### Completed Features:
+- Feature #16: Flight proxy returns real aircraft data (PASSING)
+  - GET /api/flights returns HTTP 200 with 9,290 real aircraft
+  - All ICAO24 codes valid 6-char hex (9,290/9,290)
+  - All coordinates valid (-90 to 90 lat, -180 to 180 lon)
+  - Altitude values realistic (99.3% within 0-55000ft, negatives are normal barometric corrections)
+  - Velocity values realistic (99.97% within 0-700kts)
+  - All headings valid 0-360 degrees
+  - Real callsigns: TWY235, SWR2120, UAL300, etc.
+  - Data refreshes confirmed: 7,564 aircraft changed position in 35s
+  - OpenSky Network as primary, adsb.fi as fallback - both real upstream APIs
+
+- Feature #80: CCTVLayer renders camera icons on globe (PASSING)
+  - BillboardCollection + LabelCollection for 1,862 cameras (GB + US)
+  - Canvas-drawn camera icon: rounded rectangular body + triangular lens + red recording dot + lens detail
+  - Country color coding: GB=cyan (#00D4FF), US=amber (#FF9500), AU=green (#39FF14), default=gray
+  - Distance-based scaling: 1.2x at 5km to 0.4x at 500km (linear interpolation)
+  - Label opacity fades beyond 50km
+  - Translucency: 1.0 at 1km to 0.3 at 2000km
+  - Selected camera: red (#FF3B30) at 1.5x scale, depth test disabled
+  - Far-side occlusion via dot-product hemisphere check, 2Hz preRender updates
+  - useCameras hook wired in App.tsx (replaces static useState)
+  - Fixed Austin TX API parsing: location.coordinates[1]=lat, [0]=lon (was using wrong fields)
+  - Fixed Austin TX image URLs: screenshot_address field (was camera_mfg_url)
+
+- Feature #101: CCTVPanel shows thumbnails and previews (PASSING)
+  - Desktop: fixed 320px right-side panel, below IntelFeed (top-[50vh]), collapsible header
+  - Country/region filter buttons with counts and color coding (ALL, GB, US)
+  - Online camera status counter in header
+  - Selected camera: large preview with DMS coordinates and FLY TO LOCATION button
+  - Thumbnail grid: 3 columns desktop, 2 columns mobile
+  - Pagination via LOAD MORE for 30-camera chunks with remaining count display
+  - Images proxied through /api/cctv/image for CORS bypass
+  - loading="lazy" on all image tags
+  - Error state shows "SIGNAL LOST" when images fail to load or no imageUrl
+  - FLY TO LOCATION animates globe camera via Cesium flyTo (1.5s duration, 2km altitude)
+  - Mobile: badge button with online count, full-screen modal, auto-minimize after FLY TO
+  - CCTV image proxy verified working for both GB (TfL JamCam) and US (Austin CCTV) feeds
+
+#### Current Status:
+- 20/205 features passing (9.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 50 modules compile and build successfully (Vite production build OK)
+
+#### Key Technical Decisions:
+- Austin TX API uses GeoJSON location.coordinates (not flat lat/lon fields) - fixed server-side parsing
+- Austin TX API uses screenshot_address for images (not camera_mfg_url) - fixed field mapping
+- CCTVLayer uses imperative BillboardCollection pattern (matching FlightLayer performance approach)
+- Distance-based scaling and translucency updated in preRender loop at 2Hz for smooth camera zoom
+- Image proxy verified working for both TfL S3 URLs and Austin cctv.austinmobility.io URLs
+
+#### What's Next:
+- More data layer implementations: ShipLayer, TrafficLayer
+- Wire remaining data hooks (useShips, useTraffic) in App.tsx
+- Dead reckoning interpolation for smooth flight/ship movement
+- Flight route arc rendering (PolylineCollection)
+- Remaining UI components: StatusBar counts, TrackedEntityPanel improvements
+- Post-processing shaders (CRT, NVG, FLIR)
+- CCTV lock-on with directional offset from camera's compass direction
