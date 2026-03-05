@@ -73,6 +73,54 @@ app.get('/api/earthquakes', async (_req, res) => {
 // ============================================================================
 // Satellites Endpoint - TLE data
 // ============================================================================
+
+// Parse CelesTrak 3-line TLE text into SatelliteData objects
+function parseCelesTrakTLE(text, category) {
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const satellites = [];
+  for (let i = 0; i + 2 < lines.length; i += 3) {
+    const name = lines[i];
+    const tle1 = lines[i + 1];
+    const tle2 = lines[i + 2];
+    // Validate TLE format: line 1 starts with "1 ", line 2 starts with "2 "
+    if (!tle1.startsWith('1 ') || !tle2.startsWith('2 ')) continue;
+    // Extract NORAD ID from line 1 (columns 3-7)
+    const noradId = parseInt(tle1.substring(2, 7).trim(), 10) || 0;
+    satellites.push({ name: name.trim(), noradId, tle1, tle2, category });
+  }
+  return satellites;
+}
+
+// Parse ivanstanojevic.me API response into SatelliteData objects
+function parseIvanTLE(apiResponse, category) {
+  const members = apiResponse.member || [];
+  return members.map(m => ({
+    name: (m.name || '').trim(),
+    noradId: m.satelliteId || 0,
+    tle1: m.line1 || '',
+    tle2: m.line2 || '',
+    category,
+  })).filter(s => s.tle1 && s.tle2);
+}
+
+// Map group names to CelesTrak GROUP parameter values
+const CELESTRAK_GROUP_MAP = {
+  stations: 'stations',
+  active: 'active',
+  starlink: 'starlink',
+  'gps-ops': 'gps-ops',
+  weather: 'weather',
+};
+
+// Map group names to ivanstanojevic search terms
+const IVAN_SEARCH_MAP = {
+  stations: 'ISS',
+  active: 'NOAA',
+  starlink: 'STARLINK',
+  'gps-ops': 'GPS',
+  weather: 'GOES',
+};
+
 app.get('/api/satellites', async (req, res) => {
   try {
     const groups = req.query.groups || 'stations,active';
@@ -80,34 +128,59 @@ app.get('/api/satellites', async (req, res) => {
     const cached = cache.get(cacheKey);
     if (cached) return res.json(cached);
 
-    // Primary: tle.ivanstanojevic.me
-    let data;
+    const groupList = String(groups).split(',').map(g => g.trim());
+    let allSatellites = [];
+
+    // Primary: CelesTrak (more reliable for group-based queries)
     try {
-      const groupList = String(groups).split(',');
       const results = await Promise.all(
         groupList.map(async (group) => {
-          const response = await fetch(`https://tle.ivanstanojevic.me/api/tle/?search=${group}&page_size=50`);
-          if (!response.ok) throw new Error(`TLE API ${response.status}`);
-          return response.json();
-        })
-      );
-      data = results;
-    } catch (primaryError) {
-      console.error('[SAT] Primary TLE source failed, trying CelesTrak:', primaryError.message);
-      // Fallback: CelesTrak
-      const groupList = String(groups).split(',');
-      const results = await Promise.all(
-        groupList.map(async (group) => {
-          const response = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`);
+          const celestrakGroup = CELESTRAK_GROUP_MAP[group] || group;
+          const response = await fetch(
+            `https://celestrak.org/NORAD/elements/gp.php?GROUP=${celestrakGroup}&FORMAT=tle`,
+            { signal: AbortSignal.timeout(10000) }
+          );
+          if (!response.ok) throw new Error(`CelesTrak ${response.status}`);
           const text = await response.text();
-          return text;
+          return parseCelesTrakTLE(text, group);
         })
       );
-      data = results;
+      allSatellites = results.flat();
+      console.log(`[SAT] CelesTrak: ${allSatellites.length} satellites from groups: ${groups}`);
+    } catch (primaryError) {
+      console.error('[SAT] CelesTrak failed, trying ivanstanojevic:', primaryError.message);
+      // Fallback: tle.ivanstanojevic.me
+      try {
+        const results = await Promise.all(
+          groupList.map(async (group) => {
+            const searchTerm = IVAN_SEARCH_MAP[group] || group;
+            const response = await fetch(
+              `https://tle.ivanstanojevic.me/api/tle/?search=${searchTerm}&page_size=50`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+            if (!response.ok) throw new Error(`TLE API ${response.status}`);
+            const data = await response.json();
+            return parseIvanTLE(data, group);
+          })
+        );
+        allSatellites = results.flat();
+        console.log(`[SAT] ivanstanojevic fallback: ${allSatellites.length} satellites`);
+      } catch (fallbackError) {
+        console.error('[SAT] Both sources failed:', fallbackError.message);
+        return res.status(500).json({ error: 'Satellite data fetch failed' });
+      }
     }
 
-    cache.set(cacheKey, data, 7200); // 2hr TTL
-    res.json(data);
+    // Deduplicate by NORAD ID (keep first occurrence)
+    const seen = new Set();
+    const deduplicated = allSatellites.filter(s => {
+      if (seen.has(s.noradId)) return false;
+      seen.add(s.noradId);
+      return true;
+    });
+
+    cache.set(cacheKey, deduplicated, 7200); // 2hr TTL
+    res.json(deduplicated);
   } catch (error) {
     console.error('[SAT] Error:', error.message);
     res.status(500).json({ error: 'Satellite data fetch failed' });
