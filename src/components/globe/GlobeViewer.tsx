@@ -1,6 +1,15 @@
-import { forwardRef, useEffect, useRef, useImperativeHandle } from 'react';
+import { forwardRef, useEffect, useRef, useImperativeHandle, useState } from 'react';
 import { Viewer, Globe, Scene } from 'resium';
-import { Viewer as CesiumViewer, Ion, Color, RequestScheduler } from 'cesium';
+import {
+  Viewer as CesiumViewer,
+  Ion,
+  Color,
+  RequestScheduler,
+  createGooglePhotorealistic3DTileset,
+  OpenStreetMapImageryProvider,
+  ImageryLayer,
+  Cesium3DTileset,
+} from 'cesium';
 import type {
   LayerState,
   ShaderMode,
@@ -45,9 +54,16 @@ interface GlobeViewerProps {
   defaultCamera: CameraState;
 }
 
+// Check for Google API key at module level (VITE_ env vars are compile-time replaced)
+const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
+const CESIUM_ION_TOKEN = import.meta.env.VITE_CESIUM_ION_TOKEN || '';
+
 const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
   (props, ref) => {
     const viewerRef = useRef<CesiumViewer | null>(null);
+    const google3dTilesetRef = useRef<Cesium3DTileset | null>(null);
+    const osmLayerRef = useRef<ImageryLayer | null>(null);
+    const [google3dAvailable, setGoogle3dAvailable] = useState(!!GOOGLE_API_KEY);
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     useImperativeHandle(ref, () => viewerRef.current!, []);
@@ -58,13 +74,77 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
       RequestScheduler.maximumRequestsPerServer = 12;
     }, []);
 
-    // Set Cesium Ion token if available
+    // Set Cesium Ion token if available — used ONLY for Cesium Ion access
     useEffect(() => {
-      const token = import.meta.env.VITE_CESIUM_ION_TOKEN;
-      if (token) {
-        Ion.defaultAccessToken = token;
+      if (CESIUM_ION_TOKEN) {
+        Ion.defaultAccessToken = CESIUM_ION_TOKEN;
       }
     }, []);
+
+    // Manage tile sources: Google 3D Tiles vs OSM fallback
+    useEffect(() => {
+      const viewer = viewerRef.current;
+      if (!viewer || viewer.isDestroyed()) return;
+
+      const useGoogle = props.mapTiles === 'GOOGLE_3D' && google3dAvailable;
+
+      // --- Google 3D Tiles ---
+      if (useGoogle && !google3dTilesetRef.current) {
+        // Load Google Photorealistic 3D Tiles
+        createGooglePhotorealistic3DTileset({ key: GOOGLE_API_KEY })
+          .then((tileset) => {
+            if (viewer.isDestroyed()) return;
+            google3dTilesetRef.current = tileset;
+            viewer.scene.primitives.add(tileset);
+            // Hide default globe to prevent reference system mismatch and black bleed-through
+            viewer.scene.globe.show = false;
+            // Remove any OSM imagery layer
+            if (osmLayerRef.current) {
+              viewer.imageryLayers.remove(osmLayerRef.current, true);
+              osmLayerRef.current = null;
+            }
+          })
+          .catch((err) => {
+            // Google 3D Tiles failed — fall back to OSM
+            console.warn('Google 3D Tiles failed to load, falling back to OSM:', err);
+            setGoogle3dAvailable(false);
+          });
+      } else if (useGoogle && google3dTilesetRef.current) {
+        // Google 3D tileset already loaded — ensure it's visible
+        google3dTilesetRef.current.show = true;
+        viewer.scene.globe.show = false;
+        // Remove OSM layer if present
+        if (osmLayerRef.current) {
+          viewer.imageryLayers.remove(osmLayerRef.current, true);
+          osmLayerRef.current = null;
+        }
+      }
+
+      // --- OSM Tiles (fallback or explicit selection) ---
+      if (!useGoogle) {
+        // Hide Google 3D tileset if loaded
+        if (google3dTilesetRef.current) {
+          google3dTilesetRef.current.show = false;
+        }
+        // Show globe for OSM (depth buffer contribution)
+        viewer.scene.globe.show = true;
+
+        // Add OSM imagery layer if not already present
+        if (!osmLayerRef.current) {
+          // Remove all default imagery layers first
+          viewer.imageryLayers.removeAll();
+          const osmProvider = new OpenStreetMapImageryProvider({
+            url: 'https://tile.openstreetmap.org/',
+          });
+          osmLayerRef.current = viewer.imageryLayers.addImageryProvider(osmProvider);
+        }
+      }
+
+      // Cleanup on unmount
+      return () => {
+        // Don't destroy on re-renders, only track refs
+      };
+    }, [props.mapTiles, google3dAvailable]);
 
     return (
       <Viewer
