@@ -11,6 +11,7 @@ import Crosshair from './components/ui/Crosshair';
 import { useEarthquakes } from './hooks/useEarthquakes';
 import { useSatellites } from './hooks/useSatellites';
 import { useFlights } from './hooks/useFlights';
+import { useFlightsLive } from './hooks/useFlightsLive';
 import { useCameras } from './hooks/useCameras';
 import { useTraffic } from './hooks/useTraffic';
 import { useShips } from './hooks/useShips';
@@ -71,8 +72,29 @@ export default function App() {
   // Data state — hooks for layers that have been implemented
   const { earthquakes } = useEarthquakes(layers.earthquakes);
   const { satellites } = useSatellites(layers.satellites);
-  const { flights } = useFlights(layers.flights);
+  const { flights: globalFlights } = useFlights(layers.flights);
   const { cameras } = useCameras(layers.cctv);
+
+  // Live regional flights - only active when zoomed in (altitude < 500km)
+  const liveEnabled = layers.flights && cameraState.altitude < 500_000;
+  const { flights: liveFlights } = useFlightsLive(
+    liveEnabled,
+    cameraState.lat,
+    cameraState.lon,
+    Math.max(50, Math.min(250, Math.round(cameraState.altitude / 2000)))
+  );
+
+  // Merge global + live flights, deduplicating by ICAO24 (live replaces global for nearby aircraft)
+  const flights = useMemo(() => {
+    if (!liveEnabled || liveFlights.length === 0) return globalFlights;
+    const liveMap = new Map<string, boolean>();
+    for (const lf of liveFlights) {
+      if (lf.icao24) liveMap.set(lf.icao24, true);
+    }
+    // Keep global flights that are NOT in the live set, then add all live flights
+    const filtered = globalFlights.filter((gf) => !liveMap.has(gf.icao24));
+    return [...filtered, ...liveFlights];
+  }, [globalFlights, liveFlights, liveEnabled]);
 
   // Compute bounding box from camera state for traffic data
   // Auto-disables above 5,000,000m altitude (Feature #74)
