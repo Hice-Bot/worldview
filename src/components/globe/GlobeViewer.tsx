@@ -200,7 +200,10 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
           />
         )}
         {props.layers.earthquakes && (
-          <EarthquakeLayer earthquakes={props.earthquakes} />
+          <EarthquakeLayer
+            earthquakes={props.earthquakes}
+            trackedEntity={props.trackedEntity}
+          />
         )}
         {props.layers.traffic && (
           <TrafficLayer roads={props.trafficRoads} />

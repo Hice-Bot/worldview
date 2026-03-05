@@ -1,15 +1,21 @@
 import { useEffect, useRef } from 'react';
 import { useCesium } from 'resium';
 import {
+  Cartesian2,
   Cartesian3,
   Color,
+  LabelCollection,
+  LabelStyle,
   PointPrimitiveCollection,
   PointPrimitive,
+  VerticalOrigin,
+  HorizontalOrigin,
 } from 'cesium';
-import type { EarthquakeData } from '../../types';
+import type { EarthquakeData, TrackedEntityInfo } from '../../types';
 
 interface EarthquakeLayerProps {
   earthquakes: EarthquakeData[];
+  trackedEntity?: TrackedEntityInfo | null;
 }
 
 // --- Magnitude-based color mapping ---
@@ -74,21 +80,27 @@ interface QuakePointData {
  * Uses PointPrimitiveCollection for performance.
  * Sinusoidal pulsing animation with per-earthquake phase offsets.
  * Magnitude-based color and size. Filters M2.5+.
+ * Labels for M4.5+ events showing magnitude and place, hidden during tracking.
  */
-export default function EarthquakeLayer({ earthquakes }: EarthquakeLayerProps) {
+export default function EarthquakeLayer({ earthquakes, trackedEntity }: EarthquakeLayerProps) {
   const { viewer } = useCesium();
   const collectionRef = useRef<PointPrimitiveCollection | null>(null);
+  const labelCollectionRef = useRef<LabelCollection | null>(null);
   const quakePointsRef = useRef<QuakePointData[]>([]);
   const preRenderRef = useRef<(() => void) | null>(null);
 
-  // Create/update point primitives when earthquakes change
+  // Create/update point primitives and labels when earthquakes change
   useEffect(() => {
     if (!viewer || viewer.isDestroyed()) return;
 
-    // Remove old collection if it exists
+    // Remove old collections if they exist
     if (collectionRef.current) {
       viewer.scene.primitives.remove(collectionRef.current);
       collectionRef.current = null;
+    }
+    if (labelCollectionRef.current) {
+      viewer.scene.primitives.remove(labelCollectionRef.current);
+      labelCollectionRef.current = null;
     }
     quakePointsRef.current = [];
 
@@ -96,9 +108,14 @@ export default function EarthquakeLayer({ earthquakes }: EarthquakeLayerProps) {
     const filtered = earthquakes.filter((eq) => eq.magnitude >= 2.5);
     if (filtered.length === 0) return;
 
-    // Create new PointPrimitiveCollection
+    // Create new PointPrimitiveCollection for seismic markers
     const collection = new PointPrimitiveCollection();
     const quakePoints: QuakePointData[] = [];
+
+    // Create LabelCollection for M4.5+ earthquake labels
+    const labelCollection = new LabelCollection({
+      scene: viewer.scene,
+    });
 
     for (const eq of filtered) {
       const position = Cartesian3.fromDegrees(eq.lon, eq.lat, 0);
@@ -121,10 +138,31 @@ export default function EarthquakeLayer({ earthquakes }: EarthquakeLayerProps) {
       });
 
       quakePoints.push({ point, baseSize, amplitude, speed, phase });
+
+      // Add label for M4.5+ earthquakes — text from USGS properties.place field
+      if (eq.magnitude >= 4.5) {
+        labelCollection.add({
+          position,
+          text: 'M' + eq.magnitude.toFixed(1) + ' ' + eq.place,
+          font: '11px monospace',
+          fillColor: Color.WHITE,
+          outlineColor: Color.BLACK,
+          outlineWidth: 2,
+          style: LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: VerticalOrigin.BOTTOM,
+          horizontalOrigin: HorizontalOrigin.LEFT,
+          pixelOffset: new Cartesian2(8, -4),
+          scale: 1.0,
+          showBackground: true,
+          backgroundColor: Color.BLACK.withAlpha(0.6),
+        });
+      }
     }
 
     viewer.scene.primitives.add(collection);
+    viewer.scene.primitives.add(labelCollection);
     collectionRef.current = collection;
+    labelCollectionRef.current = labelCollection;
     quakePointsRef.current = quakePoints;
 
     return () => {
@@ -132,9 +170,20 @@ export default function EarthquakeLayer({ earthquakes }: EarthquakeLayerProps) {
         viewer.scene.primitives.remove(collectionRef.current);
         collectionRef.current = null;
       }
+      if (labelCollectionRef.current && viewer && !viewer.isDestroyed()) {
+        viewer.scene.primitives.remove(labelCollectionRef.current);
+        labelCollectionRef.current = null;
+      }
       quakePointsRef.current = [];
     };
   }, [viewer, earthquakes]);
+
+  // Hide labels during entity tracking mode (reduce clutter)
+  useEffect(() => {
+    if (!labelCollectionRef.current) return;
+    // When an entity is being tracked, hide earthquake labels
+    labelCollectionRef.current.show = !trackedEntity;
+  }, [trackedEntity]);
 
   // Animation loop: sinusoidal pulsing via scene.preRender
   useEffect(() => {
