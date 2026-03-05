@@ -14,6 +14,7 @@ import {
   Label,
 } from 'cesium';
 import type { FlightData, AltitudeFilters, TrackedEntityInfo } from '../../types';
+import { trackingManager } from '../../trackingManager';
 
 interface FlightLayerProps {
   flights: FlightData[];
@@ -199,6 +200,11 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
       // Check if this is the tracked aircraft
       const isTracked = trackedEntity?.type === 'aircraft' && trackedEntity?.id === flight.icao24;
       const finalScale = isTracked ? 1.0 : scale;
+
+      // Update tracking manager position for camera following (dead reckoning)
+      if (isTracked) {
+        trackingManager.updatePosition(flight.icao24, 'aircraft', flight.lon, flight.lat, flight.altitudeMeters);
+      }
 
       // Build label text
       const labelText = flight.callsign || flight.icao24;

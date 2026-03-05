@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useCesium } from 'resium';
 import {
   ScreenSpaceEventHandler,
@@ -6,8 +6,10 @@ import {
   Cartesian2,
   Cartesian3,
   defined,
+  CallbackProperty,
 } from 'cesium';
 import type { EntityType, TrackedEntityInfo, CameraData } from '../../types';
+import { trackingManager } from '../../trackingManager';
 
 interface EntityClickHandlerProps {
   onTrackEntity: (entity: TrackedEntityInfo | null) => void;
@@ -26,13 +28,48 @@ function isHelperEntity(text: string): boolean {
 }
 
 /**
+ * Billboard pick structure from BillboardCollection
+ */
+interface BillboardPickId {
+  type: string;
+  data: Record<string, unknown>;
+}
+
+/**
+ * Checks if a picked object is from a BillboardCollection with our id format
+ */
+function isBillboardPick(picked: unknown): BillboardPickId | null {
+  const obj = picked as Record<string, unknown>;
+  if (obj.id && typeof obj.id === 'object') {
+    const id = obj.id as Record<string, unknown>;
+    if (id.type && typeof id.type === 'string' && id.data && typeof id.data === 'object') {
+      return id as unknown as BillboardPickId;
+    }
+  }
+  return null;
+}
+
+/**
  * Extracts a searchable text blob from a picked entity/primitive for classification
  */
 function getEntityText(picked: unknown): string {
   const parts: string[] = [];
-
-  // Try to get entity name, description, and properties
   const obj = picked as Record<string, unknown>;
+
+  // Check for billboard pick first
+  const bbPick = isBillboardPick(picked);
+  if (bbPick) {
+    parts.push(bbPick.type);
+    const data = bbPick.data;
+    for (const key of Object.keys(data)) {
+      parts.push(key);
+      const val = data[key];
+      if (val !== undefined && val !== null && typeof val !== 'object') {
+        parts.push(String(val));
+      }
+    }
+    return parts.join(' ');
+  }
 
   // Resium/Cesium Entity
   if (obj.id && typeof obj.id === 'object') {
@@ -76,7 +113,7 @@ function getEntityText(picked: unknown): string {
     if (prim.id) parts.push(String(prim.id));
   }
 
-  // Billboard/Label with id
+  // Billboard/Label with string id
   if (obj.id && typeof obj.id === 'string') {
     parts.push(obj.id);
   }
@@ -89,8 +126,22 @@ function getEntityText(picked: unknown): string {
  */
 function getEntityData(picked: unknown): Record<string, unknown> {
   const data: Record<string, unknown> = {};
-  const obj = picked as Record<string, unknown>;
 
+  // Billboard pick — data is directly available
+  const bbPick = isBillboardPick(picked);
+  if (bbPick) {
+    const d = bbPick.data;
+    for (const key of Object.keys(d)) {
+      const val = d[key];
+      if (val !== undefined && val !== null) {
+        data[key] = val;
+      }
+    }
+    return data;
+  }
+
+  // Cesium Entity
+  const obj = picked as Record<string, unknown>;
   if (obj.id && typeof obj.id === 'object') {
     const entity = obj.id as Record<string, unknown>;
     if (entity.name) data.name = String(entity.name);
@@ -116,9 +167,20 @@ function getEntityData(picked: unknown): Record<string, unknown> {
 }
 
 /**
- * Classifies an entity based on keyword inspection of its text content
+ * Classifies an entity based on billboard id type or keyword inspection
  */
 function classifyEntity(text: string, picked: unknown): EntityType | null {
+  // Billboard pick — use the type field directly
+  const bbPick = isBillboardPick(picked);
+  if (bbPick) {
+    const t = bbPick.type.toLowerCase();
+    if (t === 'aircraft' || t === 'flight') return 'aircraft';
+    if (t === 'ship' || t === 'vessel') return 'ship';
+    if (t === 'cctv' || t === 'camera') return 'cctv';
+    if (t === 'earthquake' || t === 'seismic') return 'earthquake';
+    if (t === 'satellite') return 'satellite';
+  }
+
   const lower = text.toLowerCase();
 
   // Check for CCTV first via duck-typing
@@ -126,7 +188,7 @@ function classifyEntity(text: string, picked: unknown): EntityType | null {
     return 'cctv';
   }
 
-  // Satellite: norad, iss, altitude with km
+  // Satellite
   if (
     lower.includes('norad') ||
     lower.includes('iss') ||
@@ -137,7 +199,7 @@ function classifyEntity(text: string, picked: unknown): EntityType | null {
     return 'satellite';
   }
 
-  // Aircraft: callsign, icao24, aircraft, squawk
+  // Aircraft
   if (
     lower.includes('callsign') ||
     lower.includes('icao24') ||
@@ -148,7 +210,7 @@ function classifyEntity(text: string, picked: unknown): EntityType | null {
     return 'aircraft';
   }
 
-  // Ship: mmsi, imo:, call sign, destination
+  // Ship
   if (
     lower.includes('mmsi') ||
     lower.includes('imo:') ||
@@ -159,7 +221,7 @@ function classifyEntity(text: string, picked: unknown): EntityType | null {
     return 'ship';
   }
 
-  // Earthquake: magnitude, depth
+  // Earthquake
   if (lower.includes('magnitude') || lower.includes('depth') || lower.includes('earthquake') || lower.includes('seismic')) {
     return 'earthquake';
   }
@@ -173,7 +235,6 @@ function classifyEntity(text: string, picked: unknown): EntityType | null {
 function isCctvEntity(picked: unknown): boolean {
   const obj = picked as Record<string, unknown>;
 
-  // Check entity properties for CCTV-like structure
   if (obj.id && typeof obj.id === 'object') {
     const entity = obj.id as Record<string, unknown>;
     if (entity.properties && typeof entity.properties === 'object') {
@@ -191,7 +252,7 @@ function isCctvEntity(picked: unknown): boolean {
 }
 
 /**
- * Extracts CameraData from a CCTV entity
+ * Extracts CameraData from a CCTV entity/billboard
  */
 function extractCameraData(picked: unknown): CameraData | null {
   const data = getEntityData(picked);
@@ -215,6 +276,16 @@ function extractCameraData(picked: unknown): CameraData | null {
  * Gets entity name for display
  */
 function getEntityName(picked: unknown): string {
+  const bbPick = isBillboardPick(picked);
+  if (bbPick) {
+    const d = bbPick.data;
+    if (d.callsign) return String(d.callsign);
+    if (d.name) return String(d.name);
+    if (d.icao24) return String(d.icao24);
+    if (d.mmsi) return String(d.mmsi);
+    return bbPick.type;
+  }
+
   const obj = picked as Record<string, unknown>;
   if (obj.id && typeof obj.id === 'object') {
     const entity = obj.id as Record<string, unknown>;
@@ -228,6 +299,16 @@ function getEntityName(picked: unknown): string {
  * Gets entity ID string
  */
 function getEntityId(picked: unknown): string {
+  const bbPick = isBillboardPick(picked);
+  if (bbPick) {
+    const d = bbPick.data;
+    if (d.icao24) return String(d.icao24);
+    if (d.mmsi) return String(d.mmsi);
+    if (d.id) return String(d.id);
+    if (d.name) return String(d.name);
+    return `${bbPick.type}-${Date.now()}`;
+  }
+
   const obj = picked as Record<string, unknown>;
   if (obj.id && typeof obj.id === 'object') {
     const entity = obj.id as Record<string, unknown>;
@@ -248,13 +329,33 @@ const VIEW_FROM_OFFSETS: Record<EntityType, Cartesian3> = {
 };
 
 /**
- * EntityClickHandler - Handles click detection and camera lock-on
- * Uses Cesium scene.drillPick to detect clicked entities,
- * classifies them by type via keyword inspection, and
- * triggers camera lock-on with type-specific viewFrom offsets.
+ * EntityClickHandler - Handles click detection and camera lock-on.
+ *
+ * For Cesium Entity picks (satellites): directly uses viewer.trackedEntity.
+ * For BillboardCollection picks (aircraft, ships): creates a temporary
+ * Cesium Entity with CallbackProperty position for smooth camera tracking.
+ *
+ * Empty space click and ESC key both unlock tracking.
  */
 export default function EntityClickHandler({ onTrackEntity, onCctvClick }: EntityClickHandlerProps) {
   const { viewer } = useCesium();
+  const trackingEntityRef = useRef<import('cesium').Entity | null>(null);
+  const trackingPositionRef = useRef<Cartesian3>(new Cartesian3());
+
+  /**
+   * Removes the temporary tracking entity from the viewer
+   */
+  const clearTrackingEntity = useCallback(() => {
+    if (trackingEntityRef.current && viewer && !viewer.isDestroyed()) {
+      try {
+        viewer.entities.remove(trackingEntityRef.current);
+      } catch {
+        // ignore
+      }
+    }
+    trackingEntityRef.current = null;
+    trackingManager.clearTracking();
+  }, [viewer]);
 
   const handleClick = useCallback(
     (movement: { position: Cartesian2 }) => {
@@ -273,7 +374,6 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
           return text.length > 0 && !isHelperEntity(text);
         });
 
-        // Use real entities if any found, otherwise use all picks
         if (realEntities.length > 0) {
           picks = realEntities;
         }
@@ -291,10 +391,10 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       if (picks.length === 0) {
         onTrackEntity(null);
         onCctvClick(null);
-        // Untrack entity in viewer
         if (viewer.trackedEntity) {
           viewer.trackedEntity = undefined;
         }
+        clearTrackingEntity();
         return;
       }
 
@@ -304,9 +404,9 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       const entityType = classifyEntity(text, picked);
 
       if (!entityType) {
-        // Unknown entity type - untrack
         onTrackEntity(null);
         onCctvClick(null);
+        clearTrackingEntity();
         return;
       }
 
@@ -314,6 +414,11 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       if (entityType === 'cctv') {
         const cameraData = extractCameraData(picked);
         onCctvClick(cameraData);
+        onTrackEntity(null);
+        if (viewer.trackedEntity) {
+          viewer.trackedEntity = undefined;
+        }
+        clearTrackingEntity();
         return;
       }
 
@@ -326,36 +431,78 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       };
 
       onTrackEntity(trackedInfo);
+      onCctvClick(null);
 
-      // Camera lock-on: set viewFrom offset on the Cesium entity
-      const obj = picked as Record<string, unknown>;
-      if (obj.id && typeof obj.id === 'object') {
-        const cesiumEntity = obj.id as Record<string, unknown>;
-        if ('viewFrom' in cesiumEntity) {
-          (cesiumEntity as { viewFrom: Cartesian3 }).viewFrom = VIEW_FROM_OFFSETS[entityType];
+      // --- Camera lock-on ---
+      const bbPick = isBillboardPick(picked);
+
+      if (bbPick) {
+        // Billboard pick (aircraft, ship, earthquake from PointPrimitive) —
+        // Create a temporary tracking entity at the picked position
+        const d = bbPick.data;
+        const lat = Number(d.lat);
+        const lon = Number(d.lon);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          const altMeters = Number(d.altitudeMeters || d.altitude || 0);
+          const pos = Cartesian3.fromDegrees(lon, lat, altMeters);
+
+          // Remove old tracking entity
+          clearTrackingEntity();
+
+          // Store initial position
+          Cartesian3.clone(pos, trackingPositionRef.current);
+
+          // Create temporary entity with CallbackProperty for smooth tracking
+          const posCallback = new CallbackProperty(() => trackingPositionRef.current, false);
+
+          const trackEntity = viewer.entities.add({
+            position: posCallback as unknown as Cartesian3,
+            point: { pixelSize: 1, show: false },
+            viewFrom: VIEW_FROM_OFFSETS[entityType],
+          });
+
+          trackingEntityRef.current = trackEntity;
+
+          // Register with tracking manager so layers can update position
+          trackingManager.setTracking(
+            trackingPositionRef.current,
+            trackedInfo.id,
+            trackedInfo.type
+          );
+
+          try {
+            viewer.trackedEntity = trackEntity;
+          } catch {
+            // Entity may not be trackable
+          }
         }
-        // Set as tracked entity for camera follow
-        try {
-          viewer.trackedEntity = cesiumEntity as never;
-        } catch {
-          // Entity may not be trackable
+      } else {
+        // Cesium Entity pick (satellite) — use the entity directly
+        const obj = picked as Record<string, unknown>;
+        if (obj.id && typeof obj.id === 'object') {
+          const cesiumEntity = obj.id as Record<string, unknown>;
+          if ('viewFrom' in cesiumEntity) {
+            (cesiumEntity as { viewFrom: Cartesian3 }).viewFrom = VIEW_FROM_OFFSETS[entityType];
+          }
+          clearTrackingEntity();
+          try {
+            viewer.trackedEntity = cesiumEntity as never;
+          } catch {
+            // Entity may not be trackable
+          }
         }
       }
     },
-    [viewer, onTrackEntity, onCctvClick]
+    [viewer, onTrackEntity, onCctvClick, clearTrackingEntity]
   );
 
   useEffect(() => {
     if (!viewer) return;
 
-    // Create ScreenSpaceEventHandler for click events
     const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
 
     // Left click: detect and classify entities
-    handler.setInputAction(
-      handleClick,
-      ScreenSpaceEventType.LEFT_CLICK
-    );
+    handler.setInputAction(handleClick, ScreenSpaceEventType.LEFT_CLICK);
 
     // ESC key handler to unlock tracking
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -365,6 +512,7 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
         if (viewer.trackedEntity) {
           viewer.trackedEntity = undefined;
         }
+        clearTrackingEntity();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -373,7 +521,14 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       handler.destroy();
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [viewer, handleClick, onTrackEntity, onCctvClick]);
+  }, [viewer, handleClick, onTrackEntity, onCctvClick, clearTrackingEntity]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearTrackingEntity();
+    };
+  }, [clearTrackingEntity]);
 
   return null;
 }
