@@ -1,5 +1,53 @@
 ## WorldView Development Progress
 
+### Session 31 - 2026-03-06
+
+#### Completed Features:
+- Feature #68: Satellite icon rotation by bearing (PASSING)
+  - computeBearing() calculates bearing from current to 10-second future position
+  - Forward azimuth formula using atan2(y, x) on great-circle bearing
+  - Billboard rotation: -pos.bearing applied, alignedAxis = UNIT_Z
+  - Rotation updates at 5Hz in propagation interval via ConstantProperty
+  - ISS icon verified pointing in direction of travel (~66.5° NE)
+  - All 50/50 tested satellites produce valid non-zero bearings
+
+- Feature #78: Ship labels show name, speed, destination (PASSING)
+  - Labels compose: vesselName + sogStr (knots) + destStr (→ destination)
+  - NearFarScalar translucencyByDistance: full opacity at 5km, fades to 0 at 500km
+  - Labels hidden above 3,000km altitude (showLabels check)
+  - Vessel trails via PolylineCollection using reverse dead reckoning
+  - Trails only shown when SOG > 0.5 kt AND zoomed in < 500km altitude
+  - Trail positions: 10 points over 120s of reverse heading extrapolation
+  - Ship type-specific trail colors with 40% opacity
+
+- Feature #98: IntelFeed displays real-time events (PASSING)
+  - Desktop: fixed 288px (w-72) right panel at top with scrollable event list
+  - Mobile: badge button with full-screen modal
+  - 6 event types with distinct colors: ACFT/cyan, SEIS/red, SATS/lime, SYS/amber, CCTV/purple, AIS/orange
+  - Format: HH:MM:SS | [TYPE] | message text
+  - 20-entry cap, newest first (prepended), auto-scroll to top
+  - 4 system messages on mount: INITIALIZING, ENGINE LOADING, PROXY CONNECTION, DISPLAY ONLINE
+  - Data-driven events from 5 data hooks: flights, satellites, earthquakes, ships, CCTV
+  - Events fire on initial data load and significant count changes
+  - React useEffect hooks trigger events reactively without page refresh
+
+#### Modified Files:
+- src/components/layers/ShipLayer.tsx — Added destination to labels, NearFarScalar fading, vessel trails
+- src/components/ui/IntelFeed.tsx — Full rewrite with color coding, mobile support, auto-scroll
+- src/App.tsx — Added data-driven intel event generation from 5 data hooks
+
+#### Current Status:
+- 87/205 features passing (42.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Additional UI features and layer enhancements
+- More data integration features
+- Performance optimizations
+
 ### Session 30 - 2026-03-06
 
 #### Completed Features:
