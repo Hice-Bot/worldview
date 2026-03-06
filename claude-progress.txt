@@ -1,5 +1,50 @@
 ## WorldView Development Progress
 
+### Session 27 - 2026-03-06
+
+#### Completed Features:
+- Feature #48: Camera flyTo smooth animated transitions (PASSING)
+  - handleResetView now uses viewer.camera.flyTo() with 2s duration instead of instant setCameraState
+  - CCTV flyTo calls cancelFlight() before starting new animation
+  - All user-triggered camera transitions use smooth flyTo (0.5-2s duration)
+  - Multiple flyTo calls properly cancel previous flights via cancelFlight()
+  - camera.setView only used for initial startup (GlobeViewer mount) — correct behavior
+  - Orientation (heading, pitch) interpolated smoothly during transitions
+
+- Feature #49: Camera presets fly to specific locations (PASSING)
+  - Reset View button uses flyTo to return to Sydney at 20M altitude with exact heading/pitch
+  - Reset View clears tracked entity and unsets viewer.trackedEntity
+  - Locate Me button implemented with browser Geolocation API (primary)
+  - Server-side /api/geolocation fallback (ip-api.com) when browser geolocation denied
+  - locateMeState with 4 states: idle, requesting, success, error
+  - OperationsPanel shows visual feedback: "Locating..." (cyan pulsing), "Located!" (green), "Default View" (red)
+  - Auto-resets to idle after 3 seconds via useEffect timer
+  - Falls back to default camera when all geolocation methods fail
+
+- Feature #53: Globe navigation with mouse controls (PASSING)
+  - CesiumJS Viewer component rendered with standard screenSpaceCameraController
+  - No overrides that disable mouse controls (enableRotate, enableZoom, etc.)
+  - Left click + drag rotates/pans globe (default CesiumJS behavior)
+  - Scroll wheel zooms in/out (default CesiumJS behavior)
+  - Right click + drag tilts view angle (default CesiumJS behavior)
+  - Middle click + drag rotates around look-at point (default CesiumJS behavior)
+  - Double-click zooms to clicked location (default CesiumJS behavior)
+
+#### Modified Files:
+- src/App.tsx — handleResetView uses flyTo, new handleLocateMe with geolocation, locateMeState, CesiumMath import
+- src/components/ui/OperationsPanel.tsx — locateMeState prop, visual feedback for Locate Me button
+
+#### Current Status:
+- 76/205 features passing (37.1%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with next assigned features
+- All camera transitions now use smooth flyTo animations
+
 ### Session 26 - 2026-03-06
 
 #### Completed Features:
