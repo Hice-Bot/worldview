@@ -161,7 +161,7 @@ export default function App() {
   // =========================================================================
   const prevFlightCountRef = useRef(0);
   const prevSatCountRef = useRef(0);
-  const prevQuakeCountRef = useRef(0);
+  const prevQuakeIdsRef = useRef<Set<string>>(new Set());
   const prevShipCountRef = useRef(0);
   const prevCctvCountRef = useRef(0);
 
@@ -187,29 +187,39 @@ export default function App() {
     prevSatCountRef.current = satellites.length;
   }, [satellites.length, booted, addIntelEvent]);
 
-  // Earthquake data changes
+  // Earthquake data changes — generates per-earthquake SEIS events with descriptions
   useEffect(() => {
     if (!booted || earthquakes.length === 0) return;
-    const prev = prevQuakeCountRef.current;
-    if (prev === 0 && earthquakes.length > 0) {
-      // Find the strongest earthquake
+    const prevIds = prevQuakeIdsRef.current;
+    const currentIds = new Set(earthquakes.map(q => q.id));
+
+    if (prevIds.size === 0 && earthquakes.length > 0) {
+      // Initial load — report summary with strongest earthquake
       const strongest = earthquakes.reduce((a, b) => (a.magnitude > b.magnitude ? a : b));
       addIntelEvent('SEIS', `${earthquakes.length} SEISMIC EVENTS — MAX M${strongest.magnitude.toFixed(1)} ${strongest.place || ''}`);
-    } else if (earthquakes.length > prev) {
-      const newCount = earthquakes.length - prev;
-      addIntelEvent('SEIS', `${newCount} NEW SEISMIC EVENT${newCount > 1 ? 'S' : ''} DETECTED`);
+    } else if (prevIds.size > 0) {
+      // Find new earthquakes that weren't in the previous set
+      const newQuakes = earthquakes.filter(q => !prevIds.has(q.id));
+      // Report each new significant earthquake individually with its description
+      for (const quake of newQuakes) {
+        const desc = quake.place ? `M${quake.magnitude.toFixed(1)} ${quake.place}` : `M${quake.magnitude.toFixed(1)} SEISMIC EVENT`;
+        addIntelEvent('SEIS', desc.toUpperCase());
+      }
     }
-    prevQuakeCountRef.current = earthquakes.length;
-  }, [earthquakes.length, booted, addIntelEvent]);
 
-  // Ship data changes
+    prevQuakeIdsRef.current = currentIds;
+  }, [earthquakes, booted, addIntelEvent]);
+
+  // Ship data changes — vessel count changes of 30+ trigger AIS events
   useEffect(() => {
     if (!booted || ships.length === 0) return;
     const prev = prevShipCountRef.current;
     if (prev === 0 && ships.length > 0) {
       addIntelEvent('AIS', `AIS FEED ACTIVE — ${ships.length.toLocaleString()} VESSELS TRACKED`);
-    } else if (Math.abs(ships.length - prev) > 50) {
-      addIntelEvent('AIS', `VESSEL COUNT UPDATED: ${ships.length.toLocaleString()} AIS TARGETS`);
+    } else if (Math.abs(ships.length - prev) >= 30) {
+      const diff = ships.length - prev;
+      const direction = diff > 0 ? 'INCREASED' : 'DECREASED';
+      addIntelEvent('AIS', `VESSEL COUNT ${direction} BY ${Math.abs(diff)} — ${ships.length.toLocaleString()} AIS TARGETS`);
     }
     prevShipCountRef.current = ships.length;
   }, [ships.length, booted, addIntelEvent]);
