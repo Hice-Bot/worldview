@@ -1019,30 +1019,167 @@ app.get('/api/flights/live', async (req, res) => {
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
-wss.on('connection', (ws) => {
-  console.log('[WS] Client connected');
+// Track active WebSocket connections for monitoring
+let wsConnectionCount = 0;
+
+wss.on('connection', (ws, req) => {
+  wsConnectionCount++;
+  const clientId = wsConnectionCount;
+  const clientIp = req.socket.remoteAddress || 'unknown';
+  console.log(`[WS] Client #${clientId} connected from ${clientIp} (${wss.clients.size} total)`);
+
   let flightPollInterval = null;
+  let currentSubscription = null;
+  let isAlive = true;
+
+  // Heartbeat: detect broken connections
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
 
   ws.on('message', (data) => {
+    // Guard against empty messages
+    const raw = data.toString();
+    if (!raw || raw.length === 0) {
+      console.warn(`[WS] Client #${clientId}: empty message ignored`);
+      return;
+    }
+
+    let msg;
     try {
-      const msg = JSON.parse(data.toString());
-      if (msg.type === 'subscribe-flights' && msg.bbox) {
-        // TODO: Implement OpenSky Network polling at 10s intervals
-        console.log('[WS] Flight subscription for bbox:', msg.bbox);
-      }
+      msg = JSON.parse(raw);
     } catch (err) {
-      console.error('[WS] Invalid message:', err.message);
+      console.error(`[WS] Client #${clientId}: invalid JSON: ${err.message} (data: "${raw.substring(0, 100)}")`);
+      // Send error back to client but don't crash
+      try {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON message' }));
+      } catch (_) { /* client may have disconnected */ }
+      return;
+    }
+
+    // Handle message types
+    if (msg.type === 'subscribe-flights' && msg.bbox) {
+      // Clear previous subscription if exists
+      if (flightPollInterval) {
+        clearInterval(flightPollInterval);
+        flightPollInterval = null;
+      }
+
+      const { south, north, west, east } = msg.bbox;
+      currentSubscription = { south, north, west, east };
+      console.log(`[WS] Client #${clientId}: subscribing to flights bbox [${south},${west} -> ${north},${east}]`);
+
+      // Send initial acknowledgment
+      try {
+        ws.send(JSON.stringify({ type: 'subscription-ack', bbox: msg.bbox }));
+      } catch (_) { /* client may have disconnected */ }
+
+      // Poll flight data at 10s intervals
+      const pollFlights = async () => {
+        // Don't poll if connection is closed
+        if (ws.readyState !== ws.OPEN) {
+          if (flightPollInterval) {
+            clearInterval(flightPollInterval);
+            flightPollInterval = null;
+          }
+          return;
+        }
+
+        try {
+          // Use cached flights data from the /api/flights endpoint
+          let flights = cache.get('flights') || [];
+
+          // Filter to bounding box
+          const filtered = flights.filter(f =>
+            f.lat >= south && f.lat <= north &&
+            f.lon >= west && f.lon <= east &&
+            !f.onGround
+          );
+
+          ws.send(JSON.stringify({
+            type: 'flights-update',
+            count: filtered.length,
+            aircraft: filtered,
+            timestamp: Date.now(),
+          }));
+        } catch (upstreamError) {
+          // Catch upstream / data processing failures
+          console.error(`[WS] Client #${clientId}: flight poll error: ${upstreamError.message}`);
+          try {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Upstream flight data temporarily unavailable',
+              retrying: true,
+            }));
+          } catch (_) { /* client may have disconnected */ }
+        }
+      };
+
+      // Initial poll immediately
+      pollFlights();
+      // Then every 10 seconds
+      flightPollInterval = setInterval(pollFlights, 10000);
+
+    } else if (msg.type === 'unsubscribe-flights') {
+      // Allow clients to unsubscribe
+      if (flightPollInterval) {
+        clearInterval(flightPollInterval);
+        flightPollInterval = null;
+        currentSubscription = null;
+        console.log(`[WS] Client #${clientId}: unsubscribed from flights`);
+      }
+
+    } else if (msg.type === 'ping') {
+      // Application-level ping/pong
+      try {
+        ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+      } catch (_) { /* client may have disconnected */ }
+
+    } else {
+      console.warn(`[WS] Client #${clientId}: unknown message type "${msg.type || 'undefined'}"`);
+      try {
+        ws.send(JSON.stringify({ type: 'error', message: `Unknown message type: ${msg.type}` }));
+      } catch (_) { /* client may have disconnected */ }
     }
   });
 
-  ws.on('close', () => {
-    console.log('[WS] Client disconnected');
-    if (flightPollInterval) clearInterval(flightPollInterval);
+  ws.on('close', (code, reason) => {
+    const reasonStr = reason ? reason.toString() : 'none';
+    console.log(`[WS] Client #${clientId} disconnected (code: ${code}, reason: ${reasonStr}, ${wss.clients.size} remaining)`);
+    // Clean up all resources
+    if (flightPollInterval) {
+      clearInterval(flightPollInterval);
+      flightPollInterval = null;
+    }
+    currentSubscription = null;
+    isAlive = false;
   });
 
   ws.on('error', (err) => {
-    console.error('[WS] Error:', err.message);
+    console.error(`[WS] Client #${clientId} error: ${err.message}`);
+    // Clean up on error
+    if (flightPollInterval) {
+      clearInterval(flightPollInterval);
+      flightPollInterval = null;
+    }
+    currentSubscription = null;
+    isAlive = false;
   });
+});
+
+// WebSocket heartbeat interval: detect and close broken connections
+const wsHeartbeat = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      console.log('[WS] Terminating unresponsive client');
+      return ws.terminate();
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000); // Check every 30 seconds
+
+wss.on('close', () => {
+  clearInterval(wsHeartbeat);
 });
 
 // ============================================================================
