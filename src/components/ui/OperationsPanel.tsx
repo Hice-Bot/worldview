@@ -15,6 +15,7 @@ interface OperationsPanelProps {
   altitudeFilters: AltitudeFilters;
   satelliteFilters: SatelliteFilters;
   showRoutePaths: boolean;
+  locateMeState?: 'idle' | 'requesting' | 'success' | 'error';
   onToggleLayer: (layer: keyof LayerState) => void;
   onShaderChange: (mode: ShaderMode) => void;
   onMapTilesChange: (mode: MapTileMode) => void;
@@ -76,6 +77,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
     altitudeFilters,
     satelliteFilters,
     showRoutePaths,
+    locateMeState = 'idle',
     onToggleLayer,
     onShaderChange,
     onMapTilesChange,
@@ -312,13 +314,26 @@ export default function OperationsPanel(props: OperationsPanelProps) {
       <div className="space-y-1 px-3 pb-4">
         <button
           onClick={onLocateMe}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded border bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all"
+          disabled={locateMeState === 'requesting'}
+          className={`
+            w-full flex items-center gap-2 px-2 py-1.5 rounded border transition-all
+            ${locateMeState === 'requesting'
+              ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300 cursor-wait'
+              : locateMeState === 'success'
+              ? 'bg-green-500/20 border-green-400/40 text-green-300'
+              : locateMeState === 'error'
+              ? 'bg-red-500/20 border-red-400/40 text-red-300'
+              : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80'
+            }
+          `}
         >
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className={`w-3 h-3 ${locateMeState === 'requesting' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3" />
             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
           </svg>
-          <span className="text-[10px] font-bold uppercase tracking-wider">Locate Me</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider">
+            {locateMeState === 'requesting' ? 'Locating...' : locateMeState === 'success' ? 'Located!' : locateMeState === 'error' ? 'Default View' : 'Locate Me'}
+          </span>
         </button>
         <button
           onClick={onResetView}

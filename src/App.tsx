@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Cartesian3 } from 'cesium';
+import { Cartesian3, Math as CesiumMath } from 'cesium';
 import type { Viewer as CesiumViewer } from 'cesium';
 import GlobeViewer from './components/globe/GlobeViewer';
 import OperationsPanel from './components/ui/OperationsPanel';
@@ -166,11 +166,106 @@ export default function App() {
     setTrackedEntity(entity);
   }, []);
 
-  // Reset view handler
+  // Reset view handler - smooth flyTo animation to default Sydney view
   const handleResetView = useCallback(() => {
-    setCameraState(DEFAULT_CAMERA);
     setTrackedEntity(null);
+    const viewer = viewerRef.current;
+    if (viewer && !viewer.isDestroyed()) {
+      // Cancel any in-progress flight
+      viewer.camera.cancelFlight();
+      viewer.trackedEntity = undefined;
+      viewer.camera.flyTo({
+        destination: Cartesian3.fromDegrees(
+          DEFAULT_CAMERA.lon,
+          DEFAULT_CAMERA.lat,
+          DEFAULT_CAMERA.altitude
+        ),
+        orientation: {
+          heading: CesiumMath.toRadians(DEFAULT_CAMERA.heading),
+          pitch: CesiumMath.toRadians(DEFAULT_CAMERA.pitch),
+          roll: 0,
+        },
+        duration: 2.0,
+      });
+    }
   }, []);
+
+  // Locate Me handler - uses browser geolocation API then server-side fallback
+  const [locateMeState, setLocateMeState] = useState<'idle' | 'requesting' | 'success' | 'error'>('idle');
+  const handleLocateMe = useCallback(() => {
+    setLocateMeState('requesting');
+    const viewer = viewerRef.current;
+
+    const flyToLocation = (lat: number, lon: number, altitude: number, duration: number) => {
+      if (viewer && !viewer.isDestroyed()) {
+        viewer.camera.cancelFlight();
+        viewer.trackedEntity = undefined;
+        setTrackedEntity(null);
+        viewer.camera.flyTo({
+          destination: Cartesian3.fromDegrees(lon, lat, altitude),
+          orientation: {
+            heading: CesiumMath.toRadians(0),
+            pitch: CesiumMath.toRadians(-45),
+            roll: 0,
+          },
+          duration,
+          complete: () => setLocateMeState('success'),
+        });
+      }
+    };
+
+    // Try browser Geolocation API first
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          flyToLocation(position.coords.latitude, position.coords.longitude, 50000, 2.0);
+        },
+        () => {
+          // Geolocation denied/unavailable — try server-side IP geolocation
+          fetch('/api/geolocation')
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.lat && data.lon) {
+                flyToLocation(data.lat, data.lon, 50000, 2.0);
+              } else {
+                // Fall back to default view if no location available
+                setLocateMeState('error');
+                flyToLocation(DEFAULT_CAMERA.lat, DEFAULT_CAMERA.lon, DEFAULT_CAMERA.altitude, 2.0);
+              }
+            })
+            .catch(() => {
+              setLocateMeState('error');
+              flyToLocation(DEFAULT_CAMERA.lat, DEFAULT_CAMERA.lon, DEFAULT_CAMERA.altitude, 2.0);
+            });
+        },
+        { enableHighAccuracy: false, timeout: 5000 }
+      );
+    } else {
+      // No geolocation support — try server-side
+      fetch('/api/geolocation')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.lat && data.lon) {
+            flyToLocation(data.lat, data.lon, 50000, 2.0);
+          } else {
+            setLocateMeState('error');
+            flyToLocation(DEFAULT_CAMERA.lat, DEFAULT_CAMERA.lon, DEFAULT_CAMERA.altitude, 2.0);
+          }
+        })
+        .catch(() => {
+          setLocateMeState('error');
+          flyToLocation(DEFAULT_CAMERA.lat, DEFAULT_CAMERA.lon, DEFAULT_CAMERA.altitude, 2.0);
+        });
+    }
+  }, []);
+
+  // Auto-reset locateMeState after 3 seconds
+  useEffect(() => {
+    if (locateMeState === 'success' || locateMeState === 'error') {
+      const timer = setTimeout(() => setLocateMeState('idle'), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [locateMeState]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black">
@@ -212,8 +307,9 @@ export default function App() {
         onAltitudeFilterChange={setAltitudeFilters}
         onSatelliteFilterChange={setSatelliteFilters}
         onShowRoutePathsChange={setShowRoutePaths}
+        locateMeState={locateMeState}
         onResetView={handleResetView}
-        onLocateMe={() => {/* TODO: implement geolocation */}}
+        onLocateMe={handleLocateMe}
       />
 
       <IntelFeed events={intelEvents} />
@@ -224,9 +320,11 @@ export default function App() {
         onSelectCamera={setSelectedCamera}
         onFlyTo={(camera) => {
           setSelectedCamera(camera);
-          // Animate globe camera to camera lat/lon
+          // Animate globe camera to camera lat/lon with smooth flyTo
           const viewer = viewerRef.current;
           if (viewer && !viewer.isDestroyed()) {
+            // Cancel any in-progress flight before starting a new one
+            viewer.camera.cancelFlight();
             viewer.camera.flyTo({
               destination: Cartesian3.fromDegrees(camera.lon, camera.lat, 2000),
               duration: 1.5,
