@@ -1,5 +1,42 @@
 ## WorldView Development Progress
 
+### Session 20 - 2026-03-06
+
+#### Completed Features:
+- Feature #26: Traffic cache returns same data within TTL (PASSING)
+  - GET /api/traffic/roads?bbox returns 3543 roads from Overpass API
+  - Same bbox request returns identical cached data (197ms vs 9121ms)
+  - Different bbox produces different result (NYC: 2051 roads vs London: 3543)
+  - cache.set(cacheKey, roads, 86400) = 24hr TTL for static road network data
+  - Cache persists across multiple reads
+
+- Feature #27: CCTV image proxy fetches real camera images (PASSING)
+  - GET /api/cctv returns 1862 cameras with imageUrl
+  - /api/cctv/image?url=<encoded> proxies TfL JamCam images (GB): valid JPEG, 14KB
+  - /api/cctv/image?url=<encoded> proxies Austin CCTV images (US): valid JPEG, 165KB
+  - Content-Type forwarded correctly as image/jpeg
+  - Multiple cameras from both providers proxy successfully
+  - Missing url parameter returns 400 error
+
+- Feature #28: CCTV country filter works correctly (PASSING)
+  - GET /api/cctv?country=GB: 884 cameras, all in London UK region (51.x lat)
+  - GET /api/cctv?country=US: 978 cameras, all in Austin TX region (30.x lat)
+  - GET /api/cctv?country=AU: 0 cameras (no NSW_TRANSPORT_API_KEY configured)
+  - GET /api/cctv (no filter): 1862 cameras = GB(884) + US(978)
+  - Geographic coordinates verified: all GB within UK bounds, all US within US bounds
+
+#### Current Status:
+- 57/205 features passing (27.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All features verified with automated test scripts
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with remaining real data verification features
+- Data layer rendering features
+- UI component features
+
 ### Session 19 - 2026-03-06
 
 #### Completed Features:
