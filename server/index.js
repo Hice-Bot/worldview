@@ -672,90 +672,178 @@ function enrichWithRoutes(aircraft) {
 // ============================================================================
 // Flights Endpoint - FR24 + adsb.fi fallback
 // ============================================================================
+
+// FR24 regional zones covering the globe (7 zones)
+const FR24_ZONES = [
+  { name: 'north_america', bounds: '70,-140,10,-50' },
+  { name: 'europe', bounds: '72,-15,35,45' },
+  { name: 'asia', bounds: '60,45,5,145' },
+  { name: 'south_america', bounds: '15,-90,-60,-30' },
+  { name: 'oceania', bounds: '5,95,-50,180' },
+  { name: 'middle_east', bounds: '42,25,10,65' },
+  { name: 'africa', bounds: '40,-20,-40,55' },
+];
+
+let fr24LastFetch = 0;
+const FR24_MIN_INTERVAL = 15000; // 15s minimum between upstream FR24 calls
+let fr24BackoffMs = 0; // Exponential backoff for FR24 failures
+
+// Parse FR24 response into aircraft array
+function parseFR24Data(data) {
+  const aircraft = [];
+  if (!data || typeof data !== 'object') return aircraft;
+  for (const [key, val] of Object.entries(data)) {
+    // FR24 keys are hex IDs; skip metadata fields (full_count, version, stats, etc.)
+    if (!Array.isArray(val) || val.length < 14) continue;
+    // FR24 array format: [icao24, lat, lon, heading, altitude_ft, speed_kts, squawk,
+    //   radar, aircraft_type, registration, timestamp, origin, destination, callsign, ...]
+    const icao24 = (val[0] || '').toLowerCase().trim();
+    const lat = val[1] || 0;
+    const lon = val[2] || 0;
+    const heading = val[3] || 0;
+    const altitudeFeet = val[4] || 0;
+    const speedKnots = val[5] || 0;
+    const registration = val[9] || '';
+    const origin = val[11] || '';
+    const destination = val[12] || '';
+    const callsign = (val[13] || '').trim();
+    const onGround = altitudeFeet <= 0;
+
+    if (!lat && !lon) continue; // skip entries without position
+
+    aircraft.push({
+      icao24,
+      callsign,
+      registration,
+      lat,
+      lon,
+      altitudeMeters: Math.round(altitudeFeet * 0.3048),
+      altitudeFeet,
+      velocityMs: Math.round(speedKnots * 0.514444 * 100) / 100,
+      velocityKnots: speedKnots,
+      heading,
+      verticalRate: 0, // FR24 doesn't provide vertical rate in basic feed
+      origin,
+      destination,
+      onGround,
+    });
+
+    // Also populate route registry from FR24 data
+    if (callsign && origin && destination) {
+      routeRegistry.set(callsign, {
+        origin,
+        destination,
+        operatorIata: '',
+        flightNumber: 0,
+        updatedAt: Date.now(),
+      });
+    }
+  }
+  return aircraft;
+}
+
 app.get('/api/flights', async (_req, res) => {
   try {
     const cached = cache.get('flights');
     if (cached) return res.json(cached);
 
-    // Primary: OpenSky Network (anonymous or authenticated with OPENSKY credentials)
-    try {
-      const openskyHeaders = {};
-      if (process.env.OPENSKY_CLIENT_ID && process.env.OPENSKY_CLIENT_SECRET) {
-        const credentials = Buffer.from(`${process.env.OPENSKY_CLIENT_ID}:${process.env.OPENSKY_CLIENT_SECRET}`).toString('base64');
-        openskyHeaders['Authorization'] = `Basic ${credentials}`;
+    // Primary: FlightRadar24 cloud API (7 regional zones in parallel)
+    const now = Date.now();
+    const timeSinceLastFR24 = now - fr24LastFetch;
+    const fr24CooldownOk = timeSinceLastFR24 >= FR24_MIN_INTERVAL + fr24BackoffMs;
+
+    if (fr24CooldownOk) {
+      try {
+        fr24LastFetch = now;
+        const zoneResults = await Promise.allSettled(
+          FR24_ZONES.map(async (zone) => {
+            const url = `https://data-cloud.flightradar24.com/zones/fcgi/feed.js?faa=1&satellite=1&mlat=1&flarm=1&adsb=1&gnd=1&air=1&vehicles=0&estimated=1&gliders=0&stats=0&bounds=${zone.bounds}`;
+            const response = await fetch(url, {
+              signal: AbortSignal.timeout(15000),
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': 'application/json',
+              },
+            });
+            if (!response.ok) throw new Error(`FR24 ${zone.name} HTTP ${response.status}`);
+            const data = await response.json();
+            return parseFR24Data(data);
+          })
+        );
+
+        // Collect successful zone results
+        const allAircraft = [];
+        const icaoSeen = new Set();
+        let failedZones = 0;
+        for (const result of zoneResults) {
+          if (result.status === 'fulfilled') {
+            for (const ac of result.value) {
+              if (!icaoSeen.has(ac.icao24)) {
+                icaoSeen.add(ac.icao24);
+                allAircraft.push(ac);
+              }
+            }
+          } else {
+            failedZones++;
+          }
+        }
+
+        if (allAircraft.length === 0) {
+          throw new Error(`FR24: all ${failedZones} zones failed, 0 aircraft`);
+        }
+
+        // Reset backoff on success
+        fr24BackoffMs = 0;
+        const airborneCount = allAircraft.filter(a => !a.onGround).length;
+        console.log(`[FLIGHTS] FR24: ${airborneCount} airborne + ${allAircraft.length - airborneCount} ground from ${7 - failedZones}/7 zones`);
+        enrichWithRoutes(allAircraft);
+        cache.set('flights', allAircraft, 30); // 30s TTL
+        refreshRouteRegistry().catch(() => {});
+        res.json(allAircraft);
+        return;
+      } catch (primaryError) {
+        // Apply exponential backoff for FR24 failures
+        fr24BackoffMs = Math.min((fr24BackoffMs || 15000) * 2, 120000); // start 30s, cap 2min
+        console.error(`[FLIGHTS] FR24 failed (backoff ${Math.round(fr24BackoffMs / 1000)}s):`, primaryError.message);
       }
-      const response = await fetch('https://opensky-network.org/api/states/all', {
-        signal: AbortSignal.timeout(15000),
-        headers: openskyHeaders,
+    } else {
+      console.log(`[FLIGHTS] FR24 cooldown: ${Math.round((FR24_MIN_INTERVAL + fr24BackoffMs - timeSinceLastFR24) / 1000)}s remaining`);
+    }
+
+    // Fallback: adsb.fi global endpoint
+    try {
+      const response = await fetch('https://api.adsb.fi/v2/all', {
+        signal: AbortSignal.timeout(10000),
       });
-      if (!response.ok) throw new Error(`OpenSky HTTP ${response.status}`);
+      if (!response.ok) throw new Error(`adsb.fi HTTP ${response.status}`);
       const data = await response.json();
-      const states = data?.states || [];
-      // OpenSky state vector format: [icao24, callsign, origin_country, time_position, last_contact,
-      //   lon, lat, baro_altitude, on_ground, velocity, true_track, vertical_rate, sensors,
-      //   geo_altitude, squawk, spi, position_source]
-      const aircraft = states
-        .filter(s => s[5] !== null && s[6] !== null) // has position (include ground for departure detection)
-        .map(s => ({
-          icao24: (s[0] || '').trim(),
-          callsign: (s[1] || '').trim(),
-          registration: '',
-          lat: s[6] || 0,
-          lon: s[5] || 0,
-          altitudeMeters: s[7] || 0,
-          altitudeFeet: Math.round((s[7] || 0) * 3.28084),
-          velocityMs: s[9] || 0,
-          velocityKnots: Math.round((s[9] || 0) * 1.94384),
-          heading: s[10] || 0,
-          verticalRate: s[11] || 0,
+      const aircraft = (data?.ac || [])
+        .filter(ac => ac.lat && ac.lon)
+        .map(ac => ({
+          icao24: ac.hex || '',
+          callsign: (ac.flight || '').trim(),
+          registration: ac.r || '',
+          lat: ac.lat || 0,
+          lon: ac.lon || 0,
+          altitudeMeters: ac.alt_baro === 'ground' ? 0 : ((ac.alt_baro || 0) * 0.3048),
+          altitudeFeet: ac.alt_baro === 'ground' ? 0 : (ac.alt_baro || 0),
+          velocityMs: (ac.gs || 0) * 0.514444,
+          velocityKnots: ac.gs || 0,
+          heading: ac.track || 0,
+          verticalRate: ac.baro_rate || 0,
           origin: '',
           destination: '',
-          onGround: !!s[8],
+          onGround: ac.alt_baro === 'ground' || !!ac.ground,
         }));
-      const airborneCount = aircraft.filter(a => !a.onGround).length;
-      console.log(`[FLIGHTS] OpenSky: ${airborneCount} airborne + ${aircraft.length - airborneCount} ground from ${states.length} total states`);
       enrichWithRoutes(aircraft);
-      cache.set('flights', aircraft, 30); // 30s TTL
-      // Trigger background route registry refresh (non-blocking)
+      const fallbackAirborne = aircraft.filter(a => !a.onGround).length;
+      console.log(`[FLIGHTS] adsb.fi fallback: ${fallbackAirborne} airborne + ${aircraft.length - fallbackAirborne} ground`);
+      cache.set('flights', aircraft, 30);
       refreshRouteRegistry().catch(() => {});
       res.json(aircraft);
-    } catch (primaryError) {
-      console.error('[FLIGHTS] OpenSky failed:', primaryError.message);
-      // Fallback to adsb.fi
-      try {
-        const response = await fetch('https://api.adsb.fi/v2/all', {
-          signal: AbortSignal.timeout(10000),
-        });
-        if (!response.ok) throw new Error(`adsb.fi HTTP ${response.status}`);
-        const data = await response.json();
-        const aircraft = (data?.ac || [])
-          .filter(ac => ac.lat && ac.lon) // include ground aircraft for departure detection
-          .map(ac => ({
-            icao24: ac.hex || '',
-            callsign: (ac.flight || '').trim(),
-            registration: ac.r || '',
-            lat: ac.lat || 0,
-            lon: ac.lon || 0,
-            altitudeMeters: ac.alt_baro === 'ground' ? 0 : ((ac.alt_baro || 0) * 0.3048),
-            altitudeFeet: ac.alt_baro === 'ground' ? 0 : (ac.alt_baro || 0),
-            velocityMs: (ac.gs || 0) * 0.514444,
-            velocityKnots: ac.gs || 0,
-            heading: ac.track || 0,
-            verticalRate: ac.baro_rate || 0,
-            origin: '',
-            destination: '',
-            onGround: ac.alt_baro === 'ground' || !!ac.ground,
-          }));
-        enrichWithRoutes(aircraft);
-        const fallbackAirborne = aircraft.filter(a => !a.onGround).length;
-        console.log(`[FLIGHTS] adsb.fi fallback: ${fallbackAirborne} airborne + ${aircraft.length - fallbackAirborne} ground`);
-        cache.set('flights', aircraft, 30);
-        refreshRouteRegistry().catch(() => {});
-        res.json(aircraft);
-      } catch (fallbackError) {
-        console.error('[FLIGHTS] Both sources failed:', fallbackError.message);
-        res.json([]);
-      }
+    } catch (fallbackError) {
+      console.error('[FLIGHTS] Both sources failed:', fallbackError.message);
+      res.json([]);
     }
   } catch (error) {
     console.error('[FLIGHTS] Error:', error.message);
