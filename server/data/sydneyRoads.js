@@ -2,6 +2,7 @@
  * Static Sydney CBD road data - 427 road segments
  * Exported from OpenStreetMap via Overpass API on 2026-03-05.
  * Used as fallback when Overpass API fails or times out.
+ * Lengths calculated via Haversine formula.
  */
 export const sydneyRoads = [
   {
@@ -25,7 +26,7 @@ export const sydneyRoads = [
         -33.8729597
       ]
     ],
-    "length": 0,
+    "length": 53.29,
     "name": "Park Street"
   },
   {
@@ -57,7 +58,7 @@ export const sydneyRoads = [
         -33.875134
       ]
     ],
-    "length": 0,
+    "length": 154.57,
     "name": "Harris Street"
   },
   {
@@ -109,7 +110,7 @@ export const sydneyRoads = [
         -33.8699491
       ]
     ],
-    "length": 0,
+    "length": 81.2,
     "name": "St. James Road"
   },
   {
@@ -137,7 +138,7 @@ export const sydneyRoads = [
         -33.8738383
       ]
     ],
-    "length": 0,
+    "length": 102.43,
     "name": "William Street"
   },
   {
@@ -189,7 +190,7 @@ export const sydneyRoads = [
         -33.8663694
       ]
     ],
-    "length": 0,
+    "length": 290.09,
     "name": "Cahill Expressway"
   },
   {
@@ -233,7 +234,7 @@ export const sydneyRoads = [
         -33.8668085
       ]
     ],
-    "length": 0,
+    "length": 212.59,
     "name": "Cahill Expressway"
   },
   {
@@ -265,7 +266,7 @@ export const sydneyRoads = [
         -33.8687824
       ]
     ],
-    "length": 0,
+    "length": 93.62,
     "name": "King Street"
   },
   {
@@ -317,7 +318,7 @@ export const sydneyRoads = [
         -33.8749012
       ]
     ],
-    "length": 0,
+    "length": 239,
     "name": "Western Distributor"
   },
   {
@@ -369,7 +370,7 @@ export const sydneyRoads = [
         -33.870869
       ]
     ],
-    "length": 0,
+    "length": 247.39,
     "name": "Western Distributor"
   },
   {
@@ -417,7 +418,7 @@ export const sydneyRoads = [
         -33.8727818
       ]
     ],
-    "length": 0,
+    "length": 51.66,
     "name": "Druitt Street"
   },
   {
@@ -437,7 +438,7 @@ export const sydneyRoads = [
         -33.8707364
       ]
     ],
-    "length": 0,
+    "length": 117.78,
     "name": "Western Distributor"
   },
   {
@@ -465,7 +466,7 @@ export const sydneyRoads = [
         -33.8636516
       ]
     ],
-    "length": 0,
+    "length": 56.54,
     "name": "Bridge Street"
   },
   {
@@ -505,7 +506,7 @@ export const sydneyRoads = [
         -33.8706162
       ]
     ],
-    "length": 0,
+    "length": 208.46,
     "name": "Eastern Distributor"
   },
   {
@@ -541,7 +542,7 @@ export const sydneyRoads = [
         -33.8684813
       ]
     ],
-    "length": 0,
+    "length": 145.62,
     "name": "Cahill Expressway"
   },
   {
@@ -573,7 +574,7 @@ export const sydneyRoads = [
         -33.8601644
       ]
     ],
-    "length": 0,
+    "length": 92.25,
     "name": "Cahill Expressway"
   },
   {
@@ -593,7 +594,7 @@ export const sydneyRoads = [
         -33.8623403
       ]
     ],
-    "length": 0,
+    "length": 36.63,
     "name": "Sydney Harbour Tunnel Southbound"
   },
   {
@@ -661,7 +662,7 @@ export const sydneyRoads = [
         -33.8630297
       ]
     ],
-    "length": 0,
+    "length": 376.59,
     "name": "Cahill Expressway"
   },
   {
@@ -685,7 +686,7 @@ export const sydneyRoads = [
         -33.8749407
       ]
     ],
-    "length": 0,
+    "length": 86.41,
     "name": "Fig Street"
   },
   {
@@ -725,7 +726,7 @@ export const sydneyRoads = [
         -33.8688403
       ]
     ],
-    "length": 0,
+    "length": 103.08,
     "name": "Eastern Distributor"
   },
   {
@@ -785,7 +786,7 @@ export const sydneyRoads = [
         -33.8659576
       ]
     ],
-    "length": 0,
+    "length": 368.2,
     "name": "Cahill Expressway"
   },
   {
@@ -825,7 +826,7 @@ export const sydneyRoads = [
         -33.8631532
       ]
     ],
-    "length": 0,
+    "length": 37.3,
     "name": "Conservatorium Road"
   },
   {
@@ -909,7 +910,7 @@ export const sydneyRoads = [
         -33.8415755
       ]
     ],
-    "length": 0,
+    "length": 2305.89,
     "name": "Sydney Harbour Tunnel"
   },
   {
@@ -997,7 +998,7 @@ export const sydneyRoads = [
         -33.8620117
       ]
     ],
-    "length": 0,
+    "length": 2307.11,
     "name": "Sydney Harbour Tunnel"
   },
   {
@@ -1037,7 +1038,7 @@ export const sydneyRoads = [
         -33.8770246
       ]
     ],
-    "length": 0,
+    "length": 35.62,
     "name": "Oxford Street"
   },
   {
@@ -1105,7 +1106,7 @@ export const sydneyRoads = [
         -33.8759686
       ]
     ],
-    "length": 0,
+    "length": 447.11,
     "name": "Eastern Distributor"
   },
   {
@@ -1121,7 +1122,7 @@ export const sydneyRoads = [
         -33.8737919
       ]
     ],
-    "length": 0,
+    "length": 15.6,
     "name": "Harbour Street"
   },
   {
@@ -1173,7 +1174,7 @@ export const sydneyRoads = [
         -33.8740294
       ]
     ],
-    "length": 0,
+    "length": 664.57,
     "name": "Cross City Tunnel"
   },
   {
@@ -1237,7 +1238,7 @@ export const sydneyRoads = [
         -33.8747914
       ]
     ],
-    "length": 0,
+    "length": 587.83,
     "name": "Cross City Tunnel"
   },
   {
@@ -1293,7 +1294,7 @@ export const sydneyRoads = [
         -33.8690798
       ]
     ],
-    "length": 0,
+    "length": 99.5,
     "name": "Sir John Young Crescent"
   },
   {
@@ -1321,7 +1322,7 @@ export const sydneyRoads = [
         -33.868665
       ]
     ],
-    "length": 0,
+    "length": 71.42,
     "name": "King Street"
   },
   {
@@ -1345,7 +1346,7 @@ export const sydneyRoads = [
         -33.8686876
       ]
     ],
-    "length": 0,
+    "length": 44.76,
     "name": "King Street"
   },
   {
@@ -1397,7 +1398,7 @@ export const sydneyRoads = [
         -33.8730401
       ]
     ],
-    "length": 0,
+    "length": 94.44,
     "name": "Druitt Street"
   },
   {
@@ -1425,7 +1426,7 @@ export const sydneyRoads = [
         -33.8633646
       ]
     ],
-    "length": 0,
+    "length": 52.11,
     "name": "Grosvenor Street"
   },
   {
@@ -1449,7 +1450,7 @@ export const sydneyRoads = [
         -33.8744238
       ]
     ],
-    "length": 0,
+    "length": 9.23,
     "name": "Palmer Street"
   },
   {
@@ -1521,7 +1522,7 @@ export const sydneyRoads = [
         -33.8743701
       ]
     ],
-    "length": 0,
+    "length": 279.86,
     "name": "Western Distributor"
   },
   {
@@ -1545,7 +1546,7 @@ export const sydneyRoads = [
         -33.8746284
       ]
     ],
-    "length": 0,
+    "length": 42.52,
     "name": "William Street"
   },
   {
@@ -1569,7 +1570,7 @@ export const sydneyRoads = [
         -33.8708726
       ]
     ],
-    "length": 0,
+    "length": 60.27,
     "name": "Western Distributor"
   },
   {
@@ -1589,7 +1590,7 @@ export const sydneyRoads = [
         -33.8711834
       ]
     ],
-    "length": 0,
+    "length": 110.88,
     "name": "Western Distributor"
   },
   {
@@ -1613,7 +1614,7 @@ export const sydneyRoads = [
         -33.870366
       ]
     ],
-    "length": 0,
+    "length": 80.52,
     "name": "Western Distributor"
   },
   {
@@ -1633,7 +1634,7 @@ export const sydneyRoads = [
         -33.8712297
       ]
     ],
-    "length": 0,
+    "length": 21.81,
     "name": "Western Distributor"
   },
   {
@@ -1649,7 +1650,7 @@ export const sydneyRoads = [
         -33.8690309
       ]
     ],
-    "length": 0,
+    "length": 27.05,
     "name": "Western Distributor"
   },
   {
@@ -1665,7 +1666,7 @@ export const sydneyRoads = [
         -33.8699324
       ]
     ],
-    "length": 0,
+    "length": 41.83,
     "name": "Western Distributor"
   },
   {
@@ -1685,7 +1686,7 @@ export const sydneyRoads = [
         -33.8694535
       ]
     ],
-    "length": 0,
+    "length": 53.65,
     "name": "Western Distributor"
   },
   {
@@ -1705,7 +1706,7 @@ export const sydneyRoads = [
         -33.8619843
       ]
     ],
-    "length": 0,
+    "length": 86.55,
     "name": "Western Distributor"
   },
   {
@@ -1721,7 +1722,7 @@ export const sydneyRoads = [
         -33.8744528
       ]
     ],
-    "length": 0,
+    "length": 16.72,
     "name": "William Street"
   },
   {
@@ -1749,7 +1750,7 @@ export const sydneyRoads = [
         -33.8742114
       ]
     ],
-    "length": 0,
+    "length": 86.19,
     "name": "William Street"
   },
   {
@@ -1773,7 +1774,7 @@ export const sydneyRoads = [
         -33.873322
       ]
     ],
-    "length": 0,
+    "length": 29.48,
     "name": "Park Street"
   },
   {
@@ -1805,7 +1806,7 @@ export const sydneyRoads = [
         -33.8743252
       ]
     ],
-    "length": 0,
+    "length": 344.37,
     "name": "Cross City Tunnel"
   },
   {
@@ -1825,7 +1826,7 @@ export const sydneyRoads = [
         -33.8731277
       ]
     ],
-    "length": 0,
+    "length": 214.9,
     "name": "Cross City Tunnel"
   },
   {
@@ -1841,7 +1842,7 @@ export const sydneyRoads = [
         -33.8734365
       ]
     ],
-    "length": 0,
+    "length": 157.3,
     "name": "Cross City Tunnel"
   },
   {
@@ -1869,7 +1870,7 @@ export const sydneyRoads = [
         -33.870425
       ]
     ],
-    "length": 0,
+    "length": 84.14,
     "name": "St. James Road"
   },
   {
@@ -1897,7 +1898,7 @@ export const sydneyRoads = [
         -33.8716837
       ]
     ],
-    "length": 0,
+    "length": 218.22,
     "name": "Harris Street"
   },
   {
@@ -1921,7 +1922,7 @@ export const sydneyRoads = [
         -33.8734124
       ]
     ],
-    "length": 0,
+    "length": 51.56,
     "name": "Allen Street"
   },
   {
@@ -1941,7 +1942,7 @@ export const sydneyRoads = [
         -33.8738425
       ]
     ],
-    "length": 0,
+    "length": 24.6,
     "name": "Harbour Street"
   },
   {
@@ -2009,7 +2010,7 @@ export const sydneyRoads = [
         -33.8633243
       ]
     ],
-    "length": 0,
+    "length": 470.94,
     "name": "Western Distributor"
   },
   {
@@ -2041,7 +2042,7 @@ export const sydneyRoads = [
         -33.8743798
       ]
     ],
-    "length": 0,
+    "length": 74.26,
     "name": "College Street"
   },
   {
@@ -2073,7 +2074,7 @@ export const sydneyRoads = [
         -33.8732858
       ]
     ],
-    "length": 0,
+    "length": 67.02,
     "name": "Park Street"
   },
   {
@@ -2141,7 +2142,7 @@ export const sydneyRoads = [
         -33.868827
       ]
     ],
-    "length": 0,
+    "length": 128.63,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -2173,7 +2174,7 @@ export const sydneyRoads = [
         -33.8633615
       ]
     ],
-    "length": 0,
+    "length": 74.61,
     "name": "Bridge Street"
   },
   {
@@ -2193,7 +2194,7 @@ export const sydneyRoads = [
         -33.8686439
       ]
     ],
-    "length": 0,
+    "length": 23.05,
     "name": "Eastern Distributor"
   },
   {
@@ -2213,7 +2214,7 @@ export const sydneyRoads = [
         -33.8687767
       ]
     ],
-    "length": 0,
+    "length": 24.34,
     "name": "Eastern Distributor"
   },
   {
@@ -2229,7 +2230,7 @@ export const sydneyRoads = [
         -33.8685707
       ]
     ],
-    "length": 0,
+    "length": 10.93,
     "name": "Eastern Distributor"
   },
   {
@@ -2245,7 +2246,7 @@ export const sydneyRoads = [
         -33.8690483
       ]
     ],
-    "length": 0,
+    "length": 3.58,
     "name": "Sir John Young Crescent"
   },
   {
@@ -2285,7 +2286,7 @@ export const sydneyRoads = [
         -33.8777408
       ]
     ],
-    "length": 0,
+    "length": 147.42,
     "name": "Goulburn Street"
   },
   {
@@ -2313,7 +2314,7 @@ export const sydneyRoads = [
         -33.8768886
       ]
     ],
-    "length": 0,
+    "length": 124.86,
     "name": "Liverpool Street"
   },
   {
@@ -2365,7 +2366,7 @@ export const sydneyRoads = [
         -33.8767967
       ]
     ],
-    "length": 0,
+    "length": 62.92,
     "name": ""
   },
   {
@@ -2385,7 +2386,7 @@ export const sydneyRoads = [
         -33.8740203
       ]
     ],
-    "length": 0,
+    "length": 43.61,
     "name": "Cross City Tunnel"
   },
   {
@@ -2401,7 +2402,7 @@ export const sydneyRoads = [
         -33.8740479
       ]
     ],
-    "length": 0,
+    "length": 56.58,
     "name": "Cross City Tunnel"
   },
   {
@@ -2429,7 +2430,7 @@ export const sydneyRoads = [
         -33.8629761
       ]
     ],
-    "length": 0,
+    "length": 72.13,
     "name": "Sydney Harbour Tunnel Southbound"
   },
   {
@@ -2461,7 +2462,7 @@ export const sydneyRoads = [
         -33.8687311
       ]
     ],
-    "length": 0,
+    "length": 57.3,
     "name": "King Street"
   },
   {
@@ -2485,7 +2486,7 @@ export const sydneyRoads = [
         -33.8727678
       ]
     ],
-    "length": 0,
+    "length": 226.39,
     "name": "Cross City Tunnel"
   },
   {
@@ -2505,7 +2506,7 @@ export const sydneyRoads = [
         -33.8728864
       ]
     ],
-    "length": 0,
+    "length": 172.89,
     "name": "Cross City Tunnel"
   },
   {
@@ -2521,7 +2522,7 @@ export const sydneyRoads = [
         -33.8752607
       ]
     ],
-    "length": 0,
+    "length": 104.67,
     "name": "Fig Street"
   },
   {
@@ -2565,7 +2566,7 @@ export const sydneyRoads = [
         -33.8741186
       ]
     ],
-    "length": 0,
+    "length": 65.93,
     "name": "Wattle Street"
   },
   {
@@ -2589,7 +2590,7 @@ export const sydneyRoads = [
         -33.8760483
       ]
     ],
-    "length": 0,
+    "length": 18.06,
     "name": "Fig Street"
   },
   {
@@ -2613,7 +2614,7 @@ export const sydneyRoads = [
         -33.8698195
       ]
     ],
-    "length": 0,
+    "length": 71.09,
     "name": "Elizabeth Street"
   },
   {
@@ -2629,7 +2630,7 @@ export const sydneyRoads = [
         -33.8784932
       ]
     ],
-    "length": 0,
+    "length": 11.93,
     "name": "Elizabeth Street"
   },
   {
@@ -2669,7 +2670,7 @@ export const sydneyRoads = [
         -33.87176
       ]
     ],
-    "length": 0,
+    "length": 313.41,
     "name": "Western Distributor"
   },
   {
@@ -2717,7 +2718,7 @@ export const sydneyRoads = [
         -33.8725881
       ]
     ],
-    "length": 0,
+    "length": 333.55,
     "name": "Western Distributor"
   },
   {
@@ -2757,7 +2758,7 @@ export const sydneyRoads = [
         -33.8632789
       ]
     ],
-    "length": 0,
+    "length": 47.56,
     "name": "Bridge Street"
   },
   {
@@ -2793,7 +2794,7 @@ export const sydneyRoads = [
         -33.8632541
       ]
     ],
-    "length": 0,
+    "length": 30.42,
     "name": ""
   },
   {
@@ -2817,7 +2818,7 @@ export const sydneyRoads = [
         -33.8776667
       ]
     ],
-    "length": 0,
+    "length": 48.21,
     "name": "Pier Street"
   },
   {
@@ -2857,7 +2858,7 @@ export const sydneyRoads = [
         -33.8786038
       ]
     ],
-    "length": 0,
+    "length": 110.67,
     "name": "William Henry Street"
   },
   {
@@ -2917,7 +2918,7 @@ export const sydneyRoads = [
         -33.8673083
       ]
     ],
-    "length": 0,
+    "length": 498.48,
     "name": "Western Distributor"
   },
   {
@@ -2937,7 +2938,7 @@ export const sydneyRoads = [
         -33.873097
       ]
     ],
-    "length": 0,
+    "length": 18.26,
     "name": "Western Distributor"
   },
   {
@@ -2965,7 +2966,7 @@ export const sydneyRoads = [
         -33.8705863
       ]
     ],
-    "length": 0,
+    "length": 149.33,
     "name": "Western Distributor"
   },
   {
@@ -2997,7 +2998,7 @@ export const sydneyRoads = [
         -33.8749589
       ]
     ],
-    "length": 0,
+    "length": 112.17,
     "name": "Bridge Road"
   },
   {
@@ -3029,7 +3030,7 @@ export const sydneyRoads = [
         -33.8720016
       ]
     ],
-    "length": 0,
+    "length": 102.37,
     "name": "Pyrmont Street"
   },
   {
@@ -3057,7 +3058,7 @@ export const sydneyRoads = [
         -33.8778235
       ]
     ],
-    "length": 0,
+    "length": 66.64,
     "name": "Wentworth Avenue"
   },
   {
@@ -3113,7 +3114,7 @@ export const sydneyRoads = [
         -33.8749313
       ]
     ],
-    "length": 0,
+    "length": 183.74,
     "name": "William Street"
   },
   {
@@ -3137,7 +3138,7 @@ export const sydneyRoads = [
         -33.873812
       ]
     ],
-    "length": 0,
+    "length": 58.85,
     "name": "Elizabeth Street"
   },
   {
@@ -3165,7 +3166,7 @@ export const sydneyRoads = [
         -33.8740738
       ]
     ],
-    "length": 0,
+    "length": 66.87,
     "name": "Harbour Street"
   },
   {
@@ -3209,7 +3210,7 @@ export const sydneyRoads = [
         -33.8739882
       ]
     ],
-    "length": 0,
+    "length": 167.16,
     "name": "Palmer Street"
   },
   {
@@ -3245,7 +3246,7 @@ export const sydneyRoads = [
         -33.8697578
       ]
     ],
-    "length": 0,
+    "length": 127.49,
     "name": "Eastern Distributor"
   },
   {
@@ -3273,7 +3274,7 @@ export const sydneyRoads = [
         -33.8708657
       ]
     ],
-    "length": 0,
+    "length": 175.06,
     "name": "Eastern Distributor"
   },
   {
@@ -3289,7 +3290,7 @@ export const sydneyRoads = [
         -33.8687839
       ]
     ],
-    "length": 0,
+    "length": 19.98,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -3317,7 +3318,7 @@ export const sydneyRoads = [
         -33.8707744
       ]
     ],
-    "length": 0,
+    "length": 154.65,
     "name": "Palmer Street"
   },
   {
@@ -3333,7 +3334,7 @@ export const sydneyRoads = [
         -33.8736422
       ]
     ],
-    "length": 0,
+    "length": 13.89,
     "name": "Western Distributor"
   },
   {
@@ -3353,7 +3354,7 @@ export const sydneyRoads = [
         -33.873486
       ]
     ],
-    "length": 0,
+    "length": 27.15,
     "name": "Western Distributor"
   },
   {
@@ -3389,7 +3390,7 @@ export const sydneyRoads = [
         -33.8748061
       ]
     ],
-    "length": 0,
+    "length": 237.99,
     "name": "Western Distributor"
   },
   {
@@ -3425,7 +3426,7 @@ export const sydneyRoads = [
         -33.8785881
       ]
     ],
-    "length": 0,
+    "length": 64.97,
     "name": "Goulburn Street"
   },
   {
@@ -3461,7 +3462,7 @@ export const sydneyRoads = [
         -33.8805897
       ]
     ],
-    "length": 0,
+    "length": 121.86,
     "name": "Oxford Street"
   },
   {
@@ -3497,7 +3498,7 @@ export const sydneyRoads = [
         -33.8740297
       ]
     ],
-    "length": 0,
+    "length": 56.98,
     "name": "Day Street"
   },
   {
@@ -3537,7 +3538,7 @@ export const sydneyRoads = [
         -33.8756686
       ]
     ],
-    "length": 0,
+    "length": 99.92,
     "name": "Harbour Street"
   },
   {
@@ -3561,7 +3562,7 @@ export const sydneyRoads = [
         -33.8737349
       ]
     ],
-    "length": 0,
+    "length": 347.26,
     "name": "Cross City Tunnel"
   },
   {
@@ -3593,7 +3594,7 @@ export const sydneyRoads = [
         -33.8744238
       ]
     ],
-    "length": 0,
+    "length": 85.23,
     "name": "William Street"
   },
   {
@@ -3729,7 +3730,7 @@ export const sydneyRoads = [
         -33.8847985
       ]
     ],
-    "length": 0,
+    "length": 995.78,
     "name": "Eastern Distributor"
   },
   {
@@ -3813,7 +3814,7 @@ export const sydneyRoads = [
         -33.8724129
       ]
     ],
-    "length": 0,
+    "length": 532.92,
     "name": "Eastern Distributor"
   },
   {
@@ -3837,7 +3838,7 @@ export const sydneyRoads = [
         -33.8773155
       ]
     ],
-    "length": 0,
+    "length": 31.79,
     "name": "Harbour Street"
   },
   {
@@ -3881,7 +3882,7 @@ export const sydneyRoads = [
         -33.8619278
       ]
     ],
-    "length": 0,
+    "length": 115.74,
     "name": "Sydney Harbour Tunnel Northbound"
   },
   {
@@ -3905,7 +3906,7 @@ export const sydneyRoads = [
         -33.8633261
       ]
     ],
-    "length": 0,
+    "length": 53.75,
     "name": "Bridge Street"
   },
   {
@@ -3925,7 +3926,7 @@ export const sydneyRoads = [
         -33.8744647
       ]
     ],
-    "length": 0,
+    "length": 22.06,
     "name": "William Street"
   },
   {
@@ -3941,7 +3942,7 @@ export const sydneyRoads = [
         -33.872514
       ]
     ],
-    "length": 0,
+    "length": 19.81,
     "name": "Cathedral Street"
   },
   {
@@ -3965,7 +3966,7 @@ export const sydneyRoads = [
         -33.8773155
       ]
     ],
-    "length": 0,
+    "length": 50.29,
     "name": "Pier Street"
   },
   {
@@ -4017,7 +4018,7 @@ export const sydneyRoads = [
         -33.87758
       ]
     ],
-    "length": 0,
+    "length": 150.51,
     "name": "Pier Street"
   },
   {
@@ -4069,7 +4070,7 @@ export const sydneyRoads = [
         -33.8744373
       ]
     ],
-    "length": 0,
+    "length": 179.94,
     "name": "Western Distributor"
   },
   {
@@ -4085,7 +4086,7 @@ export const sydneyRoads = [
         -33.8724313
       ]
     ],
-    "length": 0,
+    "length": 44.05,
     "name": "Western Distributor"
   },
   {
@@ -4133,7 +4134,7 @@ export const sydneyRoads = [
         -33.8722548
       ]
     ],
-    "length": 0,
+    "length": 177.98,
     "name": "Western Distributor"
   },
   {
@@ -4157,7 +4158,7 @@ export const sydneyRoads = [
         -33.8773365
       ]
     ],
-    "length": 0,
+    "length": 53.27,
     "name": "Elizabeth Street"
   },
   {
@@ -4181,7 +4182,7 @@ export const sydneyRoads = [
         -33.8635622
       ]
     ],
-    "length": 0,
+    "length": 46.85,
     "name": "Bridge Street"
   },
   {
@@ -4209,7 +4210,7 @@ export const sydneyRoads = [
         -33.8783527
       ]
     ],
-    "length": 0,
+    "length": 41.14,
     "name": "Goulburn Street"
   },
   {
@@ -4241,7 +4242,7 @@ export const sydneyRoads = [
         -33.8634289
       ]
     ],
-    "length": 0,
+    "length": 64.76,
     "name": "Bridge Street"
   },
   {
@@ -4261,7 +4262,7 @@ export const sydneyRoads = [
         -33.8747049
       ]
     ],
-    "length": 0,
+    "length": 72.29,
     "name": "William Street"
   },
   {
@@ -4317,7 +4318,7 @@ export const sydneyRoads = [
         -33.8754447
       ]
     ],
-    "length": 0,
+    "length": 188.58,
     "name": "William Street"
   },
   {
@@ -4341,7 +4342,7 @@ export const sydneyRoads = [
         -33.8633261
       ]
     ],
-    "length": 0,
+    "length": 40.27,
     "name": "Bridge Street"
   },
   {
@@ -4357,7 +4358,7 @@ export const sydneyRoads = [
         -33.8743547
       ]
     ],
-    "length": 0,
+    "length": 9.21,
     "name": "Crown Street"
   },
   {
@@ -4393,7 +4394,7 @@ export const sydneyRoads = [
         -33.8751535
       ]
     ],
-    "length": 0,
+    "length": 384.82,
     "name": "Cross City Tunnel"
   },
   {
@@ -4417,7 +4418,7 @@ export const sydneyRoads = [
         -33.8781431
       ]
     ],
-    "length": 0,
+    "length": 32.65,
     "name": "Goulburn Street"
   },
   {
@@ -4465,7 +4466,7 @@ export const sydneyRoads = [
         -33.8721268
       ]
     ],
-    "length": 0,
+    "length": 106.04,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -4481,7 +4482,7 @@ export const sydneyRoads = [
         -33.8724012
       ]
     ],
-    "length": 0,
+    "length": 38.1,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -4517,7 +4518,7 @@ export const sydneyRoads = [
         -33.8727389
       ]
     ],
-    "length": 0,
+    "length": 70.73,
     "name": "Druitt Street"
   },
   {
@@ -4581,7 +4582,7 @@ export const sydneyRoads = [
         -33.8734083
       ]
     ],
-    "length": 0,
+    "length": 418.25,
     "name": "Western Distributor"
   },
   {
@@ -4605,7 +4606,7 @@ export const sydneyRoads = [
         -33.8711974
       ]
     ],
-    "length": 0,
+    "length": 26.23,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -4625,7 +4626,7 @@ export const sydneyRoads = [
         -33.8726962
       ]
     ],
-    "length": 0,
+    "length": 36.86,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -4657,7 +4658,7 @@ export const sydneyRoads = [
         -33.8746712
       ]
     ],
-    "length": 0,
+    "length": 64.99,
     "name": "Bathurst Street"
   },
   {
@@ -4693,7 +4694,7 @@ export const sydneyRoads = [
         -33.868669
       ]
     ],
-    "length": 0,
+    "length": 44.29,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -4713,7 +4714,7 @@ export const sydneyRoads = [
         -33.8778205
       ]
     ],
-    "length": 0,
+    "length": 10.36,
     "name": "Goulburn Street"
   },
   {
@@ -4745,7 +4746,7 @@ export const sydneyRoads = [
         -33.8798215
       ]
     ],
-    "length": 0,
+    "length": 91.21,
     "name": "Oxford Street"
   },
   {
@@ -4789,7 +4790,7 @@ export const sydneyRoads = [
         -33.870492
       ]
     ],
-    "length": 0,
+    "length": 63.07,
     "name": "College Street"
   },
   {
@@ -4821,7 +4822,7 @@ export const sydneyRoads = [
         -33.874121
       ]
     ],
-    "length": 0,
+    "length": 96.01,
     "name": "William Street"
   },
   {
@@ -4845,7 +4846,7 @@ export const sydneyRoads = [
         -33.8739254
       ]
     ],
-    "length": 0,
+    "length": 72.36,
     "name": "William Street"
   },
   {
@@ -4889,7 +4890,7 @@ export const sydneyRoads = [
         -33.8635463
       ]
     ],
-    "length": 0,
+    "length": 75.71,
     "name": "Grosvenor Street"
   },
   {
@@ -4921,7 +4922,7 @@ export const sydneyRoads = [
         -33.8740438
       ]
     ],
-    "length": 0,
+    "length": 91.47,
     "name": "William Street"
   },
   {
@@ -4937,7 +4938,7 @@ export const sydneyRoads = [
         -33.874121
       ]
     ],
-    "length": 0,
+    "length": 10.18,
     "name": "Riley Street"
   },
   {
@@ -4965,7 +4966,7 @@ export const sydneyRoads = [
         -33.8742733
       ]
     ],
-    "length": 0,
+    "length": 86.47,
     "name": "William Street"
   },
   {
@@ -4981,7 +4982,7 @@ export const sydneyRoads = [
         -33.8728939
       ]
     ],
-    "length": 0,
+    "length": 6.37,
     "name": "Cross City Tunnel"
   },
   {
@@ -5017,7 +5018,7 @@ export const sydneyRoads = [
         -33.8686899
       ]
     ],
-    "length": 0,
+    "length": 20.27,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -5045,7 +5046,7 @@ export const sydneyRoads = [
         -33.8737152
       ]
     ],
-    "length": 0,
+    "length": 62.6,
     "name": "William Street"
   },
   {
@@ -5097,7 +5098,7 @@ export const sydneyRoads = [
         -33.8796772
       ]
     ],
-    "length": 0,
+    "length": 240.74,
     "name": "Wattle Street"
   },
   {
@@ -5129,7 +5130,7 @@ export const sydneyRoads = [
         -33.8608329
       ]
     ],
-    "length": 0,
+    "length": 77.48,
     "name": "Bradfield Highway"
   },
   {
@@ -5149,7 +5150,7 @@ export const sydneyRoads = [
         -33.8730075
       ]
     ],
-    "length": 0,
+    "length": 38.95,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -5165,7 +5166,7 @@ export const sydneyRoads = [
         -33.8668204
       ]
     ],
-    "length": 0,
+    "length": 3.62,
     "name": "Cahill Expressway"
   },
   {
@@ -5209,7 +5210,7 @@ export const sydneyRoads = [
         -33.8674282
       ]
     ],
-    "length": 0,
+    "length": 138.54,
     "name": "Cahill Expressway"
   },
   {
@@ -5225,7 +5226,7 @@ export const sydneyRoads = [
         -33.8630158
       ]
     ],
-    "length": 0,
+    "length": 4.81,
     "name": "Cahill Expressway"
   },
   {
@@ -5245,7 +5246,7 @@ export const sydneyRoads = [
         -33.8660684
       ]
     ],
-    "length": 0,
+    "length": 6.66,
     "name": "Cahill Expressway"
   },
   {
@@ -5281,7 +5282,7 @@ export const sydneyRoads = [
         -33.867519
       ]
     ],
-    "length": 0,
+    "length": 150.03,
     "name": "Cahill Expressway"
   },
   {
@@ -5297,7 +5298,7 @@ export const sydneyRoads = [
         -33.8629512
       ]
     ],
-    "length": 0,
+    "length": 9.4,
     "name": "Cahill Expressway"
   },
   {
@@ -5321,7 +5322,7 @@ export const sydneyRoads = [
         -33.8707469
       ]
     ],
-    "length": 0,
+    "length": 35.94,
     "name": "Elizabeth Street"
   },
   {
@@ -5337,7 +5338,7 @@ export const sydneyRoads = [
         -33.87268
       ]
     ],
-    "length": 0,
+    "length": 72.03,
     "name": "Elizabeth Street"
   },
   {
@@ -5357,7 +5358,7 @@ export const sydneyRoads = [
         -33.8768593
       ]
     ],
-    "length": 0,
+    "length": 10.04,
     "name": "Elizabeth Street"
   },
   {
@@ -5381,7 +5382,7 @@ export const sydneyRoads = [
         -33.8767696
       ]
     ],
-    "length": 0,
+    "length": 47.21,
     "name": "Elizabeth Street"
   },
   {
@@ -5405,7 +5406,7 @@ export const sydneyRoads = [
         -33.8768275
       ]
     ],
-    "length": 0,
+    "length": 79.11,
     "name": "Liverpool Street"
   },
   {
@@ -5437,7 +5438,7 @@ export const sydneyRoads = [
         -33.8687722
       ]
     ],
-    "length": 0,
+    "length": 35.27,
     "name": "King Street"
   },
   {
@@ -5461,7 +5462,7 @@ export const sydneyRoads = [
         -33.8657237
       ]
     ],
-    "length": 0,
+    "length": 51.08,
     "name": "Macquarie Street"
   },
   {
@@ -5485,7 +5486,7 @@ export const sydneyRoads = [
         -33.866561
       ]
     ],
-    "length": 0,
+    "length": 47.84,
     "name": "Macquarie Street"
   },
   {
@@ -5505,7 +5506,7 @@ export const sydneyRoads = [
         -33.8632934
       ]
     ],
-    "length": 0,
+    "length": 11.8,
     "name": ""
   },
   {
@@ -5553,7 +5554,7 @@ export const sydneyRoads = [
         -33.8780522
       ]
     ],
-    "length": 0,
+    "length": 141.57,
     "name": "William Henry Street"
   },
   {
@@ -5573,7 +5574,7 @@ export const sydneyRoads = [
         -33.870425
       ]
     ],
-    "length": 0,
+    "length": 67.74,
     "name": "Elizabeth Street"
   },
   {
@@ -5605,7 +5606,7 @@ export const sydneyRoads = [
         -33.8743343
       ]
     ],
-    "length": 0,
+    "length": 102.97,
     "name": "Bathurst Street"
   },
   {
@@ -5621,7 +5622,7 @@ export const sydneyRoads = [
         -33.8740079
       ]
     ],
-    "length": 0,
+    "length": 30.3,
     "name": "Bathurst Street"
   },
   {
@@ -5637,7 +5638,7 @@ export const sydneyRoads = [
         -33.8740637
       ]
     ],
-    "length": 0,
+    "length": 10.11,
     "name": "Harbour Street"
   },
   {
@@ -5669,7 +5670,7 @@ export const sydneyRoads = [
         -33.8775558
       ]
     ],
-    "length": 0,
+    "length": 182.37,
     "name": "Wattle Street"
   },
   {
@@ -5705,7 +5706,7 @@ export const sydneyRoads = [
         -33.8775071
       ]
     ],
-    "length": 0,
+    "length": 60.61,
     "name": "Pier Street"
   },
   {
@@ -5729,7 +5730,7 @@ export const sydneyRoads = [
         -33.8782913
       ]
     ],
-    "length": 0,
+    "length": 48.96,
     "name": "Wentworth Avenue"
   },
   {
@@ -5753,7 +5754,7 @@ export const sydneyRoads = [
         -33.879563
       ]
     ],
-    "length": 0,
+    "length": 39.8,
     "name": "Wentworth Avenue"
   },
   {
@@ -5785,7 +5786,7 @@ export const sydneyRoads = [
         -33.8792482
       ]
     ],
-    "length": 0,
+    "length": 120.89,
     "name": "Oxford Street"
   },
   {
@@ -5813,7 +5814,7 @@ export const sydneyRoads = [
         -33.8633534
       ]
     ],
-    "length": 0,
+    "length": 42.14,
     "name": "Grosvenor Street"
   },
   {
@@ -5853,7 +5854,7 @@ export const sydneyRoads = [
         -33.8593225
       ]
     ],
-    "length": 0,
+    "length": 439.25,
     "name": "Western Distributor"
   },
   {
@@ -5873,7 +5874,7 @@ export const sydneyRoads = [
         -33.8747779
       ]
     ],
-    "length": 0,
+    "length": 51.11,
     "name": "Western Distributor"
   },
   {
@@ -5893,7 +5894,7 @@ export const sydneyRoads = [
         -33.8706835
       ]
     ],
-    "length": 0,
+    "length": 31.63,
     "name": "Western Distributor"
   },
   {
@@ -5953,7 +5954,7 @@ export const sydneyRoads = [
         -33.8702151
       ]
     ],
-    "length": 0,
+    "length": 30.48,
     "name": "Palmer Street"
   },
   {
@@ -5989,7 +5990,7 @@ export const sydneyRoads = [
         -33.868931
       ]
     ],
-    "length": 0,
+    "length": 19.63,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -6009,7 +6010,7 @@ export const sydneyRoads = [
         -33.8688058
       ]
     ],
-    "length": 0,
+    "length": 28.29,
     "name": "Sir John Young Crescent"
   },
   {
@@ -6041,7 +6042,7 @@ export const sydneyRoads = [
         -33.8738334
       ]
     ],
-    "length": 0,
+    "length": 212.49,
     "name": "Cross City Tunnel"
   },
   {
@@ -6073,7 +6074,7 @@ export const sydneyRoads = [
         -33.8699155
       ]
     ],
-    "length": 0,
+    "length": 42.62,
     "name": "St. James Road"
   },
   {
@@ -6089,7 +6090,7 @@ export const sydneyRoads = [
         -33.8652687
       ]
     ],
-    "length": 0,
+    "length": 11.66,
     "name": "Macquarie Street"
   },
   {
@@ -6109,7 +6110,7 @@ export const sydneyRoads = [
         -33.878046
       ]
     ],
-    "length": 0,
+    "length": 59.29,
     "name": "Oxford Street"
   },
   {
@@ -6125,7 +6126,7 @@ export const sydneyRoads = [
         -33.8768371
       ]
     ],
-    "length": 0,
+    "length": 16.78,
     "name": "Liverpool Street"
   },
   {
@@ -6157,7 +6158,7 @@ export const sydneyRoads = [
         -33.8768593
       ]
     ],
-    "length": 0,
+    "length": 73.27,
     "name": "Liverpool Street"
   },
   {
@@ -6173,7 +6174,7 @@ export const sydneyRoads = [
         -33.8763471
       ]
     ],
-    "length": 0,
+    "length": 32.71,
     "name": "Elizabeth Street"
   },
   {
@@ -6197,7 +6198,7 @@ export const sydneyRoads = [
         -33.8732858
       ]
     ],
-    "length": 0,
+    "length": 42.43,
     "name": "Elizabeth Street"
   },
   {
@@ -6225,7 +6226,7 @@ export const sydneyRoads = [
         -33.8794713
       ]
     ],
-    "length": 0,
+    "length": 51.61,
     "name": "Elizabeth Street"
   },
   {
@@ -6253,7 +6254,7 @@ export const sydneyRoads = [
         -33.8746712
       ]
     ],
-    "length": 0,
+    "length": 96.03,
     "name": "Elizabeth Street"
   },
   {
@@ -6269,7 +6270,7 @@ export const sydneyRoads = [
         -33.8754236
       ]
     ],
-    "length": 0,
+    "length": 57.52,
     "name": "Elizabeth Street"
   },
   {
@@ -6297,7 +6298,7 @@ export const sydneyRoads = [
         -33.8783865
       ]
     ],
-    "length": 0,
+    "length": 115,
     "name": "Elizabeth Street"
   },
   {
@@ -6317,7 +6318,7 @@ export const sydneyRoads = [
         -33.8771775
       ]
     ],
-    "length": 0,
+    "length": 27.23,
     "name": "Oxford Street"
   },
   {
@@ -6345,7 +6346,7 @@ export const sydneyRoads = [
         -33.8780844
       ]
     ],
-    "length": 0,
+    "length": 69.67,
     "name": "Goulburn Street"
   },
   {
@@ -6369,7 +6370,7 @@ export const sydneyRoads = [
         -33.8661349
       ]
     ],
-    "length": 0,
+    "length": 46.15,
     "name": "Macquarie Street"
   },
   {
@@ -6397,7 +6398,7 @@ export const sydneyRoads = [
         -33.870725
       ]
     ],
-    "length": 0,
+    "length": 50.95,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -6413,7 +6414,7 @@ export const sydneyRoads = [
         -33.8782816
       ]
     ],
-    "length": 0,
+    "length": 5.35,
     "name": "Goulburn Street"
   },
   {
@@ -6433,7 +6434,7 @@ export const sydneyRoads = [
         -33.8749407
       ]
     ],
-    "length": 0,
+    "length": 24.2,
     "name": "Harris Street"
   },
   {
@@ -6453,7 +6454,7 @@ export const sydneyRoads = [
         -33.8748116
       ]
     ],
-    "length": 0,
+    "length": 15.8,
     "name": "Harris Street"
   },
   {
@@ -6469,7 +6470,7 @@ export const sydneyRoads = [
         -33.8612419
       ]
     ],
-    "length": 0,
+    "length": 7.82,
     "name": "Western Distributor"
   },
   {
@@ -6485,7 +6486,7 @@ export const sydneyRoads = [
         -33.8775622
       ]
     ],
-    "length": 0,
+    "length": 33.84,
     "name": "Oxford Street"
   },
   {
@@ -6505,7 +6506,7 @@ export const sydneyRoads = [
         -33.8734967
       ]
     ],
-    "length": 0,
+    "length": 20.12,
     "name": "Park Street"
   },
   {
@@ -6521,7 +6522,7 @@ export const sydneyRoads = [
         -33.8736081
       ]
     ],
-    "length": 0,
+    "length": 28.3,
     "name": "Park Street"
   },
   {
@@ -6553,7 +6554,7 @@ export const sydneyRoads = [
         -33.8737152
       ]
     ],
-    "length": 0,
+    "length": 35.75,
     "name": "Park Street"
   },
   {
@@ -6605,7 +6606,7 @@ export const sydneyRoads = [
         -33.8759357
       ]
     ],
-    "length": 0,
+    "length": 108.98,
     "name": "College Street"
   },
   {
@@ -6641,7 +6642,7 @@ export const sydneyRoads = [
         -33.877865
       ]
     ],
-    "length": 0,
+    "length": 182.47,
     "name": "Harris Street"
   },
   {
@@ -6669,7 +6670,7 @@ export const sydneyRoads = [
         -33.8745973
       ]
     ],
-    "length": 0,
+    "length": 38.68,
     "name": "Bathurst Street"
   },
   {
@@ -6693,7 +6694,7 @@ export const sydneyRoads = [
         -33.8740616
       ]
     ],
-    "length": 0,
+    "length": 29.7,
     "name": "Bathurst Street"
   },
   {
@@ -6721,7 +6722,7 @@ export const sydneyRoads = [
         -33.8742226
       ]
     ],
-    "length": 0,
+    "length": 91.5,
     "name": "Bathurst Street"
   },
   {
@@ -6737,7 +6738,7 @@ export const sydneyRoads = [
         -33.87344
       ]
     ],
-    "length": 0,
+    "length": 38.15,
     "name": "Western Distributor"
   },
   {
@@ -6757,7 +6758,7 @@ export const sydneyRoads = [
         -33.8731537
       ]
     ],
-    "length": 0,
+    "length": 73.9,
     "name": "Western Distributor"
   },
   {
@@ -6777,7 +6778,7 @@ export const sydneyRoads = [
         -33.8739549
       ]
     ],
-    "length": 0,
+    "length": 15.71,
     "name": "Harbour Street"
   },
   {
@@ -6805,7 +6806,7 @@ export const sydneyRoads = [
         -33.8797755
       ]
     ],
-    "length": 0,
+    "length": 64.87,
     "name": "Elizabeth Street"
   },
   {
@@ -6837,7 +6838,7 @@ export const sydneyRoads = [
         -33.8772192
       ]
     ],
-    "length": 0,
+    "length": 44.91,
     "name": "Pier Street"
   },
   {
@@ -6857,7 +6858,7 @@ export const sydneyRoads = [
         -33.8745155
       ]
     ],
-    "length": 0,
+    "length": 45.76,
     "name": "Harbour Street"
   },
   {
@@ -6881,7 +6882,7 @@ export const sydneyRoads = [
         -33.8748046
       ]
     ],
-    "length": 0,
+    "length": 39.83,
     "name": "Harbour Street"
   },
   {
@@ -6897,7 +6898,7 @@ export const sydneyRoads = [
         -33.874174
       ]
     ],
-    "length": 0,
+    "length": 14.4,
     "name": "Harbour Street"
   },
   {
@@ -6921,7 +6922,7 @@ export const sydneyRoads = [
         -33.8759724
       ]
     ],
-    "length": 0,
+    "length": 34.5,
     "name": "Harbour Street"
   },
   {
@@ -6937,7 +6938,7 @@ export const sydneyRoads = [
         -33.8758302
       ]
     ],
-    "length": 0,
+    "length": 14.07,
     "name": "Harbour Street"
   },
   {
@@ -6969,7 +6970,7 @@ export const sydneyRoads = [
         -33.875956
       ]
     ],
-    "length": 0,
+    "length": 152.79,
     "name": "Harbour Street"
   },
   {
@@ -6993,7 +6994,7 @@ export const sydneyRoads = [
         -33.8768833
       ]
     ],
-    "length": 0,
+    "length": 102.51,
     "name": "Harbour Street"
   },
   {
@@ -7009,7 +7010,7 @@ export const sydneyRoads = [
         -33.8740438
       ]
     ],
-    "length": 0,
+    "length": 10.09,
     "name": "Boomerang Place"
   },
   {
@@ -7045,7 +7046,7 @@ export const sydneyRoads = [
         -33.8748671
       ]
     ],
-    "length": 0,
+    "length": 169.19,
     "name": "William Street"
   },
   {
@@ -7085,7 +7086,7 @@ export const sydneyRoads = [
         -33.8728462
       ]
     ],
-    "length": 0,
+    "length": 177.72,
     "name": "Palmer Street"
   },
   {
@@ -7109,7 +7110,7 @@ export const sydneyRoads = [
         -33.8745598
       ]
     ],
-    "length": 0,
+    "length": 64.33,
     "name": "William Street"
   },
   {
@@ -7125,7 +7126,7 @@ export const sydneyRoads = [
         -33.8797755
       ]
     ],
-    "length": 0,
+    "length": 17.87,
     "name": "Elizabeth Street"
   },
   {
@@ -7145,7 +7146,7 @@ export const sydneyRoads = [
         -33.8790095
       ]
     ],
-    "length": 0,
+    "length": 57.68,
     "name": "Elizabeth Street"
   },
   {
@@ -7201,7 +7202,7 @@ export const sydneyRoads = [
         -33.8808315
       ]
     ],
-    "length": 0,
+    "length": 365.64,
     "name": "Harris Street"
   },
   {
@@ -7221,7 +7222,7 @@ export const sydneyRoads = [
         -33.8796151
       ]
     ],
-    "length": 0,
+    "length": 16.08,
     "name": "Elizabeth Street"
   },
   {
@@ -7237,7 +7238,7 @@ export const sydneyRoads = [
         -33.8791204
       ]
     ],
-    "length": 0,
+    "length": 26.75,
     "name": "Wentworth Avenue"
   },
   {
@@ -7265,7 +7266,7 @@ export const sydneyRoads = [
         -33.8785881
       ]
     ],
-    "length": 0,
+    "length": 87.58,
     "name": "Wentworth Avenue"
   },
   {
@@ -7289,7 +7290,7 @@ export const sydneyRoads = [
         -33.8785049
       ]
     ],
-    "length": 0,
+    "length": 73.8,
     "name": "Goulburn Street"
   },
   {
@@ -7329,7 +7330,7 @@ export const sydneyRoads = [
         -33.8744805
       ]
     ],
-    "length": 0,
+    "length": 117.05,
     "name": "Bathurst Street"
   },
   {
@@ -7349,7 +7350,7 @@ export const sydneyRoads = [
         -33.8611731
       ]
     ],
-    "length": 0,
+    "length": 172.71,
     "name": "Bradfield Highway Southbound"
   },
   {
@@ -7373,7 +7374,7 @@ export const sydneyRoads = [
         -33.874031
       ]
     ],
-    "length": 0,
+    "length": 64.74,
     "name": "Western Distributor"
   },
   {
@@ -7397,7 +7398,7 @@ export const sydneyRoads = [
         -33.878272
       ]
     ],
-    "length": 0,
+    "length": 73.29,
     "name": "Goulburn Street"
   },
   {
@@ -7425,7 +7426,7 @@ export const sydneyRoads = [
         -33.8774376
       ]
     ],
-    "length": 0,
+    "length": 27.22,
     "name": "Goulburn Street"
   },
   {
@@ -7449,7 +7450,7 @@ export const sydneyRoads = [
         -33.8636419
       ]
     ],
-    "length": 0,
+    "length": 40.55,
     "name": "Macquarie Street"
   },
   {
@@ -7477,7 +7478,7 @@ export const sydneyRoads = [
         -33.8636631
       ]
     ],
-    "length": 0,
+    "length": 17.83,
     "name": "Grosvenor Street"
   },
   {
@@ -7505,7 +7506,7 @@ export const sydneyRoads = [
         -33.8635925
       ]
     ],
-    "length": 0,
+    "length": 22.33,
     "name": "Bridge Street"
   },
   {
@@ -7529,7 +7530,7 @@ export const sydneyRoads = [
         -33.8727694
       ]
     ],
-    "length": 0,
+    "length": 41.33,
     "name": "Druitt Street"
   },
   {
@@ -7549,7 +7550,7 @@ export const sydneyRoads = [
         -33.877797
       ]
     ],
-    "length": 0,
+    "length": 8.02,
     "name": "Goulburn Street"
   },
   {
@@ -7565,7 +7566,7 @@ export const sydneyRoads = [
         -33.8777788
       ]
     ],
-    "length": 0,
+    "length": 5.15,
     "name": "Goulburn Street"
   },
   {
@@ -7581,7 +7582,7 @@ export const sydneyRoads = [
         -33.8740426
       ]
     ],
-    "length": 0,
+    "length": 51.95,
     "name": "Harris Street"
   },
   {
@@ -7601,7 +7602,7 @@ export const sydneyRoads = [
         -33.8729502
       ]
     ],
-    "length": 0,
+    "length": 5.28,
     "name": "Park Street"
   },
   {
@@ -7629,7 +7630,7 @@ export const sydneyRoads = [
         -33.8704662
       ]
     ],
-    "length": 0,
+    "length": 34.78,
     "name": "Palmer Street"
   },
   {
@@ -7653,7 +7654,7 @@ export const sydneyRoads = [
         -33.872514
       ]
     ],
-    "length": 0,
+    "length": 37.92,
     "name": "Palmer Street"
   },
   {
@@ -7673,7 +7674,7 @@ export const sydneyRoads = [
         -33.8745055
       ]
     ],
-    "length": 0,
+    "length": 66.59,
     "name": "William Street"
   },
   {
@@ -7689,7 +7690,7 @@ export const sydneyRoads = [
         -33.8724004
       ]
     ],
-    "length": 0,
+    "length": 9.06,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -7749,7 +7750,7 @@ export const sydneyRoads = [
         -33.8713966
       ]
     ],
-    "length": 0,
+    "length": 115.91,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -7785,7 +7786,7 @@ export const sydneyRoads = [
         -33.8779603
       ]
     ],
-    "length": 0,
+    "length": 72.75,
     "name": "Goulburn Street"
   },
   {
@@ -7801,7 +7802,7 @@ export const sydneyRoads = [
         -33.8745155
       ]
     ],
-    "length": 0,
+    "length": 15.76,
     "name": "Day Street"
   },
   {
@@ -7825,7 +7826,7 @@ export const sydneyRoads = [
         -33.8745918
       ]
     ],
-    "length": 0,
+    "length": 41.51,
     "name": "Harbour Street"
   },
   {
@@ -7853,7 +7854,7 @@ export const sydneyRoads = [
         -33.8749188
       ]
     ],
-    "length": 0,
+    "length": 62.84,
     "name": "Harbour Street"
   },
   {
@@ -7877,7 +7878,7 @@ export const sydneyRoads = [
         -33.875455
       ]
     ],
-    "length": 0,
+    "length": 41.87,
     "name": "Harbour Street"
   },
   {
@@ -7905,7 +7906,7 @@ export const sydneyRoads = [
         -33.873958
       ]
     ],
-    "length": 0,
+    "length": 29.36,
     "name": "Wattle Street"
   },
   {
@@ -7921,7 +7922,7 @@ export const sydneyRoads = [
         -33.863025
       ]
     ],
-    "length": 0,
+    "length": 35.6,
     "name": "Western Distributor"
   },
   {
@@ -7949,7 +7950,7 @@ export const sydneyRoads = [
         -33.8711734
       ]
     ],
-    "length": 0,
+    "length": 55.43,
     "name": "Pyrmont Street"
   },
   {
@@ -7977,7 +7978,7 @@ export const sydneyRoads = [
         -33.8634871
       ]
     ],
-    "length": 0,
+    "length": 53.74,
     "name": "Bridge Street"
   },
   {
@@ -8001,7 +8002,7 @@ export const sydneyRoads = [
         -33.869807
       ]
     ],
-    "length": 0,
+    "length": 132.33,
     "name": "Macquarie Street"
   },
   {
@@ -8017,7 +8018,7 @@ export const sydneyRoads = [
         -33.8710521
       ]
     ],
-    "length": 0,
+    "length": 97.16,
     "name": "College Street"
   },
   {
@@ -8045,7 +8046,7 @@ export const sydneyRoads = [
         -33.8719204
       ]
     ],
-    "length": 0,
+    "length": 44.13,
     "name": "College Street"
   },
   {
@@ -8077,7 +8078,7 @@ export const sydneyRoads = [
         -33.8723143
       ]
     ],
-    "length": 0,
+    "length": 156.82,
     "name": "College Street"
   },
   {
@@ -8105,7 +8106,7 @@ export const sydneyRoads = [
         -33.8698759
       ]
     ],
-    "length": 0,
+    "length": 32.65,
     "name": "St. James Road"
   },
   {
@@ -8125,7 +8126,7 @@ export const sydneyRoads = [
         -33.874311
       ]
     ],
-    "length": 0,
+    "length": 125.03,
     "name": "Cross City Tunnel"
   },
   {
@@ -8141,7 +8142,7 @@ export const sydneyRoads = [
         -33.8746926
       ]
     ],
-    "length": 0,
+    "length": 51.61,
     "name": "Cross City Tunnel"
   },
   {
@@ -8161,7 +8162,7 @@ export const sydneyRoads = [
         -33.8611731
       ]
     ],
-    "length": 0,
+    "length": 41.71,
     "name": "Bradfield Highway"
   },
   {
@@ -8177,7 +8178,7 @@ export const sydneyRoads = [
         -33.8738755
       ]
     ],
-    "length": 0,
+    "length": 29.03,
     "name": "William Street"
   },
   {
@@ -8193,7 +8194,7 @@ export const sydneyRoads = [
         -33.8738589
       ]
     ],
-    "length": 0,
+    "length": 9.41,
     "name": "William Street"
   },
   {
@@ -8221,7 +8222,7 @@ export const sydneyRoads = [
         -33.8739576
       ]
     ],
-    "length": 0,
+    "length": 66.68,
     "name": "William Street"
   },
   {
@@ -8241,7 +8242,7 @@ export const sydneyRoads = [
         -33.8730075
       ]
     ],
-    "length": 0,
+    "length": 21.69,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -8257,7 +8258,7 @@ export const sydneyRoads = [
         -33.8721356
       ]
     ],
-    "length": 0,
+    "length": 20.27,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -8281,7 +8282,7 @@ export const sydneyRoads = [
         -33.8740478
       ]
     ],
-    "length": 0,
+    "length": 124.66,
     "name": "Cross City Tunnel"
   },
   {
@@ -8297,7 +8298,7 @@ export const sydneyRoads = [
         -33.8637432
       ]
     ],
-    "length": 0,
+    "length": 11.34,
     "name": "Macquarie Street"
   },
   {
@@ -8345,7 +8346,7 @@ export const sydneyRoads = [
         -33.868079
       ]
     ],
-    "length": 0,
+    "length": 149.54,
     "name": "Macquarie Street"
   },
   {
@@ -8373,7 +8374,7 @@ export const sydneyRoads = [
         -33.8651646
       ]
     ],
-    "length": 0,
+    "length": 159.15,
     "name": "Macquarie Street"
   },
   {
@@ -8397,7 +8398,7 @@ export const sydneyRoads = [
         -33.8633707
       ]
     ],
-    "length": 0,
+    "length": 29.96,
     "name": "Grosvenor Street"
   },
   {
@@ -8433,7 +8434,7 @@ export const sydneyRoads = [
         -33.8745629
       ]
     ],
-    "length": 0,
+    "length": 100.86,
     "name": "Wattle Street"
   },
   {
@@ -8461,7 +8462,7 @@ export const sydneyRoads = [
         -33.8748288
       ]
     ],
-    "length": 0,
+    "length": 51.32,
     "name": "William Street"
   },
   {
@@ -8485,7 +8486,7 @@ export const sydneyRoads = [
         -33.8760483
       ]
     ],
-    "length": 0,
+    "length": 18.31,
     "name": "Fig Street"
   },
   {
@@ -8501,7 +8502,7 @@ export const sydneyRoads = [
         -33.8756556
       ]
     ],
-    "length": 0,
+    "length": 96.89,
     "name": "Fig Street"
   },
   {
@@ -8517,7 +8518,7 @@ export const sydneyRoads = [
         -33.8759964
       ]
     ],
-    "length": 0,
+    "length": 24.85,
     "name": "Wattle Street"
   },
   {
@@ -8541,7 +8542,7 @@ export const sydneyRoads = [
         -33.873958
       ]
     ],
-    "length": 0,
+    "length": 38.99,
     "name": "Bridge Road"
   },
   {
@@ -8565,7 +8566,7 @@ export const sydneyRoads = [
         -33.8729422
       ]
     ],
-    "length": 0,
+    "length": 57.31,
     "name": "Western Distributor"
   },
   {
@@ -8581,7 +8582,7 @@ export const sydneyRoads = [
         -33.8691697
       ]
     ],
-    "length": 0,
+    "length": 24.58,
     "name": "Western Distributor"
   },
   {
@@ -8601,7 +8602,7 @@ export const sydneyRoads = [
         -33.8720403
       ]
     ],
-    "length": 0,
+    "length": 70.36,
     "name": "Western Distributor"
   },
   {
@@ -8637,7 +8638,7 @@ export const sydneyRoads = [
         -33.8689516
       ]
     ],
-    "length": 0,
+    "length": 184.01,
     "name": "Western Distributor"
   },
   {
@@ -8653,7 +8654,7 @@ export const sydneyRoads = [
         -33.8703085
       ]
     ],
-    "length": 0,
+    "length": 41.98,
     "name": "Western Distributor"
   },
   {
@@ -8673,7 +8674,7 @@ export const sydneyRoads = [
         -33.8725198
       ]
     ],
-    "length": 0,
+    "length": 22.18,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -8701,7 +8702,7 @@ export const sydneyRoads = [
         -33.8735287
       ]
     ],
-    "length": 0,
+    "length": 64.77,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -8717,7 +8718,7 @@ export const sydneyRoads = [
         -33.8753807
       ]
     ],
-    "length": 0,
+    "length": 32.75,
     "name": "Wattle Street"
   },
   {
@@ -8733,7 +8734,7 @@ export const sydneyRoads = [
         -33.8756483
       ]
     ],
-    "length": 0,
+    "length": 42.94,
     "name": "Wattle Street"
   },
   {
@@ -8761,7 +8762,7 @@ export const sydneyRoads = [
         -33.8732153
       ]
     ],
-    "length": 0,
+    "length": 37.88,
     "name": "Park Street"
   },
   {
@@ -8813,7 +8814,7 @@ export const sydneyRoads = [
         -33.8771839
       ]
     ],
-    "length": 0,
+    "length": 331.13,
     "name": "Eastern Distributor"
   },
   {
@@ -8829,7 +8830,7 @@ export const sydneyRoads = [
         -33.8745187
       ]
     ],
-    "length": 0,
+    "length": 113.62,
     "name": "Cross City Tunnel"
   },
   {
@@ -8853,7 +8854,7 @@ export const sydneyRoads = [
         -33.8775994
       ]
     ],
-    "length": 0,
+    "length": 14.82,
     "name": "Goulburn Street"
   },
   {
@@ -8877,7 +8878,7 @@ export const sydneyRoads = [
         -33.8783865
       ]
     ],
-    "length": 0,
+    "length": 20.99,
     "name": "Goulburn Street"
   },
   {
@@ -8949,7 +8950,7 @@ export const sydneyRoads = [
         -33.8744528
       ]
     ],
-    "length": 0,
+    "length": 54.72,
     "name": "Palmer Street"
   },
   {
@@ -8969,7 +8970,7 @@ export const sydneyRoads = [
         -33.8749059
       ]
     ],
-    "length": 0,
+    "length": 16.73,
     "name": "William Street"
   },
   {
@@ -8993,7 +8994,7 @@ export const sydneyRoads = [
         -33.8743547
       ]
     ],
-    "length": 0,
+    "length": 66.31,
     "name": "William Street"
   },
   {
@@ -9017,7 +9018,7 @@ export const sydneyRoads = [
         -33.8790355
       ]
     ],
-    "length": 0,
+    "length": 34.55,
     "name": "Wattle Street"
   },
   {
@@ -9037,7 +9038,7 @@ export const sydneyRoads = [
         -33.8687465
       ]
     ],
-    "length": 0,
+    "length": 15.02,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -9085,7 +9086,7 @@ export const sydneyRoads = [
         -33.86873
       ]
     ],
-    "length": 0,
+    "length": 43.27,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -9125,7 +9126,7 @@ export const sydneyRoads = [
         -33.8686307
       ]
     ],
-    "length": 0,
+    "length": 38.3,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -9149,7 +9150,7 @@ export const sydneyRoads = [
         -33.868712
       ]
     ],
-    "length": 0,
+    "length": 6.64,
     "name": ""
   },
   {
@@ -9165,7 +9166,7 @@ export const sydneyRoads = [
         -33.8686283
       ]
     ],
-    "length": 0,
+    "length": 1.94,
     "name": "Cahill Expressway"
   },
   {
@@ -9181,7 +9182,7 @@ export const sydneyRoads = [
         -33.868712
       ]
     ],
-    "length": 0,
+    "length": 4.88,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -9205,7 +9206,7 @@ export const sydneyRoads = [
         -33.8686603
       ]
     ],
-    "length": 0,
+    "length": 6.09,
     "name": ""
   },
   {
@@ -9225,7 +9226,7 @@ export const sydneyRoads = [
         -33.8690483
       ]
     ],
-    "length": 0,
+    "length": 13.06,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -9265,7 +9266,7 @@ export const sydneyRoads = [
         -33.869807
       ]
     ],
-    "length": 0,
+    "length": 59.81,
     "name": "St. James Road"
   },
   {
@@ -9289,7 +9290,7 @@ export const sydneyRoads = [
         -33.8698435
       ]
     ],
-    "length": 0,
+    "length": 27.78,
     "name": "St. James Road"
   },
   {
@@ -9325,7 +9326,7 @@ export const sydneyRoads = [
         -33.8698723
       ]
     ],
-    "length": 0,
+    "length": 33.73,
     "name": "St. James Road"
   },
   {
@@ -9385,7 +9386,7 @@ export const sydneyRoads = [
         -33.8704424
       ]
     ],
-    "length": 0,
+    "length": 88.36,
     "name": "St. James Road"
   },
   {
@@ -9401,7 +9402,7 @@ export const sydneyRoads = [
         -33.870492
       ]
     ],
-    "length": 0,
+    "length": 14.9,
     "name": ""
   },
   {
@@ -9417,7 +9418,7 @@ export const sydneyRoads = [
         -33.8704424
       ]
     ],
-    "length": 0,
+    "length": 11.56,
     "name": ""
   },
   {
@@ -9449,7 +9450,7 @@ export const sydneyRoads = [
         -33.8710521
       ]
     ],
-    "length": 0,
+    "length": 59.19,
     "name": "College Street"
   },
   {
@@ -9477,7 +9478,7 @@ export const sydneyRoads = [
         -33.8691855
       ]
     ],
-    "length": 0,
+    "length": 68.41,
     "name": "King Street"
   },
   {
@@ -9529,7 +9530,7 @@ export const sydneyRoads = [
         -33.8690813
       ]
     ],
-    "length": 0,
+    "length": 126.47,
     "name": "King Street"
   },
   {
@@ -9545,7 +9546,7 @@ export const sydneyRoads = [
         -33.8631603
       ]
     ],
-    "length": 0,
+    "length": 69.3,
     "name": "Western Distributor"
   },
   {
@@ -9565,7 +9566,7 @@ export const sydneyRoads = [
         -33.8625975
       ]
     ],
-    "length": 0,
+    "length": 73.35,
     "name": "Western Distributor"
   },
   {
@@ -9589,7 +9590,7 @@ export const sydneyRoads = [
         -33.8633478
       ]
     ],
-    "length": 0,
+    "length": 44.78,
     "name": "Grosvenor Street"
   },
   {
@@ -9609,7 +9610,7 @@ export const sydneyRoads = [
         -33.8777671
       ]
     ],
-    "length": 0,
+    "length": 11.57,
     "name": "Goulburn Street"
   },
   {
@@ -9629,7 +9630,7 @@ export const sydneyRoads = [
         -33.8775734
       ]
     ],
-    "length": 0,
+    "length": 15.48,
     "name": "Goulburn Street"
   },
   {
@@ -9657,7 +9658,7 @@ export const sydneyRoads = [
         -33.8734512
       ]
     ],
-    "length": 0,
+    "length": 73.08,
     "name": "Harris Street"
   },
   {
@@ -9677,7 +9678,7 @@ export const sydneyRoads = [
         -33.8744706
       ]
     ],
-    "length": 0,
+    "length": 27.22,
     "name": "Harris Street"
   },
   {
@@ -9693,7 +9694,7 @@ export const sydneyRoads = [
         -33.8745497
       ]
     ],
-    "length": 0,
+    "length": 42.56,
     "name": "Bathurst Street"
   },
   {
@@ -9713,7 +9714,7 @@ export const sydneyRoads = [
         -33.8744978
       ]
     ],
-    "length": 0,
+    "length": 14.17,
     "name": "Bathurst Street"
   },
   {
@@ -9729,7 +9730,7 @@ export const sydneyRoads = [
         -33.8746927
       ]
     ],
-    "length": 0,
+    "length": 14.68,
     "name": "Harris Street"
   },
   {
@@ -9745,7 +9746,7 @@ export const sydneyRoads = [
         -33.8724652
       ]
     ],
-    "length": 0,
+    "length": 7.39,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -9765,7 +9766,7 @@ export const sydneyRoads = [
         -33.8728525
       ]
     ],
-    "length": 0,
+    "length": 37.66,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -9785,7 +9786,7 @@ export const sydneyRoads = [
         -33.8724947
       ]
     ],
-    "length": 0,
+    "length": 13.57,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -9805,7 +9806,7 @@ export const sydneyRoads = [
         -33.8722773
       ]
     ],
-    "length": 0,
+    "length": 17.2,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -9821,7 +9822,7 @@ export const sydneyRoads = [
         -33.8692486
       ]
     ],
-    "length": 0,
+    "length": 8.84,
     "name": "Western Distributor"
   },
   {
@@ -9861,7 +9862,7 @@ export const sydneyRoads = [
         -33.8673006
       ]
     ],
-    "length": 0,
+    "length": 193.79,
     "name": "Western Distributor"
   },
   {
@@ -9877,7 +9878,7 @@ export const sydneyRoads = [
         -33.8692701
       ]
     ],
-    "length": 0,
+    "length": 20.62,
     "name": "Western Distributor"
   },
   {
@@ -9893,7 +9894,7 @@ export const sydneyRoads = [
         -33.8707124
       ]
     ],
-    "length": 0,
+    "length": 46.23,
     "name": "Western Distributor"
   },
   {
@@ -9909,7 +9910,7 @@ export const sydneyRoads = [
         -33.8698759
       ]
     ],
-    "length": 0,
+    "length": 7.72,
     "name": "Macquarie Street"
   },
   {
@@ -9941,7 +9942,7 @@ export const sydneyRoads = [
         -33.8734892
       ]
     ],
-    "length": 0,
+    "length": 54.37,
     "name": "Western Distributor"
   },
   {
@@ -9977,7 +9978,7 @@ export const sydneyRoads = [
         -33.8699606
       ]
     ],
-    "length": 0,
+    "length": 31.7,
     "name": "Sir John Young Crescent"
   },
   {
@@ -10013,7 +10014,7 @@ export const sydneyRoads = [
         -33.8688968
       ]
     ],
-    "length": 0,
+    "length": 92.93,
     "name": "King Street"
   },
   {
@@ -10029,7 +10030,7 @@ export const sydneyRoads = [
         -33.8725644
       ]
     ],
-    "length": 0,
+    "length": 9.57,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -10045,7 +10046,7 @@ export const sydneyRoads = [
         -33.8636105
       ]
     ],
-    "length": 0,
+    "length": 51.94,
     "name": "Bridge Street"
   },
   {
@@ -10069,7 +10070,7 @@ export const sydneyRoads = [
         -33.8731359
       ]
     ],
-    "length": 0,
+    "length": 32.73,
     "name": "Park Street"
   },
   {
@@ -10093,7 +10094,7 @@ export const sydneyRoads = [
         -33.8705319
       ]
     ],
-    "length": 0,
+    "length": 10.79,
     "name": "College Street"
   },
   {
@@ -10117,7 +10118,7 @@ export const sydneyRoads = [
         -33.8713966
       ]
     ],
-    "length": 0,
+    "length": 35.11,
     "name": "Harris Street"
   },
   {
@@ -10141,7 +10142,7 @@ export const sydneyRoads = [
         -33.8661062
       ]
     ],
-    "length": 0,
+    "length": 57.29,
     "name": "Cahill Expressway"
   },
   {
@@ -10173,7 +10174,7 @@ export const sydneyRoads = [
         -33.8743534
       ]
     ],
-    "length": 0,
+    "length": 38.26,
     "name": "Bathurst Street"
   },
   {
@@ -10193,7 +10194,7 @@ export const sydneyRoads = [
         -33.8760549
       ]
     ],
-    "length": 0,
+    "length": 70.55,
     "name": "Elizabeth Street"
   },
   {
@@ -10213,7 +10214,7 @@ export const sydneyRoads = [
         -33.8733619
       ]
     ],
-    "length": 0,
+    "length": 18.55,
     "name": "Harbour Street"
   },
   {
@@ -10229,7 +10230,7 @@ export const sydneyRoads = [
         -33.8737244
       ]
     ],
-    "length": 0,
+    "length": 8.57,
     "name": "Harbour Street"
   },
   {
@@ -10245,7 +10246,7 @@ export const sydneyRoads = [
         -33.8739866
       ]
     ],
-    "length": 0,
+    "length": 18.88,
     "name": "Harbour Street"
   },
   {
@@ -10265,7 +10266,7 @@ export const sydneyRoads = [
         -33.8740297
       ]
     ],
-    "length": 0,
+    "length": 23.61,
     "name": "Bathurst Street"
   },
   {
@@ -10285,7 +10286,7 @@ export const sydneyRoads = [
         -33.8709949
       ]
     ],
-    "length": 0,
+    "length": 27.91,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -10325,7 +10326,7 @@ export const sydneyRoads = [
         -33.8685764
       ]
     ],
-    "length": 0,
+    "length": 30.21,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -10341,7 +10342,7 @@ export const sydneyRoads = [
         -33.8687465
       ]
     ],
-    "length": 0,
+    "length": 3.31,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -10357,7 +10358,7 @@ export const sydneyRoads = [
         -33.8686063
       ]
     ],
-    "length": 0,
+    "length": 2.99,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -10381,7 +10382,7 @@ export const sydneyRoads = [
         -33.8769022
       ]
     ],
-    "length": 0,
+    "length": 24.97,
     "name": "Liverpool Street"
   },
   {
@@ -10401,7 +10402,7 @@ export const sydneyRoads = [
         -33.8769048
       ]
     ],
-    "length": 0,
+    "length": 40.05,
     "name": "Liverpool Street"
   },
   {
@@ -10421,7 +10422,7 @@ export const sydneyRoads = [
         -33.8776714
       ]
     ],
-    "length": 0,
+    "length": 16.96,
     "name": "Oxford Street"
   },
   {
@@ -10437,7 +10438,7 @@ export const sydneyRoads = [
         -33.8773443
       ]
     ],
-    "length": 0,
+    "length": 26.11,
     "name": "Oxford Street"
   },
   {
@@ -10453,7 +10454,7 @@ export const sydneyRoads = [
         -33.8686995
       ]
     ],
-    "length": 0,
+    "length": 4.4,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -10469,7 +10470,7 @@ export const sydneyRoads = [
         -33.8710342
       ]
     ],
-    "length": 0,
+    "length": 49.83,
     "name": "Western Distributor"
   },
   {
@@ -10485,7 +10486,7 @@ export const sydneyRoads = [
         -33.8714113
       ]
     ],
-    "length": 0,
+    "length": 20.29,
     "name": "Western Distributor"
   },
   {
@@ -10501,7 +10502,7 @@ export const sydneyRoads = [
         -33.8770437
       ]
     ],
-    "length": 0,
+    "length": 18.07,
     "name": "Harbour Street"
   },
   {
@@ -10517,7 +10518,7 @@ export const sydneyRoads = [
         -33.877511
       ]
     ],
-    "length": 0,
+    "length": 15.38,
     "name": "Goulburn Street"
   },
   {
@@ -10541,7 +10542,7 @@ export const sydneyRoads = [
         -33.8741226
       ]
     ],
-    "length": 0,
+    "length": 50.5,
     "name": "Bathurst Street"
   },
   {
@@ -10557,7 +10558,7 @@ export const sydneyRoads = [
         -33.8793163
       ]
     ],
-    "length": 0,
+    "length": 44.46,
     "name": "Wattle Street"
   },
   {
@@ -10577,7 +10578,7 @@ export const sydneyRoads = [
         -33.8761959
       ]
     ],
-    "length": 0,
+    "length": 168.12,
     "name": "Wattle Street"
   },
   {
@@ -10597,7 +10598,7 @@ export const sydneyRoads = [
         -33.8732811
       ]
     ],
-    "length": 0,
+    "length": 36.97,
     "name": "Pyrmont Bridge Road"
   },
   {
@@ -10613,7 +10614,7 @@ export const sydneyRoads = [
         -33.8792806
       ]
     ],
-    "length": 0,
+    "length": 47.21,
     "name": "Wentworth Avenue"
   },
   {
@@ -10637,7 +10638,7 @@ export const sydneyRoads = [
         -33.877865
       ]
     ],
-    "length": 0,
+    "length": 48.01,
     "name": "William Henry Street"
   },
   {
@@ -10669,7 +10670,7 @@ export const sydneyRoads = [
         -33.8741842
       ]
     ],
-    "length": 0,
+    "length": 138.34,
     "name": "Bridge Road"
   },
   {
@@ -10685,7 +10686,7 @@ export const sydneyRoads = [
         -33.8741535
       ]
     ],
-    "length": 0,
+    "length": 30.2,
     "name": "Western Distributor"
   },
   {
@@ -10701,7 +10702,7 @@ export const sydneyRoads = [
         -33.8686161
       ]
     ],
-    "length": 0,
+    "length": 4.27,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -10717,7 +10718,7 @@ export const sydneyRoads = [
         -33.8687913
       ]
     ],
-    "length": 0,
+    "length": 1.97,
     "name": "Cowper Wharf Roadway"
   },
   {
@@ -10737,7 +10738,7 @@ export const sydneyRoads = [
         -33.8735606
       ]
     ],
-    "length": 0,
+    "length": 21.55,
     "name": "Park Street"
   },
   {
@@ -10753,7 +10754,7 @@ export const sydneyRoads = [
         -33.8736578
       ]
     ],
-    "length": 0,
+    "length": 30.67,
     "name": "Park Street"
   },
   {
@@ -10769,7 +10770,7 @@ export const sydneyRoads = [
         -33.873448
       ]
     ],
-    "length": 0,
+    "length": 45.57,
     "name": "Park Street"
   },
   {
@@ -10785,7 +10786,7 @@ export const sydneyRoads = [
         -33.873372
       ]
     ],
-    "length": 0,
+    "length": 30.32,
     "name": "Park Street"
   },
   {
@@ -10801,7 +10802,7 @@ export const sydneyRoads = [
         -33.8734644
       ]
     ],
-    "length": 0,
+    "length": 9.9,
     "name": "Park Street"
   },
   {
@@ -10817,7 +10818,7 @@ export const sydneyRoads = [
         -33.8635367
       ]
     ],
-    "length": 0,
+    "length": 27.68,
     "name": "Bridge Street"
   },
   {
@@ -10845,7 +10846,7 @@ export const sydneyRoads = [
         -33.8687276
       ]
     ],
-    "length": 0,
+    "length": 40.46,
     "name": "King Street"
   },
   {
@@ -10869,7 +10870,7 @@ export const sydneyRoads = [
         -33.8713844
       ]
     ],
-    "length": 0,
+    "length": 71.17,
     "name": "Elizabeth Street"
   },
   {
@@ -10885,7 +10886,7 @@ export const sydneyRoads = [
         -33.8718539
       ]
     ],
-    "length": 0,
+    "length": 52.46,
     "name": "Elizabeth Street"
   },
   {
@@ -10901,7 +10902,7 @@ export const sydneyRoads = [
         -33.8720356
       ]
     ],
-    "length": 0,
+    "length": 20.31,
     "name": "Elizabeth Street"
   },
   {
@@ -10917,7 +10918,7 @@ export const sydneyRoads = [
         -33.8729057
       ]
     ],
-    "length": 0,
+    "length": 25.2,
     "name": "Elizabeth Street"
   },
   {
@@ -10945,7 +10946,7 @@ export const sydneyRoads = [
         -33.8727825
       ]
     ],
-    "length": 0,
+    "length": 17.77,
     "name": "Druitt Street"
   },
   {
@@ -10969,7 +10970,7 @@ export const sydneyRoads = [
         -33.8730606
       ]
     ],
-    "length": 0,
+    "length": 27.9,
     "name": "Park Street"
   },
   {
@@ -10985,7 +10986,7 @@ export const sydneyRoads = [
         -33.8730343
       ]
     ],
-    "length": 0,
+    "length": 19.05,
     "name": "Park Street"
   },
   {
@@ -11005,7 +11006,7 @@ export const sydneyRoads = [
         -33.877519
       ]
     ],
-    "length": 0,
+    "length": 39.92,
     "name": "Wentworth Avenue"
   },
   {
@@ -11033,7 +11034,7 @@ export const sydneyRoads = [
         -33.8769022
       ]
     ],
-    "length": 0,
+    "length": 74.3,
     "name": "Wentworth Avenue"
   },
   {
@@ -11049,7 +11050,7 @@ export const sydneyRoads = [
         -33.8768355
       ]
     ],
-    "length": 0,
+    "length": 29.8,
     "name": "Liverpool Street"
   },
   {
@@ -11073,7 +11074,7 @@ export const sydneyRoads = [
         -33.8753279
       ]
     ],
-    "length": 0,
+    "length": 67.96,
     "name": "College Street"
   },
   {
@@ -11101,7 +11102,7 @@ export const sydneyRoads = [
         -33.8784844
       ]
     ],
-    "length": 0,
+    "length": 68.93,
     "name": "Oxford Street"
   },
   {
@@ -11121,7 +11122,7 @@ export const sydneyRoads = [
         -33.8772563
       ]
     ],
-    "length": 0,
+    "length": 29.76,
     "name": "Pier Street"
   },
   {
@@ -11141,7 +11142,7 @@ export const sydneyRoads = [
         -33.8773664
       ]
     ],
-    "length": 0,
+    "length": 31.54,
     "name": "Pier Street"
   },
   {
@@ -11161,7 +11162,7 @@ export const sydneyRoads = [
         -33.8774862
       ]
     ],
-    "length": 0,
+    "length": 31.1,
     "name": "Pier Street"
   },
   {
@@ -11181,7 +11182,7 @@ export const sydneyRoads = [
         -33.8748642
       ]
     ],
-    "length": 0,
+    "length": 54.4,
     "name": "College Street"
   },
   {
@@ -11201,7 +11202,7 @@ export const sydneyRoads = [
         -33.875015
       ]
     ],
-    "length": 0,
+    "length": 16.88,
     "name": "College Street"
   },
   {
@@ -11217,7 +11218,7 @@ export const sydneyRoads = [
         -33.8753279
       ]
     ],
-    "length": 0,
+    "length": 35,
     "name": "College Street"
   },
   {
@@ -11233,7 +11234,7 @@ export const sydneyRoads = [
         -33.8731672
       ]
     ],
-    "length": 0,
+    "length": 27.83,
     "name": "Park Street"
   },
   {
@@ -11257,7 +11258,7 @@ export const sydneyRoads = [
         -33.8667402
       ]
     ],
-    "length": 0,
+    "length": 20.01,
     "name": "Macquarie Street"
   },
   {
@@ -11277,7 +11278,7 @@ export const sydneyRoads = [
         -33.868625
       ]
     ],
-    "length": 0,
+    "length": 61.03,
     "name": "Macquarie Street"
   },
   {
@@ -11301,7 +11302,7 @@ export const sydneyRoads = [
         -33.8749096
       ]
     ],
-    "length": 0,
+    "length": 26.67,
     "name": "Elizabeth Street"
   },
   {
@@ -11317,7 +11318,7 @@ export const sydneyRoads = [
         -33.8768081
       ]
     ],
-    "length": 0,
+    "length": 59.21,
     "name": "Liverpool Street"
   },
   {
@@ -11333,7 +11334,7 @@ export const sydneyRoads = [
         -33.8768883
       ]
     ],
-    "length": 0,
+    "length": 8.75,
     "name": "Liverpool Street"
   },
   {
@@ -11349,7 +11350,7 @@ export const sydneyRoads = [
         -33.8773581
       ]
     ],
-    "length": 0,
+    "length": 2.41,
     "name": "Elizabeth Street"
   },
   {
@@ -11365,7 +11366,7 @@ export const sydneyRoads = [
         -33.8710666
       ]
     ],
-    "length": 0,
+    "length": 51.16,
     "name": "Eastern Distributor"
   },
   {
@@ -11385,7 +11386,7 @@ export const sydneyRoads = [
         -33.8719801
       ]
     ],
-    "length": 0,
+    "length": 103.13,
     "name": "Eastern Distributor"
   },
   {
@@ -11405,7 +11406,7 @@ export const sydneyRoads = [
         -33.8721417
       ]
     ],
-    "length": 0,
+    "length": 41.93,
     "name": "Palmer Street"
   },
   {
@@ -11421,7 +11422,7 @@ export const sydneyRoads = [
         -33.8748918
       ]
     ],
-    "length": 0,
+    "length": 28.9,
     "name": "Western Distributor"
   },
   {
@@ -11445,7 +11446,7 @@ export const sydneyRoads = [
         -33.8698271
       ]
     ],
-    "length": 0,
+    "length": 31.21,
     "name": "St. James Road"
   },
   {
@@ -11461,7 +11462,7 @@ export const sydneyRoads = [
         -33.8735528
       ]
     ],
-    "length": 0,
+    "length": 9.59,
     "name": "Western Distributor"
   },
   {
@@ -11481,7 +11482,7 @@ export const sydneyRoads = [
         -33.8732831
       ]
     ],
-    "length": 0,
+    "length": 23.45,
     "name": "Western Distributor"
   },
   {
@@ -11497,7 +11498,7 @@ export const sydneyRoads = [
         -33.8739148
       ]
     ],
-    "length": 0,
+    "length": 5.09,
     "name": "Harbour Street"
   },
   {
@@ -11513,7 +11514,7 @@ export const sydneyRoads = [
         -33.8736439
       ]
     ],
-    "length": 0,
+    "length": 9.69,
     "name": "Harbour Street"
   },
   {
@@ -11529,7 +11530,7 @@ export const sydneyRoads = [
         -33.8735201
       ]
     ],
-    "length": 0,
+    "length": 14.85,
     "name": "Harbour Street"
   },
   {
@@ -11545,7 +11546,7 @@ export const sydneyRoads = [
         -33.8736098
       ]
     ],
-    "length": 0,
+    "length": 14.64,
     "name": "Western Distributor"
   },
   {
@@ -11561,7 +11562,7 @@ export const sydneyRoads = [
         -33.8736556
       ]
     ],
-    "length": 0,
+    "length": 5.63,
     "name": "Western Distributor"
   },
   {
@@ -11577,7 +11578,7 @@ export const sydneyRoads = [
         -33.874056
       ]
     ],
-    "length": 0,
+    "length": 18.54,
     "name": "Cross City Tunnel"
   },
   {
@@ -11593,7 +11594,7 @@ export const sydneyRoads = [
         -33.8740231
       ]
     ],
-    "length": 0,
+    "length": 6.51,
     "name": "Cross City Tunnel"
   },
   {
@@ -11609,7 +11610,7 @@ export const sydneyRoads = [
         -33.8709635
       ]
     ],
-    "length": 0,
+    "length": 24.82,
     "name": "Western Distributor"
   },
   {
@@ -11625,7 +11626,7 @@ export const sydneyRoads = [
         -33.8722213
       ]
     ],
-    "length": 0,
+    "length": 3.93,
     "name": "Western Distributor"
   },
   {
@@ -11641,7 +11642,7 @@ export const sydneyRoads = [
         -33.8721552
       ]
     ],
-    "length": 0,
+    "length": 7.74,
     "name": "Western Distributor"
   }
 ];
