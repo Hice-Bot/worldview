@@ -1,5 +1,39 @@
 ## WorldView Development Progress
 
+### Session 26 - 2026-03-06
+
+#### Completed Features:
+- Feature #44: Toggle between Google 3D and OSM tiles (PASSING)
+  - Map Tiles section in OperationsPanel shows GOOGLE 3D and OSM buttons
+  - Clicking OSM switches to OpenStreetMapImageryProvider, globe.show=true
+  - Clicking GOOGLE 3D switches to createGooglePhotorealistic3DTileset, globe.show=false
+  - Fallback to OSM if Google API key missing (google3dAvailable state)
+  - Rapid toggle transitions handle without crashes (refs prevent duplicate loads)
+
+- Feature #45: Default camera position is Sydney at 20M meters (PASSING)
+  - Added camera.setView in GlobeViewer useEffect on mount
+  - DEFAULT_CAMERA: lat=-33.8688, lon=151.2093, altitude=20,000,000, heading=0, pitch=-90
+  - Cartesian3.fromDegrees for position, CesiumMath.toRadians for orientation
+  - Australia centered on screen at startup, top-down view
+
+- Feature #47: RequestScheduler configured for fast tile loading (PASSING)
+  - maximumRequests=18 (3x default 6)
+  - maximumRequestsPerServer=12 (2x default 6)
+  - Configured in useEffect before any tile loading begins
+
+#### Modified Files:
+- src/components/globe/GlobeViewer.tsx — Added initial camera setView + Cartesian3 import
+
+#### Current Status:
+- 73/205 features passing (35.6%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with next assigned features
+- All navigation integrity features now verified
+
 ### Session 25 - 2026-03-06
 
 #### Completed Features:
