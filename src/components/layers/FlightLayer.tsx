@@ -309,9 +309,12 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         trackingManager.updatePosition(flight.icao24, 'aircraft', flight.lon, flight.lat, flight.altitudeMeters);
       }
 
-      // Build label text: callsign + flight level + route
-      const labelText = flight.callsign || flight.icao24;
-      const altStr = flight.altitudeFeet > 0 ? ' FL' + Math.round(flight.altitudeFeet / 100) : '';
+      // Build label text: callsign + altitude (ft) + speed (kts) + route
+      const callsignStr = flight.callsign || flight.icao24;
+      const altStr = flight.altitudeFeet > 0 ? ' ' + Math.round(flight.altitudeFeet) + 'ft' : '';
+      const spdStr = flight.velocityKnots > 0 ? ' ' + Math.round(flight.velocityKnots) + 'kts' : '';
+      const routeStr = (flight.origin && flight.destination) ? '\n' + flight.origin + '-' + flight.destination : '';
+      const labelText = callsignStr + altStr + spdStr + routeStr;
 
       // Compute heading trail positions
       const trailPositions = computeHeadingTrail(
@@ -350,7 +353,7 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
 
         // Update label
         existing.label.position = position;
-        existing.label.text = labelText + altStr;
+        existing.label.text = labelText;
         existing.label.show = !occluded && showLabels;
         existing.label.fillColor = color;
 
@@ -410,7 +413,7 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         // Add label
         const lbl = lblCollection.add({
           position,
-          text: labelText + altStr,
+          text: labelText,
           font: '10px monospace',
           fillColor: color,
           outlineColor: Color.BLACK,
