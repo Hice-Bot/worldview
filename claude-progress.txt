@@ -1,5 +1,40 @@
 ## WorldView Development Progress
 
+### Session 15 - 2026-03-06
+
+#### Completed Features:
+- Feature #6: API keys stored server-side only (PASSING)
+  - server/.env contains OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET, NSW_TRANSPORT_API_KEY, AISSTREAM_API_KEY
+  - Root .env contains only VITE_GOOGLE_API_KEY and VITE_CESIUM_ION_TOKEN
+  - No server-side API keys found in any src/ files (grep confirmed empty)
+  - Server responses contain no leaked API key names or values
+  - server/index.js reads all keys via process.env, no hardcoded strings
+  - Both .env files in .gitignore
+
+- Feature #7: CORS proxy for CCTV images (PASSING)
+  - GET /api/cctv/image?url=ENCODED_URL proxies images server-side
+  - Real TfL JamCam image proxied: 14,367 bytes JPEG
+  - Content-Type preserved: image/jpeg, image/png verified
+  - CORS headers present (Access-Control-Allow-Origin: *)
+  - Missing/empty URL returns 400 with error JSON
+  - Upstream 404 returns 404, invalid domain returns 500
+
+- Feature #8: Express CORS enabled for development (PASSING)
+  - cors middleware imported and app.use(cors()) configured
+  - OPTIONS preflight: 204 with Access-Control-Allow-Origin: * and Allow-Methods: GET,HEAD,PUT,PATCH,POST,DELETE
+  - Cross-origin requests from any port accepted (wildcard origin)
+  - CORS headers present on all /api/ endpoints (health, earthquakes, cctv verified)
+
+#### Current Status:
+- 44/205 features passing (21.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All Security & Access Control features (#6, #7, #8) now verified
+
+#### What's Next:
+- Continue with remaining features as assigned
+- Data layer enhancements and UI features
+
 ### Session 14 - 2026-03-06
 
 #### Completed Features:
