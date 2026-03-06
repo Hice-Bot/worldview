@@ -1,5 +1,49 @@
 ## WorldView Development Progress
 
+### Session 14 - 2026-03-06
+
+#### Completed Features:
+- Feature #96: ShaderManager handles mode switching and cleanup (PASSING)
+  - ShaderManager.applyMode() removes current PostProcessStage before adding new
+  - STANDARD mode removes all post-processing (no new stage added)
+  - No shader leak: single stage tracked via this.currentStage, null after removal
+  - SHADER_DEFAULTS has tuned parameters for CRT, NVG, FLIR modes
+  - destroy() called on component unmount for clean lifecycle
+
+- Feature #89: Shader mode switching workflow (PASSING)
+  - OperationsPanel shader buttons (STANDARD, CRT, NVG, FLIR) wired to App.tsx state
+  - StatusBar OPTICS indicator shows current shader mode with color coding
+  - Color-coded: CRT=amber, NVG=green, FLIR=red, STANDARD=white
+  - Complete workflow verified: switch between all 4 modes, no glitches
+
+- Feature #57: FlightLayer uses imperative BillboardCollection (PASSING)
+  - Added PolylineCollection for heading trails (30s trail behind each aircraft)
+  - Added second PolylineCollection for great-circle route arcs
+  - Route arcs use EllipsoidGeodesic with 12 interpolation segments
+  - Parabolic altitude profile for arcs, peaking at cruise altitude mid-route
+  - Heading trails compute 3 points behind aircraft using reverse heading projection
+  - Both collections cleaned up on unmount, occlusion toggled in preRender
+  - Incremental add/update/remove for all 4 primitive types via ICAO24 keyed map
+  - Route arcs render when showRoutePaths=true and origin/destination airports known
+
+#### Minor Fixes:
+- Removed unused useCallback import from GlobeViewer.tsx
+
+#### Current Status:
+- 41/205 features passing (20.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Dead reckoning interpolation for smooth flight movement between data refreshes
+- Ship dead reckoning
+- TrackedEntityPanel type-specific detail views
+- IntelFeed real-time event stream
+- StatusBar FPS counter
+- More layer features and UI enhancements
+
 ### Session 13 - 2026-03-06
 
 #### Completed Features:
