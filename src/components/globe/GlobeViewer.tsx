@@ -1,9 +1,10 @@
-import { forwardRef, useEffect, useRef, useImperativeHandle, useState } from 'react';
+import { forwardRef, useEffect, useRef, useImperativeHandle, useState, useCallback } from 'react';
 import { Viewer, Globe, Scene } from 'resium';
 import {
   Viewer as CesiumViewer,
   Ion,
   Color,
+  Math as CesiumMath,
   RequestScheduler,
   createGooglePhotorealistic3DTileset,
   OpenStreetMapImageryProvider,
@@ -161,6 +162,45 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
         }
       };
     }, [props.shaderMode]);
+
+    // Sync camera state to App.tsx via camera.changed event (Feature #46)
+    // Uses percentageChanged threshold of 0.01 to avoid excessive re-renders
+    const onCameraChangeRef = useRef(props.onCameraChange);
+    onCameraChangeRef.current = props.onCameraChange;
+
+    useEffect(() => {
+      const viewer = viewerRef.current;
+      if (!viewer || viewer.isDestroyed()) return;
+
+      const camera = viewer.camera;
+      // Set the percentage change threshold — camera.changed fires only when
+      // position/direction changes by more than this fraction (0.01 = 1%)
+      camera.percentageChanged = 0.01;
+
+      const onChanged = () => {
+        if (viewer.isDestroyed()) return;
+        const cartographic = camera.positionCartographic;
+        if (!cartographic) return;
+        onCameraChangeRef.current({
+          lat: CesiumMath.toDegrees(cartographic.latitude),
+          lon: CesiumMath.toDegrees(cartographic.longitude),
+          altitude: cartographic.height,
+          heading: CesiumMath.toDegrees(camera.heading),
+          pitch: CesiumMath.toDegrees(camera.pitch),
+        });
+      };
+
+      camera.changed.addEventListener(onChanged);
+
+      // Fire once immediately so App has initial camera state
+      onChanged();
+
+      return () => {
+        if (!viewer.isDestroyed()) {
+          camera.changed.removeEventListener(onChanged);
+        }
+      };
+    }, []);
 
     return (
       <Viewer
