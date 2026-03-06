@@ -1,5 +1,48 @@
 ## WorldView Development Progress
 
+### Session 13 - 2026-03-06
+
+#### Completed Features:
+- Feature #42: Google 3D Tiles load when API key present (PASSING)
+  - createGooglePhotorealistic3DTileset() called with VITE_GOOGLE_API_KEY
+  - 3D building tileset added to scene.primitives
+  - globe.show = false when Google 3D active (prevents reference system mismatch)
+  - Fallback to OSM on Google tile load failure via setGoogle3dAvailable(false)
+  - OSM imagery layer removed when Google 3D active
+
+- Feature #43: OSM fallback when no Google API key (PASSING)
+  - Without VITE_GOOGLE_API_KEY, google3dAvailable starts as false
+  - OSM UrlTemplateImageryProvider loads from https://tile.openstreetmap.org/
+  - globe.show = true for depth buffer contribution in OSM mode
+  - Google 3D tileset hidden when OSM mode active
+  - MapTileMode toggle between GOOGLE_3D and OSM wired in App.tsx
+  - OSM tile server reachability confirmed
+
+- Feature #46: Camera state syncs to App via changed event (PASSING)
+  - Added camera.changed event listener in GlobeViewer with percentageChanged=0.01
+  - Extracts lat, lon, altitude, heading, pitch via CesiumMath.toDegrees
+  - Uses ref pattern (onCameraChangeRef) to avoid dependency cycles and excessive re-renders
+  - Empty deps array ensures listener set up once, cleanup on unmount
+  - Fires immediately on mount for initial state
+  - StatusBar displays live camera coordinates
+  - Camera state drives traffic bbox, live flights region, and more
+
+#### Modified Files:
+- src/components/globe/GlobeViewer.tsx — Added camera.changed event listener, CesiumMath import, useCallback import
+
+#### Current Status:
+- 38/205 features passing (18.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 55 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Additional navigation integrity features
+- StatusBar DMS coordinate formatting
+- Additional layer features and data integration
+- TrackedEntityPanel improvements
+
 ### Session 12 - 2026-03-05
 
 #### Completed Features:
