@@ -1,5 +1,21 @@
 ## WorldView Development Progress
 
+### Session 17 - 2026-03-06
+
+#### Completed Features:
+- Feature #12: No authentication required for dashboard (PASSING)
+  - App loads without login screen: index.html renders root div, main.tsx renders App directly
+  - No auth middleware on Express routes: only cors() and express.json() middleware
+  - No session/cookie management code: no express-session, passport, jwt, bcrypt in dependencies
+  - All /api/ endpoints return 200 without auth headers: health, earthquakes, flights, satellites, cctv, ships
+  - Auth references in server/index.js are outbound-only (OpenSky Basic Auth, NSW apikey, AISStream key)
+  - Zero login/auth/session patterns in src/ frontend code
+
+#### Current Status:
+- 48/205 features passing (23.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
 ### Session 16 - 2026-03-06
 
 #### Completed Features:
