@@ -577,9 +577,14 @@ const ROUTE_STALE_MS = 3600000; // Routes older than 1hr are considered stale
 // Fetch route for a single callsign from OpenSky routes API
 async function lookupRoute(callsign) {
   try {
+    const routeHeaders = {};
+    if (process.env.OPENSKY_CLIENT_ID && process.env.OPENSKY_CLIENT_SECRET) {
+      const credentials = Buffer.from(`${process.env.OPENSKY_CLIENT_ID}:${process.env.OPENSKY_CLIENT_SECRET}`).toString('base64');
+      routeHeaders['Authorization'] = `Basic ${credentials}`;
+    }
     const response = await fetch(
       `https://opensky-network.org/api/routes?callsign=${encodeURIComponent(callsign)}`,
-      { signal: AbortSignal.timeout(5000) }
+      { signal: AbortSignal.timeout(5000), headers: routeHeaders }
     );
     if (!response.ok) {
       return null;
@@ -672,10 +677,16 @@ app.get('/api/flights', async (_req, res) => {
     const cached = cache.get('flights');
     if (cached) return res.json(cached);
 
-    // Primary: OpenSky Network (free, no auth required for anonymous access)
+    // Primary: OpenSky Network (anonymous or authenticated with OPENSKY credentials)
     try {
+      const openskyHeaders = {};
+      if (process.env.OPENSKY_CLIENT_ID && process.env.OPENSKY_CLIENT_SECRET) {
+        const credentials = Buffer.from(`${process.env.OPENSKY_CLIENT_ID}:${process.env.OPENSKY_CLIENT_SECRET}`).toString('base64');
+        openskyHeaders['Authorization'] = `Basic ${credentials}`;
+      }
       const response = await fetch('https://opensky-network.org/api/states/all', {
         signal: AbortSignal.timeout(15000),
+        headers: openskyHeaders,
       });
       if (!response.ok) throw new Error(`OpenSky HTTP ${response.status}`);
       const data = await response.json();
@@ -777,9 +788,14 @@ app.get('/api/flights/live', async (req, res) => {
     const lomax = parseFloat(lon) + lonDeg;
 
     try {
+      const openskyLiveHeaders = {};
+      if (process.env.OPENSKY_CLIENT_ID && process.env.OPENSKY_CLIENT_SECRET) {
+        const credentials = Buffer.from(`${process.env.OPENSKY_CLIENT_ID}:${process.env.OPENSKY_CLIENT_SECRET}`).toString('base64');
+        openskyLiveHeaders['Authorization'] = `Basic ${credentials}`;
+      }
       const response = await fetch(
         `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`,
-        { signal: AbortSignal.timeout(10000) }
+        { signal: AbortSignal.timeout(10000), headers: openskyLiveHeaders }
       );
       if (!response.ok) throw new Error(`OpenSky HTTP ${response.status}`);
       const data = await response.json();
