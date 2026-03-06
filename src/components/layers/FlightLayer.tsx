@@ -6,15 +6,22 @@ import {
   Color,
   BillboardCollection,
   LabelCollection,
+  PolylineCollection,
   LabelStyle,
   VerticalOrigin,
   HorizontalOrigin,
   Math as CesiumMath,
+  Cartographic,
+  EllipsoidGeodesic,
+  Ellipsoid,
+  Material,
   Billboard,
   Label,
+  Polyline,
 } from 'cesium';
 import type { FlightData, AltitudeFilters, TrackedEntityInfo } from '../../types';
 import { trackingManager } from '../../trackingManager';
+import { findAirport } from '../../data/airports';
 
 interface FlightLayerProps {
   flights: FlightData[];
@@ -104,25 +111,105 @@ function getAircraftIconUrl(): string {
   return cachedIconDataUrl;
 }
 
+// --- Compute great-circle route arc positions via EllipsoidGeodesic ---
+// Returns 12 interpolation segments + endpoint = 13 Cartesian3 positions
+function computeRouteArc(
+  originLat: number,
+  originLon: number,
+  destLat: number,
+  destLon: number,
+  cruiseAltMeters: number
+): Cartesian3[] {
+  const NUM_SEGMENTS = 12;
+  const geodesic = new EllipsoidGeodesic(
+    Cartographic.fromDegrees(originLon, originLat),
+    Cartographic.fromDegrees(destLon, destLat),
+    Ellipsoid.WGS84
+  );
+
+  const positions: Cartesian3[] = [];
+  for (let i = 0; i <= NUM_SEGMENTS; i++) {
+    const fraction = i / NUM_SEGMENTS;
+    const point = geodesic.interpolateUsingFraction(fraction);
+    // Arc altitude: parabolic profile peaking at cruise altitude mid-route
+    const altFactor = 4 * fraction * (1 - fraction); // peaks at 0.5
+    const alt = cruiseAltMeters * altFactor;
+    positions.push(Cartesian3.fromRadians(point.longitude, point.latitude, alt));
+  }
+  return positions;
+}
+
+// --- Compute heading trail positions ---
+// Projects a short trail behind the aircraft based on heading and velocity
+function computeHeadingTrail(
+  lon: number,
+  lat: number,
+  altMeters: number,
+  headingDeg: number,
+  velocityMs: number
+): Cartesian3[] {
+  // Trail represents ~30 seconds of travel behind the aircraft
+  const trailDurationSec = 30;
+  const distanceMeters = velocityMs * trailDurationSec;
+  if (distanceMeters < 100) return []; // No trail for very slow/stationary
+
+  const EARTH_RADIUS = 6371000;
+  const headingRad = CesiumMath.toRadians(headingDeg);
+  // Reverse heading for the trail (behind the aircraft)
+  const reverseHeadingRad = headingRad + Math.PI;
+
+  const latRad = CesiumMath.toRadians(lat);
+  const lonRad = CesiumMath.toRadians(lon);
+
+  const positions: Cartesian3[] = [];
+  positions.push(Cartesian3.fromDegrees(lon, lat, altMeters));
+
+  // 3 trail points behind the aircraft
+  for (let i = 1; i <= 3; i++) {
+    const d = (distanceMeters * i) / 3;
+    const dOverR = d / EARTH_RADIUS;
+    const trailLat = Math.asin(
+      Math.sin(latRad) * Math.cos(dOverR) +
+      Math.cos(latRad) * Math.sin(dOverR) * Math.cos(reverseHeadingRad)
+    );
+    const trailLon = lonRad + Math.atan2(
+      Math.sin(reverseHeadingRad) * Math.sin(dOverR) * Math.cos(latRad),
+      Math.cos(dOverR) - Math.sin(latRad) * Math.sin(trailLat)
+    );
+    positions.push(Cartesian3.fromDegrees(
+      CesiumMath.toDegrees(trailLon),
+      CesiumMath.toDegrees(trailLat),
+      altMeters
+    ));
+  }
+
+  return positions;
+}
+
 // Map to track per-aircraft billboard/label state
 interface FlightEntry {
   billboard: Billboard;
   label: Label;
   flight: FlightData;
   position: Cartesian3;
+  headingTrail: Polyline | null;
+  routeArc: Polyline | null;
 }
 
 /**
  * FlightLayer - Renders aircraft using imperative Cesium BillboardCollection + LabelCollection.
+ * PolylineCollection x2: one for heading trails, one for great-circle route arcs.
  * Altitude band coloring: Cruise=cyan, High=light blue, Mid=gold, Low=orange, Ground=red.
  * Billboard scale varies inversely with altitude.
  * Far-side occlusion via dot-product hemisphere check.
  * Incremental add/update/remove via ICAO24 keyed map.
  */
-export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: _showRoutePaths, trackedEntity }: FlightLayerProps) {
+export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, trackedEntity }: FlightLayerProps) {
   const { viewer } = useCesium();
   const billboardCollectionRef = useRef<BillboardCollection | null>(null);
   const labelCollectionRef = useRef<LabelCollection | null>(null);
+  const trailCollectionRef = useRef<PolylineCollection | null>(null);
+  const routeCollectionRef = useRef<PolylineCollection | null>(null);
   const flightMapRef = useRef<Map<string, FlightEntry>>(new Map());
   const initRef = useRef(false);
   const preRenderRef = useRef<(() => void) | null>(null);
@@ -133,12 +220,18 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
 
     const bbCollection = new BillboardCollection({ scene: viewer.scene });
     const lblCollection = new LabelCollection({ scene: viewer.scene });
+    const trailCollection = new PolylineCollection();
+    const routeCollection = new PolylineCollection();
 
     viewer.scene.primitives.add(bbCollection);
     viewer.scene.primitives.add(lblCollection);
+    viewer.scene.primitives.add(trailCollection);
+    viewer.scene.primitives.add(routeCollection);
 
     billboardCollectionRef.current = bbCollection;
     labelCollectionRef.current = lblCollection;
+    trailCollectionRef.current = trailCollection;
+    routeCollectionRef.current = routeCollection;
     initRef.current = true;
 
     return () => {
@@ -149,9 +242,17 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
         if (labelCollectionRef.current) {
           viewer.scene.primitives.remove(labelCollectionRef.current);
         }
+        if (trailCollectionRef.current) {
+          viewer.scene.primitives.remove(trailCollectionRef.current);
+        }
+        if (routeCollectionRef.current) {
+          viewer.scene.primitives.remove(routeCollectionRef.current);
+        }
       }
       billboardCollectionRef.current = null;
       labelCollectionRef.current = null;
+      trailCollectionRef.current = null;
+      routeCollectionRef.current = null;
       flightMapRef.current.clear();
       initRef.current = false;
     };
@@ -166,11 +267,13 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
     return Cartesian3.dot(camNorm, posNorm) < -0.1;
   }, [viewer]);
 
-  // Update billboards/labels when flight data or filters change
+  // Update billboards/labels/polylines when flight data or filters change
   useEffect(() => {
     const bbCollection = billboardCollectionRef.current;
     const lblCollection = labelCollectionRef.current;
-    if (!bbCollection || !lblCollection || !viewer || viewer.isDestroyed()) return;
+    const trailCollection = trailCollectionRef.current;
+    const routeCollection = routeCollectionRef.current;
+    if (!bbCollection || !lblCollection || !trailCollection || !routeCollection || !viewer || viewer.isDestroyed()) return;
 
     const iconUrl = getAircraftIconUrl();
     if (!iconUrl) return;
@@ -206,9 +309,29 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
         trackingManager.updatePosition(flight.icao24, 'aircraft', flight.lon, flight.lat, flight.altitudeMeters);
       }
 
-      // Build label text
+      // Build label text: callsign + flight level + route
       const labelText = flight.callsign || flight.icao24;
       const altStr = flight.altitudeFeet > 0 ? ' FL' + Math.round(flight.altitudeFeet / 100) : '';
+
+      // Compute heading trail positions
+      const trailPositions = computeHeadingTrail(
+        flight.lon, flight.lat, flight.altitudeMeters,
+        flight.heading || 0, flight.velocityMs || 0
+      );
+
+      // Compute route arc if origin and destination are known
+      let routePositions: Cartesian3[] = [];
+      if (showRoutePaths && flight.origin && flight.destination) {
+        const originAirport = findAirport(flight.origin);
+        const destAirport = findAirport(flight.destination);
+        if (originAirport && destAirport) {
+          routePositions = computeRouteArc(
+            originAirport.lat, originAirport.lon,
+            destAirport.lat, destAirport.lon,
+            flight.altitudeMeters || 10000
+          );
+        }
+      }
 
       const existing = existingMap.get(flight.icao24);
       if (existing) {
@@ -230,6 +353,42 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
         existing.label.text = labelText + altStr;
         existing.label.show = !occluded && showLabels;
         existing.label.fillColor = color;
+
+        // Update heading trail
+        if (existing.headingTrail) {
+          if (trailPositions.length >= 2) {
+            existing.headingTrail.positions = trailPositions;
+            existing.headingTrail.show = !occluded;
+          } else {
+            trailCollection.remove(existing.headingTrail);
+            existing.headingTrail = null;
+          }
+        } else if (trailPositions.length >= 2) {
+          existing.headingTrail = trailCollection.add({
+            positions: trailPositions,
+            width: 1.5,
+            material: Material.fromType('Color', { color: color.withAlpha(0.4) }),
+            show: !occluded,
+          });
+        }
+
+        // Update route arc
+        if (existing.routeArc) {
+          if (routePositions.length >= 2 && showRoutePaths) {
+            existing.routeArc.positions = routePositions;
+            existing.routeArc.show = !occluded;
+          } else {
+            routeCollection.remove(existing.routeArc);
+            existing.routeArc = null;
+          }
+        } else if (routePositions.length >= 2 && showRoutePaths) {
+          existing.routeArc = routeCollection.add({
+            positions: routePositions,
+            width: 1.5,
+            material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.6) }),
+            show: !occluded,
+          });
+        }
 
         existing.flight = flight;
         existing.position = position;
@@ -266,11 +425,35 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
           backgroundColor: Color.BLACK.withAlpha(0.5),
         });
 
+        // Add heading trail
+        let headingTrail: Polyline | null = null;
+        if (trailPositions.length >= 2) {
+          headingTrail = trailCollection.add({
+            positions: trailPositions,
+            width: 1.5,
+            material: Material.fromType('Color', { color: color.withAlpha(0.4) }),
+            show: !occluded,
+          });
+        }
+
+        // Add route arc
+        let routeArc: Polyline | null = null;
+        if (routePositions.length >= 2 && showRoutePaths) {
+          routeArc = routeCollection.add({
+            positions: routePositions,
+            width: 1.5,
+            material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.6) }),
+            show: !occluded,
+          });
+        }
+
         existingMap.set(flight.icao24, {
           billboard: bb,
           label: lbl,
           flight,
           position,
+          headingTrail,
+          routeArc,
         });
       }
     }
@@ -287,10 +470,12 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
       if (entry) {
         bbCollection.remove(entry.billboard);
         lblCollection.remove(entry.label);
+        if (entry.headingTrail) trailCollection.remove(entry.headingTrail);
+        if (entry.routeArc) routeCollection.remove(entry.routeArc);
         existingMap.delete(id);
       }
     }
-  }, [flights, altitudeFilters, trackedEntity, viewer, isOccluded]);
+  }, [flights, altitudeFilters, showRoutePaths, trackedEntity, viewer, isOccluded]);
 
   // Update occlusion + label visibility on camera move (throttled to 1Hz)
   useEffect(() => {
@@ -316,6 +501,8 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths: 
         const occluded = isOccluded(entry.position);
         entry.billboard.show = !occluded;
         entry.label.show = !occluded && showLabels;
+        if (entry.headingTrail) entry.headingTrail.show = !occluded;
+        if (entry.routeArc) entry.routeArc.show = !occluded;
       });
     };
 
