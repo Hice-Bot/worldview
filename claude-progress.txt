@@ -1,5 +1,32 @@
 ## WorldView Development Progress
 
+### Session 21 - 2026-03-06
+
+#### Completed Features:
+- Feature #29: Health endpoint returns cache statistics (PASSING)
+  - GET /api/health returns JSON with uptime, status, timestamp
+  - Cache stats include keys count, hits, misses, ksize, vsize
+  - After data endpoint calls (earthquakes, ships), cache stats reflect activity
+  - Uptime increases on subsequent calls (verified 1736s -> 1742s -> 1758s)
+  - Already implemented correctly in server/index.js, just needed verification
+
+- Feature #205: Ship cache returns same data within TTL (PASSING)
+  - GET /api/ships returns 14,902 real vessels from Digitraffic AIS API
+  - Second call within 120s TTL returns byte-identical response (3,145,313 bytes)
+  - Cache hits increased (16->18), misses stayed at 54 (no upstream re-fetch)
+  - All vessels have valid MMSI, coordinates, SOG > 0
+  - 120s TTL prevents excessive upstream API connections
+
+#### Current Status:
+- 59/205 features passing (28.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- No mock data patterns in server code
+
+#### What's Next:
+- Continue with next assigned features
+- More data layer verifications and UI features
+
 ### Session 20 - 2026-03-06
 
 #### Completed Features:
