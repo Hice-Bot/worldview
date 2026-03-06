@@ -131,40 +131,40 @@ app.get('/api/satellites', async (req, res) => {
     const groupList = String(groups).split(',').map(g => g.trim());
     let allSatellites = [];
 
-    // Primary: CelesTrak (more reliable for group-based queries)
+    // Primary: tle.ivanstanojevic.me (as per app spec)
     try {
       const results = await Promise.all(
         groupList.map(async (group) => {
-          const celestrakGroup = CELESTRAK_GROUP_MAP[group] || group;
+          const searchTerm = IVAN_SEARCH_MAP[group] || group;
           const response = await fetch(
-            `https://celestrak.org/NORAD/elements/gp.php?GROUP=${celestrakGroup}&FORMAT=tle`,
+            `https://tle.ivanstanojevic.me/api/tle/?search=${searchTerm}&page_size=50`,
             { signal: AbortSignal.timeout(10000) }
           );
-          if (!response.ok) throw new Error(`CelesTrak ${response.status}`);
-          const text = await response.text();
-          return parseCelesTrakTLE(text, group);
+          if (!response.ok) throw new Error(`TLE API ${response.status}`);
+          const data = await response.json();
+          return parseIvanTLE(data, group);
         })
       );
       allSatellites = results.flat();
-      console.log(`[SAT] CelesTrak: ${allSatellites.length} satellites from groups: ${groups}`);
+      console.log(`[SAT] ivanstanojevic: ${allSatellites.length} satellites from groups: ${groups}`);
     } catch (primaryError) {
-      console.error('[SAT] CelesTrak failed, trying ivanstanojevic:', primaryError.message);
-      // Fallback: tle.ivanstanojevic.me
+      console.error('[SAT] ivanstanojevic failed, trying CelesTrak:', primaryError.message);
+      // Fallback: CelesTrak
       try {
         const results = await Promise.all(
           groupList.map(async (group) => {
-            const searchTerm = IVAN_SEARCH_MAP[group] || group;
+            const celestrakGroup = CELESTRAK_GROUP_MAP[group] || group;
             const response = await fetch(
-              `https://tle.ivanstanojevic.me/api/tle/?search=${searchTerm}&page_size=50`,
+              `https://celestrak.org/NORAD/elements/gp.php?GROUP=${celestrakGroup}&FORMAT=tle`,
               { signal: AbortSignal.timeout(10000) }
             );
-            if (!response.ok) throw new Error(`TLE API ${response.status}`);
-            const data = await response.json();
-            return parseIvanTLE(data, group);
+            if (!response.ok) throw new Error(`CelesTrak ${response.status}`);
+            const text = await response.text();
+            return parseCelesTrakTLE(text, group);
           })
         );
         allSatellites = results.flat();
-        console.log(`[SAT] ivanstanojevic fallback: ${allSatellites.length} satellites`);
+        console.log(`[SAT] CelesTrak fallback: ${allSatellites.length} satellites`);
       } catch (fallbackError) {
         console.error('[SAT] Both sources failed:', fallbackError.message);
         return res.status(500).json({ error: 'Satellite data fetch failed' });
