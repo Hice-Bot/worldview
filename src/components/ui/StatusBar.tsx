@@ -56,7 +56,12 @@ export default function StatusBar({
         <span className="text-amber-400">SEIS {earthquakeCount}</span>
         <span className="text-red-400">CCTV {cctvCount}</span>
         <span className="text-cyan-400">AIS {shipCount}</span>
-        <span className="text-white/60">OPTICS {shaderMode === 'STANDARD' ? 'STD' : shaderMode}</span>
+        <span className={
+          shaderMode === 'CRT' ? 'text-amber-400' :
+          shaderMode === 'NVG' ? 'text-green-400' :
+          shaderMode === 'FLIR' ? 'text-red-400' :
+          'text-white/60'
+        }>OPTICS {shaderMode === 'STANDARD' ? 'STD' : shaderMode}</span>
       </div>
     </div>
   );
