@@ -1,5 +1,38 @@
 ## WorldView Development Progress
 
+### Session 16 - 2026-03-06
+
+#### Completed Features:
+- Feature #9: No client-side direct API calls (PASSING)
+  - Scanned all 28 src files: zero external API URLs in non-comment code
+  - All 7 fetch calls target /api/ paths only (useFlights, useFlightsLive, useShips, useEarthquakes, useSatellites, useTraffic, useCameras)
+  - Only external URL in src/ is OSM tile URL (tiles/maps excluded per feature spec)
+  - No axios or other HTTP client libraries used
+
+- Feature #10: Vite env variables properly prefixed (PASSING)
+  - Root .env only has VITE_GOOGLE_API_KEY and VITE_CESIUM_ION_TOKEN (both VITE_ prefixed)
+  - server/.env has PORT, OPENSKY_*, NSW_*, AISSTREAM_* (no VITE_ prefix, not exposed to browser)
+  - import.meta.env only accesses VITE_ prefixed vars in GlobeViewer.tsx
+  - No process.env usage in frontend code
+  - No custom envPrefix in vite.config.ts
+
+- Feature #11: Backend injects API keys into upstream requests (PASSING)
+  - NSW Transport: Authorization header with apikey from process.env.NSW_TRANSPORT_API_KEY
+  - OpenSky: Basic Auth using OPENSKY_CLIENT_ID/SECRET on all 3 endpoints (flights, flights/live, routes)
+  - AISStream: APIKey field in WebSocket subscription message from process.env.AISSTREAM_API_KEY
+  - All keys read from process.env at request time
+  - Graceful degradation: NSW conditional inclusion, AISStream fallback-only, OpenSky works anonymously
+
+#### Current Status:
+- 47/205 features passing (22.9%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All 3 assigned features completed and verified
+
+#### What's Next:
+- Continue with next batch of assigned features
+- Data layer enhancements, UI components, or other features as assigned
+
 ### Session 15 - 2026-03-06
 
 #### Completed Features:
