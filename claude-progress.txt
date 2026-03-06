@@ -1,5 +1,40 @@
 ## WorldView Development Progress
 
+### Session 25 - 2026-03-06
+
+#### Completed Features:
+- Feature #39: CCTV image proxy handles invalid URLs (PASSING)
+  - Missing url parameter returns HTTP 400 with error message
+  - Invalid URL format validated with new URL() constructor, returns 400
+  - Non-http/https protocols (javascript:, data:, ftp:) rejected with 400
+  - Upstream 404 returns 404 error response (not crash/500)
+  - 15s AbortSignal.timeout added for slow image fetches
+  - Timeout errors return 504 Gateway Timeout
+  - Valid image URLs still work correctly (tested Austin CCTV)
+
+- Feature #40: Missing API keys cause graceful degradation (PASSING)
+  - Without VITE_GOOGLE_API_KEY: falls back to OSM tiles via useState(!!key) = false
+  - Without VITE_CESIUM_ION_TOKEN: globe loads with basic config (Ion token only set if truthy)
+  - Without AISSTREAM_API_KEY: ships use Digitraffic primary (free), AISStream only fallback
+  - Without NSW_TRANSPORT_API_KEY: CCTV shows TfL+Austin (1862 cameras), NSW conditionally included
+  - Without OPENSKY_CLIENT_ID: WebSocket flight subscriptions use cached data from FR24/adsb.fi
+  - Free APIs (USGS, CelesTrak, adsb.fi, OSM, TfL, Austin) all verified working with no keys
+  - All hooks handle errors with exponential backoff and return empty arrays on failure
+
+#### Modified Files:
+- server/index.js — Enhanced CCTV image proxy with URL validation, protocol check, and timeout
+
+#### Current Status:
+- 70/205 features passing (34.1%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- Zero API keys configured, app fully functional with free data sources
+
+#### What's Next:
+- Continue with next assigned features
+- Additional error handling and edge case coverage
+- Performance optimizations and UI improvements
+
 ### Session 24 - 2026-03-06
 
 #### Completed Features:
