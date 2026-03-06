@@ -11,8 +11,10 @@ import {
   VerticalOrigin,
   HorizontalOrigin,
   Math as CesiumMath,
+  NearFarScalar,
   Billboard,
   Label,
+  Material,
 } from 'cesium';
 import type { ShipData, TrackedEntityInfo } from '../../types';
 import { trackingManager } from '../../trackingManager';
@@ -27,6 +29,9 @@ const EARTH_RADIUS = 6371000; // meters
 const KNOTS_TO_MS = 0.514444; // knots to m/s conversion
 const DR_BULK_INTERVAL = 2000; // Dead reckoning bulk update: 2s for non-tracked vessels
 const OCCLUSION_INTERVAL = 500; // Occlusion check: 2Hz
+const MIN_SOG_FOR_TRAIL = 0.5; // Minimum SOG (knots) to show vessel trail
+const TRAIL_LENGTH_SECONDS = 120; // Trail shows 2 minutes of past position
+const TRAIL_POINTS = 10; // Number of points in the trail polyline
 
 // ============================================================================
 // AIS Ship Type Classification → Color
@@ -173,6 +178,37 @@ interface ShipEntry {
   lastDataTime: number; // Timestamp when data was received from API
   drLat: number;        // Current dead-reckoned latitude
   drLon: number;        // Current dead-reckoned longitude
+  // Trail state
+  trailIndex: number;   // Index in PolylineCollection, -1 if no trail
+}
+
+// ============================================================================
+// Generate trail positions: reverse dead reckoning from current position
+// Shows where the vessel has been based on its heading + speed
+// ============================================================================
+function generateTrailPositions(
+  lat: number,
+  lon: number,
+  headingDeg: number,
+  sogKnots: number
+): Cartesian3[] {
+  if (sogKnots < MIN_SOG_FOR_TRAIL) return [];
+
+  const positions: Cartesian3[] = [];
+  // Reverse heading (180 degrees opposite) to trace backward path
+  const reverseHeading = (headingDeg + 180) % 360;
+
+  for (let i = TRAIL_POINTS; i >= 0; i--) {
+    const pastSeconds = (i / TRAIL_POINTS) * TRAIL_LENGTH_SECONDS;
+    if (pastSeconds === 0) {
+      positions.push(Cartesian3.fromDegrees(lon, lat, 0));
+    } else {
+      const pastPos = deadReckonShipPosition(lat, lon, reverseHeading, sogKnots, pastSeconds);
+      positions.push(Cartesian3.fromDegrees(pastPos.lon, pastPos.lat, 0));
+    }
+  }
+
+  return positions;
 }
 
 // Scratch Cartesian3 for occlusion checks
@@ -247,10 +283,11 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
     return Cartesian3.dot(camNorm, posNorm) < -0.1;
   }, [viewer]);
 
-  // Update billboards/labels when ship data changes
+  // Update billboards/labels/trails when ship data changes
   useEffect(() => {
     const bbCollection = billboardCollectionRef.current;
     const lblCollection = labelCollectionRef.current;
+    const trailCollection = trailCollectionRef.current;
     if (!bbCollection || !lblCollection || !viewer || viewer.isDestroyed()) return;
 
     const iconUrl = getVesselIconUrl();
@@ -262,6 +299,7 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
 
     const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
     const showLabels = cameraAlt < 3000000;
+    const showTrails = cameraAlt < 500000; // Only show trails when zoomed in close
 
     for (const ship of ships) {
       if (!ship.mmsi || !ship.lat || !ship.lon) continue;
@@ -281,8 +319,10 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         trackingManager.updatePosition(ship.mmsi, 'ship', ship.lon, ship.lat, 0);
       }
 
-      const labelText = ship.name || ship.mmsi;
+      const vesselName = ship.name || ship.mmsi;
       const sogStr = ship.sog > 0 ? ` ${ship.sog.toFixed(1)}kn` : '';
+      const destStr = ship.destination ? ` → ${ship.destination}` : '';
+      const labelText = vesselName + sogStr + destStr;
 
       // Use COG for dead reckoning direction (more reliable than heading for moving ships)
       const drHeading = ship.cog > 0 ? ship.cog : (ship.heading || 0);
@@ -299,7 +339,7 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         existing.billboard.disableDepthTestDistance = isTracked ? Number.POSITIVE_INFINITY : 0;
 
         existing.label.position = position;
-        existing.label.text = labelText + sogStr;
+        existing.label.text = labelText;
         existing.label.show = !occluded && showLabels;
         existing.label.fillColor = finalColor;
 
@@ -313,6 +353,47 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         existing.lastDataTime = now;
         existing.drLat = ship.lat;
         existing.drLon = ship.lon;
+
+        // Update trail: only for moving vessels (SOG > 0.5 kt) when zoomed in
+        if (trailCollection) {
+          const shouldHaveTrail = showTrails && (ship.sog || 0) > MIN_SOG_FOR_TRAIL;
+          if (shouldHaveTrail) {
+            const trailPositions = generateTrailPositions(ship.lat, ship.lon, drHeading, ship.sog || 0);
+            if (trailPositions.length > 1) {
+              if (existing.trailIndex >= 0) {
+                // Update existing trail
+                try {
+                  const polyline = trailCollection.get(existing.trailIndex);
+                  if (polyline) {
+                    polyline.positions = trailPositions;
+                    polyline.show = !occluded;
+                  }
+                } catch {
+                  // Trail index invalid, will recreate
+                  existing.trailIndex = -1;
+                }
+              }
+              if (existing.trailIndex < 0) {
+                // Create new trail
+                trailCollection.add({
+                  positions: trailPositions,
+                  width: 1.5,
+                  material: Material.fromType('Color', {
+                    color: color.withAlpha(0.4),
+                  }),
+                  show: !occluded,
+                });
+                existing.trailIndex = trailCollection.length - 1;
+              }
+            }
+          } else if (existing.trailIndex >= 0) {
+            // Hide trail for stopped vessel or when zoomed out
+            try {
+              const polyline = trailCollection.get(existing.trailIndex);
+              if (polyline) polyline.show = false;
+            } catch { /* ignore */ }
+          }
+        }
       } else {
         // Add new billboard
         const bb = bbCollection.add({
@@ -330,7 +411,7 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
 
         const lbl = lblCollection.add({
           position,
-          text: labelText + sogStr,
+          text: labelText,
           font: '10px monospace',
           fillColor: finalColor,
           outlineColor: Color.BLACK,
@@ -343,7 +424,26 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           show: !occluded && showLabels,
           showBackground: true,
           backgroundColor: Color.BLACK.withAlpha(0.5),
+          // Distance-based label fading: full opacity at 5km, fades to 0 at 500km
+          translucencyByDistance: new NearFarScalar(5000, 1.0, 500000, 0.0),
         });
+
+        // Create trail for moving vessels only (when zoomed in)
+        let trailIdx = -1;
+        if (trailCollection && showTrails && (ship.sog || 0) > MIN_SOG_FOR_TRAIL) {
+          const trailPositions = generateTrailPositions(ship.lat, ship.lon, drHeading, ship.sog || 0);
+          if (trailPositions.length > 1) {
+            trailCollection.add({
+              positions: trailPositions,
+              width: 1.5,
+              material: Material.fromType('Color', {
+                color: color.withAlpha(0.4),
+              }),
+              show: !occluded,
+            });
+            trailIdx = trailCollection.length - 1;
+          }
+        }
 
         existingMap.set(ship.mmsi, {
           billboard: bb,
@@ -358,6 +458,7 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           lastDataTime: now,
           drLat: ship.lat,
           drLon: ship.lon,
+          trailIndex: trailIdx,
         });
       }
     }
