@@ -22,23 +22,25 @@ interface ShipLayerProps {
   trackedEntity: TrackedEntityInfo | null;
 }
 
+// --- Constants ---
+const EARTH_RADIUS = 6371000; // meters
+const KNOTS_TO_MS = 0.514444; // knots to m/s conversion
+const DR_BULK_INTERVAL = 2000; // Dead reckoning bulk update: 2s for non-tracked vessels
+const OCCLUSION_INTERVAL = 500; // Occlusion check: 2Hz
+
 // ============================================================================
 // AIS Ship Type Classification → Color
 // ============================================================================
-// AIS ship type first digit: 3=special, 4=high-speed, 5=special, 6=passenger,
-// 7=cargo, 8=tanker, 9=other
-// Second digit: additional cargo/hazard classification
-
 const SHIP_COLORS: Record<string, Color> = {
-  cargo:      Color.CYAN,                              // 70-79
-  tanker:     Color.ORANGE,                             // 80-89
-  passenger:  Color.fromCssColorString('#39FF14'),      // 60-69 green
-  highspeed:  Color.YELLOW,                             // 40-49
-  pleasure:   Color.fromCssColorString('#B266FF'),      // 37 pleasure craft, purple
-  fishing:    Color.TEAL,                               // 30 fishing
-  military:   Color.RED,                                // 35 military
-  tug:        Color.fromCssColorString('#8B4513'),      // 31-32 towing/tug, brown
-  other:      Color.fromCssColorString('#AAAAAA'),      // everything else, gray
+  cargo:      Color.CYAN,
+  tanker:     Color.ORANGE,
+  passenger:  Color.fromCssColorString('#39FF14'),
+  highspeed:  Color.YELLOW,
+  pleasure:   Color.fromCssColorString('#B266FF'),
+  fishing:    Color.TEAL,
+  military:   Color.RED,
+  tug:        Color.fromCssColorString('#8B4513'),
+  other:      Color.fromCssColorString('#AAAAAA'),
 };
 
 function getShipTypeCategory(shipType: number): string {
@@ -50,12 +52,14 @@ function getShipTypeCategory(shipType: number): string {
   if (shipType === 30) return 'fishing';
   if (shipType === 35) return 'military';
   if (shipType === 31 || shipType === 32) return 'tug';
-  if (shipType === 52) return 'tug'; // port tender/tug
+  if (shipType === 52) return 'tug';
   return 'other';
 }
 
 function getShipColor(shipType: number): Color {
-  return SHIP_COLORS[getShipTypeCategory(shipType)] || SHIP_COLORS.other;
+  const category = getShipTypeCategory(shipType);
+  const color = SHIP_COLORS[category];
+  return color !== undefined ? color : SHIP_COLORS.other as Color;
 }
 
 // ============================================================================
@@ -78,30 +82,26 @@ function getVesselIconUrl(): string {
   ctx.strokeStyle = '#000000';
   ctx.lineWidth = 0.5;
 
-  // Top-down ship silhouette pointing north (up)
-  // Pointed bow at top, wider stern at bottom
   ctx.beginPath();
-  ctx.moveTo(14, 1);   // bow (center top)
-  ctx.lineTo(19, 8);   // starboard bow
-  ctx.lineTo(20, 12);  // starboard midship
-  ctx.lineTo(20, 20);  // starboard aft
-  ctx.lineTo(19, 24);  // starboard quarter
-  ctx.lineTo(18, 26);  // starboard stern
-  ctx.lineTo(10, 26);  // port stern
-  ctx.lineTo(9, 24);   // port quarter
-  ctx.lineTo(8, 20);   // port aft
-  ctx.lineTo(8, 12);   // port midship
-  ctx.lineTo(9, 8);    // port bow
+  ctx.moveTo(14, 1);
+  ctx.lineTo(19, 8);
+  ctx.lineTo(20, 12);
+  ctx.lineTo(20, 20);
+  ctx.lineTo(19, 24);
+  ctx.lineTo(18, 26);
+  ctx.lineTo(10, 26);
+  ctx.lineTo(9, 24);
+  ctx.lineTo(8, 20);
+  ctx.lineTo(8, 12);
+  ctx.lineTo(9, 8);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Superstructure detail (small rectangle at mid-aft)
   ctx.fillStyle = '#CCCCCC';
   ctx.fillRect(11, 14, 6, 5);
   ctx.strokeRect(11, 14, 6, 5);
 
-  // Bridge window line
   ctx.strokeStyle = '#666666';
   ctx.lineWidth = 0.8;
   ctx.beginPath();
@@ -114,13 +114,65 @@ function getVesselIconUrl(): string {
 }
 
 // ============================================================================
-// Per-ship tracking entry
+// Dead reckoning: extrapolate ship position using heading + speed (knots)
+// Uses great-circle forward projection on Earth's surface at sea level
+// ============================================================================
+function deadReckonShipPosition(
+  baseLat: number,
+  baseLon: number,
+  headingDeg: number,
+  sogKnots: number,
+  dtSeconds: number
+): { lat: number; lon: number } {
+  // Convert speed over ground from knots to m/s
+  const velocityMs = sogKnots * KNOTS_TO_MS;
+
+  if (velocityMs < 0.5 || dtSeconds <= 0) {
+    return { lat: baseLat, lon: baseLon };
+  }
+
+  // Clamp dt to avoid runaway extrapolation (max 60s for ships with 30s poll interval)
+  const dt = Math.min(dtSeconds, 60);
+  const distanceMeters = velocityMs * dt;
+  const dOverR = distanceMeters / EARTH_RADIUS;
+
+  // Use COG (course over ground) for direction of travel
+  const headingRad = CesiumMath.toRadians(headingDeg);
+  const latRad = CesiumMath.toRadians(baseLat);
+  const lonRad = CesiumMath.toRadians(baseLon);
+
+  // Great-circle forward projection (trigonometric displacement)
+  const newLatRad = Math.asin(
+    Math.sin(latRad) * Math.cos(dOverR) +
+    Math.cos(latRad) * Math.sin(dOverR) * Math.cos(headingRad)
+  );
+  const newLonRad = lonRad + Math.atan2(
+    Math.sin(headingRad) * Math.sin(dOverR) * Math.cos(latRad),
+    Math.cos(dOverR) - Math.sin(latRad) * Math.sin(newLatRad)
+  );
+
+  return {
+    lat: CesiumMath.toDegrees(newLatRad),
+    lon: CesiumMath.toDegrees(newLonRad),
+  };
+}
+
+// ============================================================================
+// Per-ship tracking entry with dead reckoning state
 // ============================================================================
 interface ShipEntry {
   billboard: Billboard;
   label: Label;
   ship: ShipData;
   position: Cartesian3;
+  // Dead reckoning state
+  baseLat: number;
+  baseLon: number;
+  heading: number;      // COG or heading in degrees
+  sogKnots: number;     // Speed over ground in knots
+  lastDataTime: number; // Timestamp when data was received from API
+  drLat: number;        // Current dead-reckoned latitude
+  drLon: number;        // Current dead-reckoned longitude
 }
 
 // Scratch Cartesian3 for occlusion checks
@@ -128,8 +180,9 @@ const _scratchCamNorm = new Cartesian3();
 const _scratchPosNorm = new Cartesian3();
 
 /**
- * ShipLayer - AIS vessel tracking via imperative Cesium primitive collections
+ * ShipLayer - AIS vessel tracking via imperative Cesium primitive collections.
  * BillboardCollection + LabelCollection + PolylineCollection.
+ * Dead reckoning interpolation: tracked vessel every frame, others every 2s.
  * Color by AIS ship type code.
  * Far-side occlusion via dot-product hemisphere check.
  */
@@ -141,6 +194,12 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
   const shipMapRef = useRef<Map<string, ShipEntry>>(new Map());
   const initRef = useRef(false);
   const preRenderRef = useRef<(() => void) | null>(null);
+  const trackedEntityRef = useRef<TrackedEntityInfo | null>(null);
+
+  // Keep tracked entity ref in sync
+  useEffect(() => {
+    trackedEntityRef.current = trackedEntity;
+  }, [trackedEntity]);
 
   // Create collections once when viewer is available
   useEffect(() => {
@@ -199,8 +258,8 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
 
     const existingMap = shipMapRef.current;
     const currentIds = new Set<string>();
+    const now = Date.now();
 
-    // Camera altitude for label visibility
     const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
     const showLabels = cameraAlt < 3000000;
 
@@ -209,29 +268,28 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
 
       currentIds.add(ship.mmsi);
 
-      // Ship positions are at sea level (0m altitude)
       const position = Cartesian3.fromDegrees(ship.lon, ship.lat, 0);
       const color = getShipColor(ship.shipType);
       const rotation = -CesiumMath.toRadians(ship.heading || ship.cog || 0);
       const occluded = isOccluded(position);
 
-      // Check if this is the tracked ship
       const isTracked = trackedEntity?.type === 'ship' && trackedEntity?.id === ship.mmsi;
       const finalScale = isTracked ? 1.5 : 0.6;
       const finalColor = isTracked ? Color.fromCssColorString('#FF3B30') : color;
 
-      // Update tracking manager position for camera following
       if (isTracked) {
         trackingManager.updatePosition(ship.mmsi, 'ship', ship.lon, ship.lat, 0);
       }
 
-      // Build label text
       const labelText = ship.name || ship.mmsi;
       const sogStr = ship.sog > 0 ? ` ${ship.sog.toFixed(1)}kn` : '';
 
+      // Use COG for dead reckoning direction (more reliable than heading for moving ships)
+      const drHeading = ship.cog > 0 ? ship.cog : (ship.heading || 0);
+
       const existing = existingMap.get(ship.mmsi);
       if (existing) {
-        // Update existing
+        // Update existing billboard with fresh API data
         existing.billboard.position = position;
         existing.billboard.color = finalColor;
         existing.billboard.scale = finalScale;
@@ -245,8 +303,16 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         existing.label.show = !occluded && showLabels;
         existing.label.fillColor = finalColor;
 
+        // Update dead reckoning base state with fresh API data
         existing.ship = ship;
         existing.position = position;
+        existing.baseLat = ship.lat;
+        existing.baseLon = ship.lon;
+        existing.heading = drHeading;
+        existing.sogKnots = ship.sog || 0;
+        existing.lastDataTime = now;
+        existing.drLat = ship.lat;
+        existing.drLon = ship.lon;
       } else {
         // Add new billboard
         const bb = bbCollection.add({
@@ -262,7 +328,6 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           disableDepthTestDistance: isTracked ? Number.POSITIVE_INFINITY : 0,
         });
 
-        // Add label
         const lbl = lblCollection.add({
           position,
           text: labelText + sogStr,
@@ -285,6 +350,14 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           label: lbl,
           ship,
           position,
+          // Initialize dead reckoning state
+          baseLat: ship.lat,
+          baseLon: ship.lon,
+          heading: drHeading,
+          sogKnots: ship.sog || 0,
+          lastDataTime: now,
+          drLat: ship.lat,
+          drLon: ship.lon,
         });
       }
     }
@@ -306,7 +379,10 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
     }
   }, [ships, trackedEntity, viewer, isOccluded]);
 
-  // Occlusion + label visibility updates on camera move (throttled to 2Hz)
+  // Dead reckoning + occlusion preRender loop
+  // Tracked vessel: update every frame for smooth camera following
+  // Other vessels: bulk update every 2s for position interpolation
+  // Occlusion checks at 2Hz for all vessels
   useEffect(() => {
     if (!viewer || viewer.isDestroyed()) return;
 
@@ -315,21 +391,70 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
       preRenderRef.current = null;
     }
 
-    let lastUpdate = 0;
+    let lastBulkDR = 0;
+    let lastOcclusion = 0;
+
     const onPreRender = () => {
       const now = Date.now();
-      if (now - lastUpdate < 500) return; // 2Hz throttle
-      lastUpdate = now;
-
-      const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
-      const showLabels = cameraAlt < 3000000;
       const map = shipMapRef.current;
+      if (map.size === 0) return;
 
-      map.forEach((entry) => {
-        const occluded = isOccluded(entry.position);
-        entry.billboard.show = !occluded;
-        entry.label.show = !occluded && showLabels;
-      });
+      const tracked = trackedEntityRef.current;
+      const trackedId = (tracked?.type === 'ship') ? tracked.id : null;
+
+      // --- Tracked vessel: update every frame ---
+      if (trackedId) {
+        const entry = map.get(trackedId);
+        if (entry && entry.sogKnots > 0.5) {
+          const dtSeconds = (now - entry.lastDataTime) / 1000;
+          const dr = deadReckonShipPosition(
+            entry.baseLat, entry.baseLon,
+            entry.heading, entry.sogKnots,
+            dtSeconds
+          );
+          entry.drLat = dr.lat;
+          entry.drLon = dr.lon;
+          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, 0);
+          entry.position = newPos;
+          entry.billboard.position = newPos;
+          entry.label.position = newPos;
+          // Update tracking manager for smooth camera following
+          trackingManager.updatePosition(trackedId, 'ship', dr.lon, dr.lat, 0);
+        }
+      }
+
+      // --- Other vessels: bulk update every 2s ---
+      if (now - lastBulkDR >= DR_BULK_INTERVAL) {
+        lastBulkDR = now;
+        map.forEach((entry, mmsi) => {
+          if (mmsi === trackedId) return; // Skip tracked (already updated above)
+          if (entry.sogKnots < 0.5) return; // Skip stationary/very slow vessels
+          const dtSeconds = (now - entry.lastDataTime) / 1000;
+          const dr = deadReckonShipPosition(
+            entry.baseLat, entry.baseLon,
+            entry.heading, entry.sogKnots,
+            dtSeconds
+          );
+          entry.drLat = dr.lat;
+          entry.drLon = dr.lon;
+          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, 0);
+          entry.position = newPos;
+          entry.billboard.position = newPos;
+          entry.label.position = newPos;
+        });
+      }
+
+      // --- Occlusion + label visibility at 2Hz ---
+      if (now - lastOcclusion >= OCCLUSION_INTERVAL) {
+        lastOcclusion = now;
+        const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
+        const showLabels = cameraAlt < 3000000;
+        map.forEach((entry) => {
+          const occluded = isOccluded(entry.position);
+          entry.billboard.show = !occluded;
+          entry.label.show = !occluded && showLabels;
+        });
+      }
     };
 
     viewer.scene.preRender.addEventListener(onPreRender);
