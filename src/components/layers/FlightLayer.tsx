@@ -111,14 +111,25 @@ function getAircraftIconUrl(): string {
   return cachedIconDataUrl;
 }
 
-// --- Compute great-circle route arc positions via EllipsoidGeodesic ---
+// --- Compute great-circle route arc split into completed + remaining portions ---
+// Returns { completed: Cartesian3[], remaining: Cartesian3[] }
+// The aircraft's current position determines the split point along the geodesic.
+// Completed: origin → aircraft (semi-transparent cyan)
+// Remaining: aircraft → destination (bright cyan)
+interface RouteArcResult {
+  completed: Cartesian3[];
+  remaining: Cartesian3[];
+}
+
 function computeRouteArc(
   originLat: number,
   originLon: number,
   destLat: number,
   destLon: number,
+  aircraftLat: number,
+  aircraftLon: number,
   cruiseAltMeters: number
-): Cartesian3[] {
+): RouteArcResult {
   const NUM_SEGMENTS = 12;
   const geodesic = new EllipsoidGeodesic(
     Cartographic.fromDegrees(originLon, originLat),
@@ -126,15 +137,39 @@ function computeRouteArc(
     Ellipsoid.WGS84
   );
 
-  const positions: Cartesian3[] = [];
+  const totalDistance = geodesic.surfaceDistance;
+
+  // Compute how far along the route the aircraft is
+  // Use a geodesic from origin to aircraft position
+  let progressFraction = 0.5; // Default to midpoint if calculation fails
+  if (totalDistance > 0) {
+    const originToAircraft = new EllipsoidGeodesic(
+      Cartographic.fromDegrees(originLon, originLat),
+      Cartographic.fromDegrees(aircraftLon, aircraftLat),
+      Ellipsoid.WGS84
+    );
+    progressFraction = Math.max(0, Math.min(1, originToAircraft.surfaceDistance / totalDistance));
+  }
+
+  // Generate all arc positions
+  const allPositions: Cartesian3[] = [];
   for (let i = 0; i <= NUM_SEGMENTS; i++) {
     const fraction = i / NUM_SEGMENTS;
     const point = geodesic.interpolateUsingFraction(fraction);
     const altFactor = 4 * fraction * (1 - fraction);
     const alt = cruiseAltMeters * altFactor;
-    positions.push(Cartesian3.fromRadians(point.longitude, point.latitude, alt));
+    allPositions.push(Cartesian3.fromRadians(point.longitude, point.latitude, alt));
   }
-  return positions;
+
+  // Find the split index: closest segment boundary to the progress fraction
+  const splitIndex = Math.round(progressFraction * NUM_SEGMENTS);
+  const clampedSplit = Math.max(1, Math.min(NUM_SEGMENTS - 1, splitIndex));
+
+  // Split into completed and remaining, sharing the split point
+  const completed = allPositions.slice(0, clampedSplit + 1);
+  const remaining = allPositions.slice(clampedSplit);
+
+  return { completed, remaining };
 }
 
 // --- Compute heading trail positions ---
@@ -230,7 +265,8 @@ interface FlightEntry {
   flight: FlightData;
   position: Cartesian3;
   headingTrail: Polyline | null;
-  routeArc: Polyline | null;
+  routeArcCompleted: Polyline | null;   // Origin → aircraft (semi-transparent cyan)
+  routeArcRemaining: Polyline | null;   // Aircraft → destination (bright cyan)
   // Dead reckoning state
   baseLat: number;
   baseLon: number;
@@ -370,14 +406,16 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         flight.heading || 0, flight.velocityMs || 0
       );
 
-      let routePositions: Cartesian3[] = [];
+      // Compute split route arcs: completed (origin→aircraft) and remaining (aircraft→destination)
+      let routeArcData: RouteArcResult | null = null;
       if (showRoutePaths && flight.origin && flight.destination) {
         const originAirport = findAirport(flight.origin);
         const destAirport = findAirport(flight.destination);
         if (originAirport && destAirport) {
-          routePositions = computeRouteArc(
+          routeArcData = computeRouteArc(
             originAirport.lat, originAirport.lon,
             destAirport.lat, destAirport.lon,
+            flight.lat, flight.lon,
             flight.altitudeMeters || 10000
           );
         }
@@ -417,22 +455,52 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           });
         }
 
-        // Update route arc
-        if (existing.routeArc) {
-          if (routePositions.length >= 2 && showRoutePaths) {
-            existing.routeArc.positions = routePositions;
-            existing.routeArc.show = !occluded;
-          } else {
-            routeCollection.remove(existing.routeArc);
-            existing.routeArc = null;
+        // Update route arcs (completed + remaining)
+        if (routeArcData && showRoutePaths) {
+          // Completed portion (origin → aircraft): semi-transparent cyan
+          if (existing.routeArcCompleted) {
+            if (routeArcData.completed.length >= 2) {
+              existing.routeArcCompleted.positions = routeArcData.completed;
+              existing.routeArcCompleted.show = !occluded;
+            } else {
+              routeCollection.remove(existing.routeArcCompleted);
+              existing.routeArcCompleted = null;
+            }
+          } else if (routeArcData.completed.length >= 2) {
+            existing.routeArcCompleted = routeCollection.add({
+              positions: routeArcData.completed,
+              width: 1.5,
+              material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.3) }),
+              show: !occluded,
+            });
           }
-        } else if (routePositions.length >= 2 && showRoutePaths) {
-          existing.routeArc = routeCollection.add({
-            positions: routePositions,
-            width: 1.5,
-            material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.6) }),
-            show: !occluded,
-          });
+          // Remaining portion (aircraft → destination): bright cyan
+          if (existing.routeArcRemaining) {
+            if (routeArcData.remaining.length >= 2) {
+              existing.routeArcRemaining.positions = routeArcData.remaining;
+              existing.routeArcRemaining.show = !occluded;
+            } else {
+              routeCollection.remove(existing.routeArcRemaining);
+              existing.routeArcRemaining = null;
+            }
+          } else if (routeArcData.remaining.length >= 2) {
+            existing.routeArcRemaining = routeCollection.add({
+              positions: routeArcData.remaining,
+              width: 2.0,
+              material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.8) }),
+              show: !occluded,
+            });
+          }
+        } else {
+          // Route arcs disabled or no route data
+          if (existing.routeArcCompleted) {
+            routeCollection.remove(existing.routeArcCompleted);
+            existing.routeArcCompleted = null;
+          }
+          if (existing.routeArcRemaining) {
+            routeCollection.remove(existing.routeArcRemaining);
+            existing.routeArcRemaining = null;
+          }
         }
 
         // Update dead reckoning base state with fresh API data
@@ -490,14 +558,26 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           });
         }
 
-        let routeArc: Polyline | null = null;
-        if (routePositions.length >= 2 && showRoutePaths) {
-          routeArc = routeCollection.add({
-            positions: routePositions,
-            width: 1.5,
-            material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.6) }),
-            show: !occluded,
-          });
+        // Create route arc polylines (completed + remaining)
+        let routeArcCompleted: Polyline | null = null;
+        let routeArcRemaining: Polyline | null = null;
+        if (routeArcData && showRoutePaths) {
+          if (routeArcData.completed.length >= 2) {
+            routeArcCompleted = routeCollection.add({
+              positions: routeArcData.completed,
+              width: 1.5,
+              material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.3) }),
+              show: !occluded,
+            });
+          }
+          if (routeArcData.remaining.length >= 2) {
+            routeArcRemaining = routeCollection.add({
+              positions: routeArcData.remaining,
+              width: 2.0,
+              material: Material.fromType('Color', { color: COLOR_CYAN.withAlpha(0.8) }),
+              show: !occluded,
+            });
+          }
         }
 
         existingMap.set(flight.icao24, {
@@ -506,7 +586,8 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           flight,
           position,
           headingTrail,
-          routeArc,
+          routeArcCompleted,
+          routeArcRemaining,
           // Initialize dead reckoning state
           baseLat: flight.lat,
           baseLon: flight.lon,
@@ -535,7 +616,8 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         bbCollection.remove(entry.billboard);
         lblCollection.remove(entry.label);
         if (entry.headingTrail) trailCollection.remove(entry.headingTrail);
-        if (entry.routeArc) routeCollection.remove(entry.routeArc);
+        if (entry.routeArcCompleted) routeCollection.remove(entry.routeArcCompleted);
+        if (entry.routeArcRemaining) routeCollection.remove(entry.routeArcRemaining);
         existingMap.delete(id);
       }
     }
@@ -638,7 +720,8 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           entry.billboard.show = !occluded;
           entry.label.show = !occluded && showLabels;
           if (entry.headingTrail) entry.headingTrail.show = !occluded;
-          if (entry.routeArc) entry.routeArc.show = !occluded;
+          if (entry.routeArcCompleted) entry.routeArcCompleted.show = !occluded;
+          if (entry.routeArcRemaining) entry.routeArcRemaining.show = !occluded;
         });
       }
     };
