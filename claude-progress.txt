@@ -1,5 +1,61 @@
 ## WorldView Development Progress
 
+### Session 30 - 2026-03-06
+
+#### Completed Features:
+- Feature #59: Flight dead reckoning interpolation (PASSING)
+  - Dead reckoning extrapolates aircraft positions between 20s data polls
+  - Great-circle forward projection using heading + velocity
+  - Tracked aircraft: per-frame position updates via preRender event
+  - Non-tracked aircraft: bulk position updates every 1 second
+  - Vertical rate extrapolation for climbing/descending aircraft
+  - 30s max extrapolation clamp to prevent runaway positions
+  - Smooth transitions when new data arrives (base position reset)
+
+- Feature #60: Flight route arc rendering (PASSING)
+  - EllipsoidGeodesic with 12 interpolation segments for geodesic paths
+  - Split into completed (origin→aircraft) and remaining (aircraft→destination) portions
+  - Completed portion: semi-transparent cyan (alpha 0.3, width 1.5px)
+  - Remaining portion: bright cyan (alpha 0.8, width 2.0px)
+  - Aircraft progress computed from surface distance ratio
+  - Route arcs conditional on showRoutePaths toggle + known origin/destination
+  - 2182 out of 2438 flights have route data (FR24 provides origin+destination)
+
+- Feature #77: Ship dead reckoning interpolation (PASSING)
+  - Dead reckoning extrapolates ship positions between 30s data polls
+  - Tracked vessel: per-frame position updates via preRender event
+  - Other vessels: bulk position updates every 2 seconds
+  - Speed knots to m/s conversion (* 0.514444)
+  - Great-circle trigonometric displacement by heading/COG
+  - 60s max extrapolation clamp to prevent runaway positions
+  - Fixed TS error: getShipColor return type assertion
+  - 14,896 ships with real AIS data from Digitraffic
+
+#### Modified Files:
+- src/components/layers/FlightLayer.tsx — Added dead reckoning system + split route arcs
+  - deadReckonPosition(): great-circle forward projection with heading+velocity+verticalRate
+  - FlightEntry extended with baseLat/baseLon/baseAlt/heading/velocityMs/verticalRate/lastDataTime/drLat/drLon/drAlt
+  - preRender loop: tracked aircraft every frame, non-tracked every 1s, occlusion at 1Hz
+  - computeRouteArc() now returns { completed, remaining } split at aircraft progress point
+  - routeArc → routeArcCompleted (alpha 0.3) + routeArcRemaining (alpha 0.8)
+
+- src/components/layers/ShipLayer.tsx — Added dead reckoning system
+  - deadReckonShipPosition(): great-circle forward projection with heading+SOG
+  - ShipEntry extended with baseLat/baseLon/heading/sogKnots/lastDataTime/drLat/drLon
+  - preRender loop: tracked vessel every frame, other vessels every 2s, occlusion at 2Hz
+  - Fixed TS type error in getShipColor()
+
+#### Current Status:
+- 84/205 features passing (41.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Additional UI features (TrackedEntityPanel, IntelFeed, StatusBar improvements)
+- More data layer features
+- Performance optimizations
+
 ### Session 29 - 2026-03-06
 
 #### Completed Features:
