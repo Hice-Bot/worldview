@@ -1,5 +1,41 @@
 ## WorldView Development Progress
 
+### Session 22 - 2026-03-06
+
+#### Completed Features:
+- Feature #30: Satellite endpoint falls back to CelesTrak (PASSING)
+  - Swapped source order: ivanstanojevic.me is now primary (was CelesTrak)
+  - CelesTrak is now the fallback when ivanstanojevic fails
+  - Error logged with [SAT] prefix, returns HTTP 200 with fallback data
+  - 33 satellites returned from stations group with valid TLE format
+
+- Feature #31: Traffic endpoint falls back to static Sydney data (PASSING)
+  - Fixed all 427 Sydney fallback road segments to have Haversine-calculated lengths (were all 0)
+  - Fallback activates when Overpass API fails or times out (15s)
+  - Fallback data has same schema as live Overpass response (classification, geometry, length)
+  - Error logged with [TRAFFIC] prefix
+
+- Feature #32: Flight endpoint falls back to adsb.fi (PASSING)
+  - Implemented FR24 cloud API as primary source: 7 regional zones fetched in parallel
+  - Zones: north_america, europe, asia, south_america, oceania, middle_east, africa
+  - FR24 response parsed: icao24, lat, lon, heading, altitude, speed, registration, origin, destination
+  - FR24 routes directly populate route registry (2,243 routes from 2,416 aircraft)
+  - 15s minimum interval between FR24 upstream calls
+  - Exponential backoff on FR24 failures (15s start, doubles, caps at 2min)
+  - adsb.fi global endpoint as fallback when FR24 fails or during cooldown
+  - Both sources produce valid aircraft data with proper schema
+
+#### Current Status:
+- 62/205 features passing (30.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with next assigned features
+- More error handling / resilience features
+- UI features and additional layer enhancements
+
 ### Session 21 - 2026-03-06
 
 #### Completed Features:
