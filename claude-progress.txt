@@ -1,5 +1,36 @@
 ## WorldView Development Progress
 
+### Session 23 - 2026-03-06
+
+#### Completed Features:
+- Feature #33: CCTV endpoint handles partial provider failures (PASSING)
+  - Promise.allSettled already used for parallel multi-source requests
+  - Added explicit logging for rejected provider results with provider name
+  - Response still HTTP 200 with cameras from successful providers only
+  - Verified with GB (884) and US (978) cameras from TfL and Austin APIs
+
+- Feature #34: Ship endpoint handles missing AIS key gracefully (PASSING)
+  - Digitraffic primary source needs no API key (14,901 ships returned)
+  - AISStream fallback only used if AISSTREAM_API_KEY is set
+  - Warning log when key missing and Digitraffic fails
+  - Frontend handles empty arrays with default state and Array.isArray check
+
+- Feature #35: All proxy routes have try-catch error handling (PASSING)
+  - Added try-catch to /api/health endpoint (was the only route without it)
+  - Added process.on(unhandledRejection) and process.on(uncaughtException) handlers
+  - All 10 proxy routes now have try-catch with route-specific log prefixes
+  - Error responses use generic messages, stack traces logged server-side only
+  - 13 HTTP status error responses found (500 and 400 codes)
+
+#### Modified Files:
+- server/index.js — Added partial failure logging to CCTV, try-catch to health, global error handlers
+
+#### Current Status:
+- 65/205 features passing (31.7%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- No mock data patterns in src/ or server/
+
 ### Session 22 - 2026-03-06
 
 #### Completed Features:
