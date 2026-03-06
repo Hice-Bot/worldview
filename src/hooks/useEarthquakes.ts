@@ -3,13 +3,18 @@ import type { EarthquakeData } from '../types';
 
 /**
  * useEarthquakes - Polls /api/earthquakes every 60s
- * Exponential backoff on error. USGS M2.5+ day feed.
+ * Exponential backoff on error: 60s start, doubles each failure, caps at 2min.
+ * Resets to normal 60s interval on successful fetch. USGS M2.5+ day feed.
  */
 export function useEarthquakes(enabled: boolean) {
   const [earthquakes, setEarthquakes] = useState<EarthquakeData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backoffRef = useRef(60_000); // Normal: 60s
+  const BASE_INTERVAL = 60_000;
+  const ERROR_START = 60_000;
+  const ERROR_CAP = 120_000;
 
   const fetchEarthquakes = useCallback(async () => {
     try {
@@ -35,8 +40,11 @@ export function useEarthquakes(enabled: boolean) {
       });
       setEarthquakes(parsed);
       setError(null);
+      backoffRef.current = BASE_INTERVAL; // Reset on success
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      backoffRef.current = Math.min(backoffRef.current * 2, ERROR_CAP);
+      if (backoffRef.current < ERROR_START) backoffRef.current = ERROR_START;
     } finally {
       setLoading(false);
     }
@@ -49,10 +57,16 @@ export function useEarthquakes(enabled: boolean) {
     }
 
     fetchEarthquakes();
-    intervalRef.current = setInterval(fetchEarthquakes, 60_000);
+
+    const poll = () => {
+      timeoutRef.current = setTimeout(() => {
+        fetchEarthquakes().then(poll);
+      }, backoffRef.current);
+    };
+    poll();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [enabled, fetchEarthquakes]);
 

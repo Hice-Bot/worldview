@@ -3,13 +3,19 @@ import type { CameraData } from '../types';
 
 /**
  * useCameras - Polls /api/cctv every 5 minutes with exponential backoff
+ * Backoff: 60s start on error, doubles each failure, caps at 2min.
+ * Resets to normal 5min interval on successful fetch.
  * Supports country-based filtering via query parameter.
  */
 export function useCameras(enabled: boolean, country?: string) {
   const [cameras, setCameras] = useState<CameraData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const backoffRef = useRef(300_000); // Normal: 5 minutes
+  const BASE_INTERVAL = 300_000;
+  const ERROR_START = 60_000;
+  const ERROR_CAP = 120_000;
 
   const fetchCameras = useCallback(async () => {
     try {
@@ -20,8 +26,11 @@ export function useCameras(enabled: boolean, country?: string) {
       const data = await res.json();
       setCameras(Array.isArray(data) ? data : []);
       setError(null);
+      backoffRef.current = BASE_INTERVAL; // Reset on success
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      backoffRef.current = Math.min(backoffRef.current * 2, ERROR_CAP);
+      if (backoffRef.current < ERROR_START) backoffRef.current = ERROR_START;
     } finally {
       setLoading(false);
     }
@@ -34,10 +43,16 @@ export function useCameras(enabled: boolean, country?: string) {
     }
 
     fetchCameras();
-    intervalRef.current = setInterval(fetchCameras, 300_000); // 5 minutes
+
+    const poll = () => {
+      timeoutRef.current = setTimeout(() => {
+        fetchCameras().then(poll);
+      }, backoffRef.current);
+    };
+    poll();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [enabled, fetchCameras]);
 
