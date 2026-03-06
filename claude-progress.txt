@@ -1,5 +1,45 @@
 ## WorldView Development Progress
 
+### Session 29 - 2026-03-06
+
+#### Completed Features:
+- Feature #58: Flight altitude band colors correct (PASSING)
+  - All 5 altitude bands confirmed with correct colors: Cruise(>=35000ft)=CYAN, High(>=20000ft)=#87CEEB, Mid(>=10000ft)=#FFD700, Low(>=3000ft)=ORANGE, Ground(<3000ft)=RED
+  - API confirms 2322 airborne aircraft across all 5 altitude bands
+  - Billboard color and scale vary by altitude band for visual hierarchy
+  - Colors update reactively when flight data changes
+
+- Feature #63: Flight callsign labels visible when zoomed in (PASSING)
+  - Enhanced label text to show: callsign + altitude(ft) + speed(kts) + origin-destination route
+  - Labels hidden above 3M meters altitude (reduce clutter), visible when zoomed in
+  - Labels positioned via pixelOffset(10, -4) near aircraft billboards
+  - PreRender handler updates label visibility at 1Hz on camera moves
+  - Route info shown on newline when origin+destination available (2113/2177 flights have route data)
+
+- Feature #67: Satellite category filtering (PASSING)
+  - ISS toggle shows/hides ISS (NORAD 25544) and stations group
+  - Other toggle shows/hides all non-ISS satellites
+  - Category filters appear in OperationsPanel only when satellites layer enabled
+  - ISS uses cyan (#00D4FF) at 0.6 scale, Others use lime green (#39FF14) at 0.35 scale
+  - Toggling filters triggers useEffect re-render (cleanup + recreate entities)
+  - Orbit paths also respect category filters
+
+#### Modified Files:
+- src/components/layers/FlightLayer.tsx — Enhanced label text with altitude(ft), speed(kts), and route
+
+#### Current Status:
+- 81/205 features passing (39.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with remaining UI-Backend integration features
+- TrackedEntityPanel improvements
+- StatusBar entity counts
+- Dead reckoning interpolation
+
 ### Session 28 - 2026-03-06
 
 #### Completed Features:
