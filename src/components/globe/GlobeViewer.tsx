@@ -4,6 +4,7 @@ import {
   Viewer as CesiumViewer,
   Ion,
   Color,
+  Cartesian3,
   Math as CesiumMath,
   RequestScheduler,
   createGooglePhotorealistic3DTileset,
@@ -84,6 +85,25 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
         Ion.defaultAccessToken = CESIUM_ION_TOKEN;
       }
     }, []);
+
+    // Set initial camera position to defaultCamera (Sydney at 20M meters, top-down)
+    useEffect(() => {
+      const viewer = viewerRef.current;
+      if (!viewer || viewer.isDestroyed()) return;
+      viewer.camera.setView({
+        destination: Cartesian3.fromDegrees(
+          props.defaultCamera.lon,
+          props.defaultCamera.lat,
+          props.defaultCamera.altitude
+        ),
+        orientation: {
+          heading: CesiumMath.toRadians(props.defaultCamera.heading),
+          pitch: CesiumMath.toRadians(props.defaultCamera.pitch),
+          roll: 0,
+        },
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount
 
     // Manage tile sources: Google 3D Tiles vs OSM fallback
     useEffect(() => {
