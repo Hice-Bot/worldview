@@ -1,5 +1,54 @@
 ## WorldView Development Progress
 
+### Session 32 - 2026-03-06
+
+#### Completed Features:
+- Feature #71: Earthquake intel feed events (PASSING)
+  - New significant earthquakes trigger individual SEIS events with descriptions
+  - Event format: HH:MM:SS | [SEIS] | M5.2 159 KM SSE OF VILYUCHINSK, RUSSIA
+  - Tracks earthquake IDs (prevQuakeIdsRef) to detect new arrivals vs initial load
+  - Initial load shows summary: "52 SEISMIC EVENTS — MAX M5.1 place"
+  - Subsequent polls generate per-earthquake events for each new quake
+  - Real-time updates via 60s polling, no page refresh needed
+
+- Feature #79: Ship intel feed events (PASSING)
+  - Vessel count changes of 30+ trigger AIS events in intel feed
+  - Event format: HH:MM:SS | [AIS] | VESSEL COUNT INCREASED BY 45 — 14,951 AIS TARGETS
+  - Threshold changed from >50 to >=30 per spec
+  - Reports both increase and decrease directions
+  - Initial AIS feed activation event on first data load
+  - Real AIS data from Digitraffic API (14,906 vessels)
+
+- Feature #149: Intel feed bootstrap system messages (PASSING)
+  - 4 SYS messages on mount with staggered timing (0ms, 500ms, 1000ms, 1500ms)
+  - 1st: WORLDVIEW SYSTEM INITIALIZING...
+  - 2nd: CESIUM ENGINE LOADING...
+  - 3rd: DATA PROXY CONNECTION ESTABLISHED
+  - 4th: DISPLAY ONLINE — ALL SYSTEMS NOMINAL
+  - Messages appear before data layers load (booted flag gates data effects)
+  - All messages use SYS type with HH:MM:SS timestamps
+
+#### Modified Files:
+- src/App.tsx — Enhanced earthquake and ship intel feed event generation
+  - prevQuakeCountRef replaced with prevQuakeIdsRef (Set<string>) for ID-based tracking
+  - Earthquake effect now tracks full earthquakes array (not just length)
+  - Individual per-earthquake SEIS events with magnitude + place description
+  - Ship AIS threshold reduced from >50 to >=30 with direction reporting
+
+#### Current Status:
+- 90/205 features passing (43.9%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+- All upstream APIs returning real data (USGS, Digitraffic AIS)
+
+#### What's Next:
+- Continue with remaining intel feed features
+- TrackedEntityPanel improvements
+- Additional UI refinements
+- More data layer features
+
 ### Session 31 - 2026-03-06
 
 #### Completed Features:
