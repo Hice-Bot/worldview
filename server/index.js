@@ -325,9 +325,13 @@ app.get('/api/cctv', async (req, res) => {
     ]);
 
     let cameras = [];
-    for (const result of sources) {
+    const providerNames = ['TfL London', 'Austin TX', ...(process.env.NSW_TRANSPORT_API_KEY ? ['NSW Transport'] : [])];
+    for (let i = 0; i < sources.length; i++) {
+      const result = sources[i];
       if (result.status === 'fulfilled' && Array.isArray(result.value)) {
         cameras = cameras.concat(result.value);
+      } else if (result.status === 'rejected') {
+        console.error(`[CCTV] Provider ${providerNames[i] || i} failed:`, result.reason?.message || result.reason);
       }
     }
 
