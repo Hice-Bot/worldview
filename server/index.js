@@ -373,7 +373,22 @@ app.get('/api/cctv/image', async (req, res) => {
       return res.status(400).json({ error: 'Missing url parameter' });
     }
 
-    const response = await fetch(String(imageUrl));
+    // Validate URL format
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(String(imageUrl));
+    } catch (_urlError) {
+      return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    // Only allow http/https protocols
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ error: 'Invalid URL format' });
+    }
+
+    const response = await fetch(String(imageUrl), {
+      signal: AbortSignal.timeout(15000), // 15s timeout for slow image fetches
+    });
     if (!response.ok) {
       return res.status(response.status).json({ error: 'Image fetch failed' });
     }
@@ -385,6 +400,9 @@ app.get('/api/cctv/image', async (req, res) => {
     res.send(Buffer.from(buffer));
   } catch (error) {
     console.error('[CCTV] Image proxy error:', error.message);
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      return res.status(504).json({ error: 'Image fetch timed out' });
+    }
     res.status(500).json({ error: 'Image proxy failed' });
   }
 });
