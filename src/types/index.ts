@@ -12,6 +12,16 @@ export interface LayerState {
   ships: boolean;
 }
 
+// --- Layer Loading State ---
+export interface LayerLoading {
+  flights: boolean;
+  satellites: boolean;
+  earthquakes: boolean;
+  traffic: boolean;
+  cctv: boolean;
+  ships: boolean;
+}
+
 // --- Shader Modes ---
 export type ShaderMode = 'STANDARD' | 'CRT' | 'NVG' | 'FLIR';
 

@@ -1,5 +1,6 @@
 import type {
   LayerState,
+  LayerLoading,
   ShaderMode,
   MapTileMode,
   AltitudeFilters,
@@ -8,6 +9,7 @@ import type {
 
 interface OperationsPanelProps {
   layers: LayerState;
+  layerLoading?: LayerLoading;
   shaderMode: ShaderMode;
   mapTiles: MapTileMode;
   altitudeFilters: AltitudeFilters;
@@ -68,6 +70,7 @@ const ALTITUDE_BANDS: { key: keyof AltitudeFilters; label: string; color: string
 export default function OperationsPanel(props: OperationsPanelProps) {
   const {
     layers,
+    layerLoading,
     shaderMode,
     mapTiles,
     altitudeFilters,
@@ -151,6 +154,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
       <div className="space-y-1 px-3">
         {LAYER_CONFIG.map(({ key, label, color }) => {
           const isActive = layers[key];
+          const isLoading = layerLoading?.[key] ?? false;
           return (
             <button
               key={key}
@@ -166,12 +170,15 @@ export default function OperationsPanel(props: OperationsPanelProps) {
               <span
                 className={`
                   w-2 h-2 rounded-full transition-all
-                  ${isActive ? `${color} animate-pulse` : 'bg-white/20'}
+                  ${isActive ? `${color}${isLoading ? ' animate-pulse' : ''}` : 'bg-white/20'}
                 `}
               />
               <span className="text-[10px] font-bold uppercase tracking-wider flex-1">
                 {label}
               </span>
+              {isActive && isLoading && (
+                <span className="text-[8px] text-white/40 uppercase">loading</span>
+              )}
             </button>
           );
         })}

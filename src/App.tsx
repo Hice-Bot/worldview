@@ -17,6 +17,7 @@ import { useTraffic } from './hooks/useTraffic';
 import { useShips } from './hooks/useShips';
 import type {
   LayerState,
+  LayerLoading,
   ShaderMode,
   MapTileMode,
   CameraState,
@@ -70,10 +71,10 @@ export default function App() {
   const [showRoutePaths, setShowRoutePaths] = useState(false);
 
   // Data state — hooks for layers that have been implemented
-  const { earthquakes } = useEarthquakes(layers.earthquakes);
-  const { satellites } = useSatellites(layers.satellites);
-  const { flights: globalFlights } = useFlights(layers.flights);
-  const { cameras } = useCameras(layers.cctv);
+  const { earthquakes, loading: earthquakesLoading } = useEarthquakes(layers.earthquakes);
+  const { satellites, loading: satellitesLoading } = useSatellites(layers.satellites);
+  const { flights: globalFlights, loading: flightsLoading } = useFlights(layers.flights);
+  const { cameras, loading: cctvLoading } = useCameras(layers.cctv);
 
   // Live regional flights - only active when zoomed in (altitude < 500km)
   const liveEnabled = layers.flights && cameraState.altitude < 500_000;
@@ -111,8 +112,18 @@ export default function App() {
     };
   }, [cameraState.lat, cameraState.lon, cameraState.altitude]);
 
-  const { roads: trafficRoads } = useTraffic(layers.traffic, trafficBbox);
-  const { ships } = useShips(layers.ships);
+  const { roads: trafficRoads, loading: trafficLoading } = useTraffic(layers.traffic, trafficBbox);
+  const { ships, loading: shipsLoading } = useShips(layers.ships);
+
+  // Aggregate loading states for UI indicators
+  const layerLoading = useMemo(() => ({
+    flights: flightsLoading,
+    satellites: satellitesLoading,
+    earthquakes: earthquakesLoading,
+    traffic: trafficLoading,
+    cctv: cctvLoading,
+    ships: shipsLoading,
+  }), [flightsLoading, satellitesLoading, earthquakesLoading, trafficLoading, cctvLoading, shipsLoading]);
 
   // UI state
   const [intelEvents, setIntelEvents] = useState<IntelEvent[]>([]);
@@ -189,6 +200,7 @@ export default function App() {
       {/* UI Overlays */}
       <OperationsPanel
         layers={layers}
+        layerLoading={layerLoading}
         shaderMode={shaderMode}
         mapTiles={mapTiles}
         altitudeFilters={altitudeFilters}
