@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useImperativeHandle, useState, useCallback } from 'react';
+import { forwardRef, useEffect, useRef, useImperativeHandle, useState } from 'react';
 import { Viewer, Globe, Scene } from 'resium';
 import {
   Viewer as CesiumViewer,
