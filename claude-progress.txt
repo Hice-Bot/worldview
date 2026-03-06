@@ -1,5 +1,40 @@
 ## WorldView Development Progress
 
+### Session 28 - 2026-03-06
+
+#### Completed Features:
+- Feature #54: Camera altitude affects layer visibility (PASSING)
+  - FlightLayer: labels hidden when camera altitude >= 3,000,000m (1Hz preRender update)
+  - ShipLayer: labels hidden when camera altitude >= 3,000,000m (2Hz preRender update)
+  - CCTVLayer: distance-based scaling (1.2x at 5km to 0.4x at 500km), translucency (1.0 at 1km to 0.3 at 2000km), label opacity fade (50-200km), labels hidden above 500km
+  - TrafficLayer: auto-disables fetching above 5,000,000m altitude (App.tsx bbox = null)
+  - EarthquakeLayer: labels only shown for M4.5+ magnitude events
+  - All layer visibility logic uses preRender event listeners with throttling for performance
+  - Verified all data comes from real upstream APIs (USGS, OpenSky, CelesTrak, Digitraffic, TfL, Austin)
+
+- Feature #55: Layer toggle routing and data fetch coordination (PASSING)
+  - All 6 hooks (useFlights, useSatellites, useEarthquakes, useTraffic, useShips, useCameras) accept enabled flag
+  - Disabling a layer: hook clears data to [], stops polling, cleanup removes timers
+  - Enabling a layer: hook starts initial fetch + polling interval
+  - GlobeViewer conditionally renders layer components: `{props.layers.X && <Layer .../>}`
+  - Dual cleanup: hook clears data AND component unmounts (removing Cesium primitives/entities)
+  - Independent toggles via spread operator: `setLayers(prev => ({ ...prev, [layer]: !prev[layer] }))`
+  - useFlightsLive also properly handles disabled state (clears flights, stops interval)
+  - Vite production build passes with 0 errors
+  - No mock data patterns found in src/ or server/
+
+#### Current Status:
+- 78/205 features passing (38.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining navigation, UI, and data layer features
+- Dead reckoning interpolation for smooth entity movement
+- Additional TrackedEntityPanel detail views
+- More UI component features
+
 ### Session 27 - 2026-03-06
 
 #### Completed Features:
