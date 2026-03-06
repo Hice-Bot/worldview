@@ -1,5 +1,62 @@
 ## WorldView Development Progress
 
+### Session 24 - 2026-03-06
+
+#### Completed Features:
+- Feature #36: WebSocket endpoint handles connection errors (PASSING)
+  - Invalid JSON messages caught with try/catch, error response sent to client
+  - Client disconnect cleanly releases polling intervals and subscription state
+  - Upstream flight data failures caught and logged in poll loop
+  - Multiple simultaneous WebSocket connections fully supported (tested 5+)
+  - Connection close cleans up all resources (intervals, subscriptions)
+  - Added heartbeat ping/pong for detecting broken connections (30s interval)
+  - Implemented flight subscription: subscribe-flights, unsubscribe-flights, ping/pong
+  - Flight poll delivers cached data filtered by bounding box at 10s intervals
+
+- Feature #37: Exponential backoff in frontend data hooks (PASSING)
+  - useFlights: 20s base, 30s error start, doubles each failure, caps at 2min
+  - useEarthquakes: 60s base, doubles on error, caps at 2min
+  - useSatellites: 2hr base, 120s error retry, caps at 2min
+  - useShips: 30s base, doubles on error, caps at 2min
+  - useCameras: 5min base, 60s error retry, caps at 2min
+  - useTraffic: 30s error retry with bbox reset, caps at 2min
+  - All hooks reset to normal interval on success
+  - All hooks use clearTimeout cleanup on unmount
+  - Changed from setInterval to setTimeout+poll pattern for backoff-aware scheduling
+
+- Feature #38: Frontend handles empty/error API responses gracefully (PASSING)
+  - Empty flight/earthquake/satellite/ship/CCTV arrays render without crash
+  - All layer components use for...of loops or length === 0 early returns
+  - API 500 errors caught by try/catch in hooks, don't crash React
+  - All 6 hooks expose loading state (setLoading true/false)
+  - App.tsx destructures and aggregates loading states into layerLoading
+  - OperationsPanel shows 'loading' text + animate-pulse when layer is fetching
+  - LayerLoading type added to types/index.ts
+
+#### Modified Files:
+- server/index.js — Rewrote WebSocket handler with proper error handling, heartbeat, flight subscriptions
+- src/hooks/useEarthquakes.ts — Added exponential backoff (setTimeout+poll pattern)
+- src/hooks/useSatellites.ts — Added exponential backoff with 2hr polling
+- src/hooks/useShips.ts — Added exponential backoff (setTimeout+poll pattern)
+- src/hooks/useCameras.ts — Added exponential backoff (setTimeout+poll pattern)
+- src/hooks/useTraffic.ts — Added exponential backoff with retry on error
+- src/types/index.ts — Added LayerLoading interface
+- src/App.tsx — Destructure loading states, pass layerLoading to OperationsPanel
+- src/components/ui/OperationsPanel.tsx — Accept layerLoading prop, show loading indicator
+
+#### Current Status:
+- 68/205 features passing (33.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully (Vite production build OK)
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- More error handling and robustness features
+- Additional UI features (StatusBar improvements, TrackedEntityPanel)
+- Dead reckoning interpolation for flights/ships
+- Flight route arc rendering
+
 ### Session 23 - 2026-03-06
 
 #### Completed Features:
