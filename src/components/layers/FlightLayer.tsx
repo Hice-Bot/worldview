@@ -30,9 +30,12 @@ interface FlightLayerProps {
   trackedEntity: TrackedEntityInfo | null;
 }
 
+// --- Constants ---
+const EARTH_RADIUS = 6371000; // meters
+const DR_BULK_INTERVAL = 1000; // Dead reckoning bulk update: 1s for non-tracked
+const OCCLUSION_INTERVAL = 1000; // Occlusion check: 1Hz
+
 // --- Altitude band classification with colors ---
-// Cruise >=35,000ft = cyan, High >=20,000ft = light blue, Mid >=10,000ft = gold,
-// Low >=3,000ft = orange, Ground <3,000ft = red
 const COLOR_CYAN = Color.CYAN;
 const COLOR_LIGHT_BLUE = Color.fromCssColorString('#87CEEB');
 const COLOR_GOLD = Color.fromCssColorString('#FFD700');
@@ -47,7 +50,6 @@ function getAltitudeColor(altFeet: number): Color {
   return COLOR_RED;
 }
 
-// --- Altitude band name for filtering ---
 function getAltitudeBand(altFeet: number): keyof AltitudeFilters {
   if (altFeet >= 35000) return 'cruise';
   if (altFeet >= 20000) return 'high';
@@ -56,7 +58,6 @@ function getAltitudeBand(altFeet: number): keyof AltitudeFilters {
   return 'ground';
 }
 
-// --- Billboard scale varies inversely with altitude ---
 function getAltitudeScale(altFeet: number): number {
   if (altFeet >= 35000) return 0.35;
   if (altFeet >= 20000) return 0.4;
@@ -81,25 +82,24 @@ function getAircraftIconUrl(): string {
   ctx.strokeStyle = '#000000';
   ctx.lineWidth = 0.5;
 
-  // Draw airplane from top-down: fuselage + wings + tail (pointing up = north)
   ctx.beginPath();
-  ctx.moveTo(16, 2);   // nose
+  ctx.moveTo(16, 2);
   ctx.lineTo(18, 8);
   ctx.lineTo(18, 12);
-  ctx.lineTo(30, 16);  // right wing tip
+  ctx.lineTo(30, 16);
   ctx.lineTo(30, 18);
   ctx.lineTo(18, 16);
   ctx.lineTo(18, 24);
-  ctx.lineTo(24, 28);  // right tail
+  ctx.lineTo(24, 28);
   ctx.lineTo(24, 30);
   ctx.lineTo(18, 27);
-  ctx.lineTo(16, 30);  // bottom
+  ctx.lineTo(16, 30);
   ctx.lineTo(14, 27);
-  ctx.lineTo(8, 30);   // left tail
+  ctx.lineTo(8, 30);
   ctx.lineTo(8, 28);
   ctx.lineTo(14, 24);
   ctx.lineTo(14, 16);
-  ctx.lineTo(2, 18);   // left wing tip
+  ctx.lineTo(2, 18);
   ctx.lineTo(2, 16);
   ctx.lineTo(14, 12);
   ctx.lineTo(14, 8);
@@ -112,7 +112,6 @@ function getAircraftIconUrl(): string {
 }
 
 // --- Compute great-circle route arc positions via EllipsoidGeodesic ---
-// Returns 12 interpolation segments + endpoint = 13 Cartesian3 positions
 function computeRouteArc(
   originLat: number,
   originLon: number,
@@ -131,8 +130,7 @@ function computeRouteArc(
   for (let i = 0; i <= NUM_SEGMENTS; i++) {
     const fraction = i / NUM_SEGMENTS;
     const point = geodesic.interpolateUsingFraction(fraction);
-    // Arc altitude: parabolic profile peaking at cruise altitude mid-route
-    const altFactor = 4 * fraction * (1 - fraction); // peaks at 0.5
+    const altFactor = 4 * fraction * (1 - fraction);
     const alt = cruiseAltMeters * altFactor;
     positions.push(Cartesian3.fromRadians(point.longitude, point.latitude, alt));
   }
@@ -140,7 +138,6 @@ function computeRouteArc(
 }
 
 // --- Compute heading trail positions ---
-// Projects a short trail behind the aircraft based on heading and velocity
 function computeHeadingTrail(
   lon: number,
   lat: number,
@@ -148,23 +145,18 @@ function computeHeadingTrail(
   headingDeg: number,
   velocityMs: number
 ): Cartesian3[] {
-  // Trail represents ~30 seconds of travel behind the aircraft
   const trailDurationSec = 30;
   const distanceMeters = velocityMs * trailDurationSec;
-  if (distanceMeters < 100) return []; // No trail for very slow/stationary
+  if (distanceMeters < 100) return [];
 
-  const EARTH_RADIUS = 6371000;
   const headingRad = CesiumMath.toRadians(headingDeg);
-  // Reverse heading for the trail (behind the aircraft)
   const reverseHeadingRad = headingRad + Math.PI;
-
   const latRad = CesiumMath.toRadians(lat);
   const lonRad = CesiumMath.toRadians(lon);
 
   const positions: Cartesian3[] = [];
   positions.push(Cartesian3.fromDegrees(lon, lat, altMeters));
 
-  // 3 trail points behind the aircraft
   for (let i = 1; i <= 3; i++) {
     const d = (distanceMeters * i) / 3;
     const dOverR = d / EARTH_RADIUS;
@@ -186,7 +178,52 @@ function computeHeadingTrail(
   return positions;
 }
 
-// Map to track per-aircraft billboard/label state
+// --- Dead reckoning: extrapolate position using heading + velocity ---
+// Uses great-circle forward projection from a base position
+function deadReckonPosition(
+  baseLat: number,
+  baseLon: number,
+  baseAlt: number,
+  headingDeg: number,
+  velocityMs: number,
+  verticalRate: number,
+  dtSeconds: number
+): { lat: number; lon: number; alt: number } {
+  if (velocityMs < 1 || dtSeconds <= 0) {
+    return { lat: baseLat, lon: baseLon, alt: baseAlt };
+  }
+
+  // Clamp dt to avoid runaway extrapolation (max 30s)
+  const dt = Math.min(dtSeconds, 30);
+  const distanceMeters = velocityMs * dt;
+  const dOverR = distanceMeters / EARTH_RADIUS;
+
+  const headingRad = CesiumMath.toRadians(headingDeg);
+  const latRad = CesiumMath.toRadians(baseLat);
+  const lonRad = CesiumMath.toRadians(baseLon);
+
+  const newLatRad = Math.asin(
+    Math.sin(latRad) * Math.cos(dOverR) +
+    Math.cos(latRad) * Math.sin(dOverR) * Math.cos(headingRad)
+  );
+  const newLonRad = lonRad + Math.atan2(
+    Math.sin(headingRad) * Math.sin(dOverR) * Math.cos(latRad),
+    Math.cos(dOverR) - Math.sin(latRad) * Math.sin(newLatRad)
+  );
+
+  // Vertical rate extrapolation (ft/min to m/s: * 0.00508)
+  const verticalMs = verticalRate * 0.00508;
+  const altChange = verticalMs * dt;
+  const newAlt = Math.max(0, baseAlt + altChange);
+
+  return {
+    lat: CesiumMath.toDegrees(newLatRad),
+    lon: CesiumMath.toDegrees(newLonRad),
+    alt: newAlt,
+  };
+}
+
+// --- Per-aircraft tracking entry with dead reckoning state ---
 interface FlightEntry {
   billboard: Billboard;
   label: Label;
@@ -194,15 +231,25 @@ interface FlightEntry {
   position: Cartesian3;
   headingTrail: Polyline | null;
   routeArc: Polyline | null;
+  // Dead reckoning state
+  baseLat: number;
+  baseLon: number;
+  baseAlt: number;
+  heading: number;
+  velocityMs: number;
+  verticalRate: number;
+  lastDataTime: number;   // timestamp when data was received from API
+  drLat: number;          // current dead-reckoned latitude
+  drLon: number;          // current dead-reckoned longitude
+  drAlt: number;          // current dead-reckoned altitude
 }
 
 /**
  * FlightLayer - Renders aircraft using imperative Cesium BillboardCollection + LabelCollection.
  * PolylineCollection x2: one for heading trails, one for great-circle route arcs.
+ * Dead reckoning interpolation: tracked aircraft update every frame, others every 1s.
  * Altitude band coloring: Cruise=cyan, High=light blue, Mid=gold, Low=orange, Ground=red.
- * Billboard scale varies inversely with altitude.
  * Far-side occlusion via dot-product hemisphere check.
- * Incremental add/update/remove via ICAO24 keyed map.
  */
 export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, trackedEntity }: FlightLayerProps) {
   const { viewer } = useCesium();
@@ -213,6 +260,12 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
   const flightMapRef = useRef<Map<string, FlightEntry>>(new Map());
   const initRef = useRef(false);
   const preRenderRef = useRef<(() => void) | null>(null);
+  const trackedEntityRef = useRef<TrackedEntityInfo | null>(null);
+
+  // Keep tracked entity ref in sync
+  useEffect(() => {
+    trackedEntityRef.current = trackedEntity;
+  }, [trackedEntity]);
 
   // Create collections once when viewer is available
   useEffect(() => {
@@ -280,8 +333,8 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
 
     const existingMap = flightMapRef.current;
     const currentIds = new Set<string>();
+    const now = Date.now();
 
-    // Get camera altitude for label visibility
     const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
     const showLabels = cameraAlt < 3000000;
 
@@ -289,7 +342,6 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
       if (!flight.icao24 || !flight.lat || !flight.lon) continue;
       if (flight.onGround) continue;
 
-      // Apply altitude filters
       const band = getAltitudeBand(flight.altitudeFeet);
       if (!altitudeFilters[band]) continue;
 
@@ -300,29 +352,24 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
       const rotation = -CesiumMath.toRadians(flight.heading || 0);
       const occluded = isOccluded(position);
 
-      // Check if this is the tracked aircraft
       const isTracked = trackedEntity?.type === 'aircraft' && trackedEntity?.id === flight.icao24;
       const finalScale = isTracked ? 1.0 : scale;
 
-      // Update tracking manager position for camera following (dead reckoning)
       if (isTracked) {
         trackingManager.updatePosition(flight.icao24, 'aircraft', flight.lon, flight.lat, flight.altitudeMeters);
       }
 
-      // Build label text: callsign + altitude (ft) + speed (kts) + route
       const callsignStr = flight.callsign || flight.icao24;
       const altStr = flight.altitudeFeet > 0 ? ' ' + Math.round(flight.altitudeFeet) + 'ft' : '';
       const spdStr = flight.velocityKnots > 0 ? ' ' + Math.round(flight.velocityKnots) + 'kts' : '';
       const routeStr = (flight.origin && flight.destination) ? '\n' + flight.origin + '-' + flight.destination : '';
       const labelText = callsignStr + altStr + spdStr + routeStr;
 
-      // Compute heading trail positions
       const trailPositions = computeHeadingTrail(
         flight.lon, flight.lat, flight.altitudeMeters,
         flight.heading || 0, flight.velocityMs || 0
       );
 
-      // Compute route arc if origin and destination are known
       let routePositions: Cartesian3[] = [];
       if (showRoutePaths && flight.origin && flight.destination) {
         const originAirport = findAirport(flight.origin);
@@ -338,20 +385,15 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
 
       const existing = existingMap.get(flight.icao24);
       if (existing) {
-        // Update existing billboard
+        // Update existing billboard with fresh API data
         existing.billboard.position = position;
         existing.billboard.color = color;
         existing.billboard.scale = finalScale;
         existing.billboard.rotation = rotation;
         existing.billboard.show = !occluded;
         existing.billboard.id = { type: 'aircraft', data: flight };
-        if (isTracked) {
-          existing.billboard.disableDepthTestDistance = Number.POSITIVE_INFINITY;
-        } else {
-          existing.billboard.disableDepthTestDistance = 0;
-        }
+        existing.billboard.disableDepthTestDistance = isTracked ? Number.POSITIVE_INFINITY : 0;
 
-        // Update label
         existing.label.position = position;
         existing.label.text = labelText;
         existing.label.show = !occluded && showLabels;
@@ -393,8 +435,19 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           });
         }
 
+        // Update dead reckoning base state with fresh API data
         existing.flight = flight;
         existing.position = position;
+        existing.baseLat = flight.lat;
+        existing.baseLon = flight.lon;
+        existing.baseAlt = flight.altitudeMeters;
+        existing.heading = flight.heading || 0;
+        existing.velocityMs = flight.velocityMs || 0;
+        existing.verticalRate = flight.verticalRate || 0;
+        existing.lastDataTime = now;
+        existing.drLat = flight.lat;
+        existing.drLon = flight.lon;
+        existing.drAlt = flight.altitudeMeters;
       } else {
         // Add new billboard
         const bb = bbCollection.add({
@@ -410,7 +463,6 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           disableDepthTestDistance: isTracked ? Number.POSITIVE_INFINITY : 0,
         });
 
-        // Add label
         const lbl = lblCollection.add({
           position,
           text: labelText,
@@ -428,7 +480,6 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           backgroundColor: Color.BLACK.withAlpha(0.5),
         });
 
-        // Add heading trail
         let headingTrail: Polyline | null = null;
         if (trailPositions.length >= 2) {
           headingTrail = trailCollection.add({
@@ -439,7 +490,6 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           });
         }
 
-        // Add route arc
         let routeArc: Polyline | null = null;
         if (routePositions.length >= 2 && showRoutePaths) {
           routeArc = routeCollection.add({
@@ -457,6 +507,17 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           position,
           headingTrail,
           routeArc,
+          // Initialize dead reckoning state
+          baseLat: flight.lat,
+          baseLon: flight.lon,
+          baseAlt: flight.altitudeMeters,
+          heading: flight.heading || 0,
+          velocityMs: flight.velocityMs || 0,
+          verticalRate: flight.verticalRate || 0,
+          lastDataTime: now,
+          drLat: flight.lat,
+          drLon: flight.lon,
+          drAlt: flight.altitudeMeters,
         });
       }
     }
@@ -480,33 +541,106 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
     }
   }, [flights, altitudeFilters, showRoutePaths, trackedEntity, viewer, isOccluded]);
 
-  // Update occlusion + label visibility on camera move (throttled to 1Hz)
+  // Dead reckoning + occlusion preRender loop
+  // Tracked aircraft: update every frame for smooth camera following
+  // Non-tracked aircraft: bulk update every 1s for position interpolation
+  // Occlusion checks at 1Hz for all aircraft
   useEffect(() => {
     if (!viewer || viewer.isDestroyed()) return;
 
-    // Remove old listener
     if (preRenderRef.current) {
       viewer.scene.preRender.removeEventListener(preRenderRef.current);
       preRenderRef.current = null;
     }
 
-    let lastUpdate = 0;
+    let lastBulkDR = 0;        // Last bulk dead reckoning update
+    let lastOcclusion = 0;      // Last occlusion check
+
     const onPreRender = () => {
       const now = Date.now();
-      if (now - lastUpdate < 1000) return; // 1Hz throttle
-      lastUpdate = now;
-
-      const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
-      const showLabels = cameraAlt < 3000000;
       const map = flightMapRef.current;
+      if (map.size === 0) return;
 
-      map.forEach((entry) => {
-        const occluded = isOccluded(entry.position);
-        entry.billboard.show = !occluded;
-        entry.label.show = !occluded && showLabels;
-        if (entry.headingTrail) entry.headingTrail.show = !occluded;
-        if (entry.routeArc) entry.routeArc.show = !occluded;
-      });
+      const tracked = trackedEntityRef.current;
+      const trackedId = (tracked?.type === 'aircraft') ? tracked.id : null;
+
+      // --- Tracked aircraft: update every frame ---
+      if (trackedId) {
+        const entry = map.get(trackedId);
+        if (entry && entry.velocityMs > 1) {
+          const dtSeconds = (now - entry.lastDataTime) / 1000;
+          const dr = deadReckonPosition(
+            entry.baseLat, entry.baseLon, entry.baseAlt,
+            entry.heading, entry.velocityMs, entry.verticalRate,
+            dtSeconds
+          );
+          entry.drLat = dr.lat;
+          entry.drLon = dr.lon;
+          entry.drAlt = dr.alt;
+          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, dr.alt);
+          entry.position = newPos;
+          entry.billboard.position = newPos;
+          entry.label.position = newPos;
+          // Update tracking manager for smooth camera following
+          trackingManager.updatePosition(trackedId, 'aircraft', dr.lon, dr.lat, dr.alt);
+          // Update heading trail from dead-reckoned position
+          if (entry.headingTrail) {
+            const trailPositions = computeHeadingTrail(
+              dr.lon, dr.lat, dr.alt,
+              entry.heading, entry.velocityMs
+            );
+            if (trailPositions.length >= 2) {
+              entry.headingTrail.positions = trailPositions;
+            }
+          }
+        }
+      }
+
+      // --- Non-tracked aircraft: bulk update every 1s ---
+      if (now - lastBulkDR >= DR_BULK_INTERVAL) {
+        lastBulkDR = now;
+        map.forEach((entry, icao24) => {
+          if (icao24 === trackedId) return; // Skip tracked (already updated above)
+          if (entry.velocityMs < 1) return; // Skip stationary
+          const dtSeconds = (now - entry.lastDataTime) / 1000;
+          const dr = deadReckonPosition(
+            entry.baseLat, entry.baseLon, entry.baseAlt,
+            entry.heading, entry.velocityMs, entry.verticalRate,
+            dtSeconds
+          );
+          entry.drLat = dr.lat;
+          entry.drLon = dr.lon;
+          entry.drAlt = dr.alt;
+          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, dr.alt);
+          entry.position = newPos;
+          entry.billboard.position = newPos;
+          entry.label.position = newPos;
+          // Update heading trail from dead-reckoned position
+          if (entry.headingTrail) {
+            const trailPositions = computeHeadingTrail(
+              dr.lon, dr.lat, dr.alt,
+              entry.heading, entry.velocityMs
+            );
+            if (trailPositions.length >= 2) {
+              entry.headingTrail.positions = trailPositions;
+            }
+          }
+        });
+      }
+
+      // --- Occlusion + label visibility at 1Hz ---
+      if (now - lastOcclusion >= OCCLUSION_INTERVAL) {
+        lastOcclusion = now;
+        const cameraAlt = viewer.camera.positionCartographic?.height || 20000000;
+        const showLabels = cameraAlt < 3000000;
+        map.forEach((entry) => {
+          const occluded = isOccluded(entry.position);
+          entry.billboard.show = !occluded;
+          entry.label.show = !occluded && showLabels;
+          if (entry.headingTrail) entry.headingTrail.show = !occluded;
+          if (entry.routeArc) entry.routeArc.show = !occluded;
+        });
+      }
     };
 
     viewer.scene.preRender.addEventListener(onPreRender);
