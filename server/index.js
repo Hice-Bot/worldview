@@ -8,6 +8,16 @@ import dotenv from 'dotenv';
 // Load server-side env
 dotenv.config({ path: './server/.env' });
 
+// Global handlers for unhandled rejections and uncaught exceptions
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[SERVER] Unhandled promise rejection:', reason?.message || reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[SERVER] Uncaught exception:', error.message);
+  // Don't exit — keep server running for other requests
+});
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -22,15 +32,20 @@ const cache = new NodeCache({ checkperiod: 30 });
 // Health Endpoint
 // ============================================================================
 app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    uptime: process.uptime(),
-    cache: {
-      keys: cache.keys().length,
-      stats: cache.getStats(),
-    },
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    res.json({
+      status: 'ok',
+      uptime: process.uptime(),
+      cache: {
+        keys: cache.keys().length,
+        stats: cache.getStats(),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[HEALTH] Error:', error.message);
+    res.status(500).json({ error: 'Health check failed' });
+  }
 });
 
 // ============================================================================
