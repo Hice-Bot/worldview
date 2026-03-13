@@ -127,33 +127,71 @@ app.get('/api/earthquakes', async (_req, res) => {
 // Satellites Endpoint - TLE data
 // ============================================================================
 
+// Validate a single TLE entry has proper 3-line format
+function isValidTLE(sat) {
+  if (!sat || !sat.tle1 || !sat.tle2) return false;
+  if (!sat.tle1.startsWith('1 ') || !sat.tle2.startsWith('2 ')) return false;
+  // TLE lines should be ~69 characters
+  if (sat.tle1.length < 60 || sat.tle2.length < 60) return false;
+  return true;
+}
+
 // Parse CelesTrak 3-line TLE text into SatelliteData objects
 function parseCelesTrakTLE(text, category) {
+  if (!text || typeof text !== 'string') {
+    console.error(`[SAT] Validation failed: CelesTrak response for ${category} is not a string`);
+    return [];
+  }
   const lines = text.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length < 3) {
+    console.error(`[SAT] Validation failed: CelesTrak response for ${category} has fewer than 3 lines`);
+    return [];
+  }
   const satellites = [];
+  let skipped = 0;
   for (let i = 0; i + 2 < lines.length; i += 3) {
     const name = lines[i];
     const tle1 = lines[i + 1];
     const tle2 = lines[i + 2];
     // Validate TLE format: line 1 starts with "1 ", line 2 starts with "2 "
-    if (!tle1.startsWith('1 ') || !tle2.startsWith('2 ')) continue;
+    if (!tle1.startsWith('1 ') || !tle2.startsWith('2 ')) {
+      skipped++;
+      continue;
+    }
     // Extract NORAD ID from line 1 (columns 3-7)
     const noradId = parseInt(tle1.substring(2, 7).trim(), 10) || 0;
     satellites.push({ name: name.trim(), noradId, tle1, tle2, category });
+  }
+  if (skipped > 0) {
+    console.warn(`[SAT] Validation: skipped ${skipped} malformed TLE entries in ${category}`);
   }
   return satellites;
 }
 
 // Parse ivanstanojevic.me API response into SatelliteData objects
 function parseIvanTLE(apiResponse, category) {
+  if (!apiResponse || typeof apiResponse !== 'object') {
+    console.error(`[SAT] Validation failed: ivanstanojevic response for ${category} is not a valid object`);
+    return [];
+  }
   const members = apiResponse.member || [];
-  return members.map(m => ({
+  if (!Array.isArray(members)) {
+    console.error(`[SAT] Validation failed: ivanstanojevic response for ${category} has no member array`);
+    return [];
+  }
+  const parsed = members.map(m => ({
     name: (m.name || '').trim(),
     noradId: m.satelliteId || 0,
     tle1: m.line1 || '',
     tle2: m.line2 || '',
     category,
-  })).filter(s => s.tle1 && s.tle2);
+  }));
+  const valid = parsed.filter(s => isValidTLE(s));
+  const invalid = parsed.length - valid.length;
+  if (invalid > 0) {
+    console.warn(`[SAT] Validation: filtered out ${invalid} invalid TLE entries from ${category}`);
+  }
+  return valid;
 }
 
 // Map group names to CelesTrak GROUP parameter values
@@ -224,9 +262,23 @@ app.get('/api/satellites', async (req, res) => {
       }
     }
 
+    // Validate all satellites have proper TLE format before deduplication
+    const validSatellites = allSatellites.filter(s => {
+      if (!isValidTLE(s)) {
+        console.warn(`[SAT] Validation: dropping satellite "${s.name}" (NORAD ${s.noradId}) — invalid TLE format`);
+        return false;
+      }
+      return true;
+    });
+
+    if (validSatellites.length === 0 && allSatellites.length > 0) {
+      console.error(`[SAT] Validation failed: all ${allSatellites.length} satellites had invalid TLE format`);
+      return res.status(502).json({ error: 'Upstream satellite data failed TLE validation' });
+    }
+
     // Deduplicate by NORAD ID (keep first occurrence)
     const seen = new Set();
-    const deduplicated = allSatellites.filter(s => {
+    const deduplicated = validSatellites.filter(s => {
       if (seen.has(s.noradId)) return false;
       seen.add(s.noradId);
       return true;
@@ -487,6 +539,11 @@ app.get('/api/cctv/image', async (req, res) => {
       return res.status(400).json({ error: 'Missing url parameter' });
     }
 
+    // Reject very long URLs (max 2048 characters)
+    if (String(imageUrl).length > 2048) {
+      return res.status(400).json({ error: 'URL too long' });
+    }
+
     // Validate URL format
     let parsedUrl;
     try {
@@ -559,6 +616,12 @@ app.get('/api/ships', async (_req, res) => {
 
       const posData = await posResponse.json();
       const metaData = await metaResponse.json();
+
+      // Validate Digitraffic response format
+      if (!posData || !Array.isArray(posData.features)) {
+        console.error('[SHIPS] Validation failed: Digitraffic positions response missing features array');
+        throw new Error('Digitraffic positions response is not valid GeoJSON');
+      }
 
       // Build MMSI -> metadata lookup
       const metaMap = new Map();
