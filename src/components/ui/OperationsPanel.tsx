@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type {
   LayerState,
   LayerLoading,
@@ -398,6 +398,23 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   } = props;
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Animated close handler - play exit animation then unmount
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    // Wait for animation to complete before unmounting
+    setTimeout(() => {
+      setMobileOpen(false);
+      setIsClosing(false);
+    }, 250); // matches modal-exit duration
+  }, []);
+
+  const handleOpen = useCallback(() => {
+    setMobileOpen(true);
+    setIsClosing(false);
+  }, []);
 
   // Count active layers for FAB badge
   const activeLayerCount = Object.values(layers).filter(Boolean).length;
@@ -425,7 +442,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   return (
     <>
       {/* ===== DESKTOP: fixed 224px left sidebar (1024px+) ===== */}
-      <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 rounded-br-lg z-50 overflow-y-auto hidden lg:block pointer-events-auto">
+      <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 rounded-br-lg z-50 overflow-y-auto hidden lg:block pointer-events-auto panel-scroll" onWheel={(e) => e.stopPropagation()}>
         {/* Header with pulsing green indicator */}
         <div className="p-3 border-b border-white/10">
           <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
@@ -440,48 +457,58 @@ export default function OperationsPanel(props: OperationsPanelProps) {
       {/* ===== MOBILE: FAB + full-screen modal (below 1024px) ===== */}
       <div className="lg:hidden">
         {/* Floating Action Button - bottom-left for easy thumb access */}
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="fixed left-4 bottom-12 z-50 w-12 h-12 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg shadow-black/50 active:scale-95 transition-transform pointer-events-auto"
-          aria-label="Open operations panel"
-        >
-          {/* Stacked bars icon representing layers/controls */}
-          <svg className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
-          {/* Active layer count badge */}
-          {activeLayerCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-green-500 text-black text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
-              {activeLayerCount}
-            </span>
-          )}
-        </button>
+        {!mobileOpen && (
+          <button
+            onClick={handleOpen}
+            onTouchEnd={(e) => { e.preventDefault(); handleOpen(); }}
+            className="fixed left-4 bottom-12 z-50 w-12 h-12 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg shadow-black/50 active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
+            aria-label="Open operations panel"
+          >
+            {/* Stacked bars icon representing layers/controls */}
+            <svg className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+            {/* Active layer count badge */}
+            {activeLayerCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-green-500 text-black text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {activeLayerCount}
+              </span>
+            )}
+          </button>
+        )}
 
-        {/* Full-screen modal */}
+        {/* Full-screen modal with slide-in/out animation */}
         {mobileOpen && (
-          <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex flex-col pointer-events-auto">
-            {/* Modal header with close button */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
-              <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
-                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
-                WorldView
-              </h1>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
-                aria-label="Close operations panel"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+          <div
+            ref={modalRef}
+            className={`fixed inset-0 z-[60] flex flex-col pointer-events-auto ${isClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
+            style={{ backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+          >
+            <div className={`flex flex-col h-full ${isClosing ? 'modal-exit' : 'modal-enter'}`}>
+              {/* Modal header with close button */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+                <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
+                  WorldView
+                </h1>
+                <button
+                  onClick={handleClose}
+                  onTouchEnd={(e) => { e.preventDefault(); handleClose(); }}
+                  className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
+                  aria-label="Close operations panel"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
-            {/* Scrollable panel content */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <PanelContent {...contentProps} />
+              {/* Scrollable panel content */}
+              <div className="flex-1 overflow-y-auto min-h-0 panel-scroll" onWheel={(e) => e.stopPropagation()}>
+                <PanelContent {...contentProps} />
+              </div>
             </div>
           </div>
         )}

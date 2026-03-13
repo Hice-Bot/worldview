@@ -93,7 +93,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
         </div>
 
         {/* Scrollable event list */}
-        <div ref={scrollRef} className="overflow-y-auto flex-1 min-h-0">
+        <div ref={scrollRef} className="overflow-y-auto flex-1 min-h-0 panel-scroll" onWheel={(e) => e.stopPropagation()}>
           {renderEvents()}
         </div>
       </div>
@@ -129,7 +129,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
                 ✕
               </button>
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto flex-1 panel-scroll" onWheel={(e) => e.stopPropagation()}>
               {renderEvents()}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import type { CameraData } from '../../types';
 
 interface CCTVPanelProps {
@@ -35,8 +35,24 @@ function formatDMS(decimal: number, isLat: boolean): string {
 export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onFlyTo }: CCTVPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobileClosing, setIsMobileClosing] = useState(false);
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const mobileModalRef = useRef<HTMLDivElement>(null);
+
+  // Animated close handler for mobile modal
+  const handleMobileClose = useCallback(() => {
+    setIsMobileClosing(true);
+    setTimeout(() => {
+      setMobileOpen(false);
+      setIsMobileClosing(false);
+    }, 250);
+  }, []);
+
+  const handleMobileOpen = useCallback(() => {
+    setMobileOpen(true);
+    setIsMobileClosing(false);
+  }, []);
 
   // Online camera count
   const onlineCameras = useMemo(() => cameras.filter((c) => c.available), [cameras]);
@@ -96,7 +112,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
       </div>
 
       {!collapsed && (
-        <div className="flex flex-col overflow-y-auto" style={{ maxHeight: 'calc(100% - 36px)' }}>
+        <div className="flex flex-col overflow-y-auto panel-scroll" style={{ maxHeight: 'calc(100% - 36px)' }} onWheel={(e) => e.stopPropagation()}>
           {/* Country/region filter buttons */}
           <div className="p-2 flex flex-wrap gap-1 border-b border-white/10">
             <button
@@ -243,7 +259,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
               ✕
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto panel-scroll" onWheel={(e) => e.stopPropagation()}>
             {/* Country filters */}
             <div className="p-2 flex flex-wrap gap-1 border-b border-white/10">
               <button
