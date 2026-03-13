@@ -782,6 +782,37 @@ function enrichWithRoutes(aircraft) {
   return aircraft;
 }
 
+// Validate and sanitize flight data fields
+// Ensures every aircraft has valid icao24, lat/lon in range, numeric altitude/velocity/heading
+// Filters out aircraft with invalid critical fields, sanitizes non-critical fields
+function validateFlightData(aircraft) {
+  return aircraft
+    .filter(ac => {
+      // icao24 must be a non-empty string (ideally 6-char hex, but some sources vary)
+      if (!ac.icao24 || typeof ac.icao24 !== 'string' || ac.icao24.trim().length === 0) return false;
+      // lat/lon must be numeric and within valid ranges
+      if (typeof ac.lat !== 'number' || isNaN(ac.lat) || ac.lat < -90 || ac.lat > 90) return false;
+      if (typeof ac.lon !== 'number' || isNaN(ac.lon) || ac.lon < -180 || ac.lon > 180) return false;
+      return true;
+    })
+    .map(ac => {
+      // Sanitize numeric fields: replace NaN/undefined with 0
+      ac.altitudeMeters = (typeof ac.altitudeMeters === 'number' && !isNaN(ac.altitudeMeters)) ? ac.altitudeMeters : 0;
+      ac.altitudeFeet = (typeof ac.altitudeFeet === 'number' && !isNaN(ac.altitudeFeet)) ? ac.altitudeFeet : 0;
+      ac.velocityMs = (typeof ac.velocityMs === 'number' && !isNaN(ac.velocityMs)) ? ac.velocityMs : 0;
+      ac.velocityKnots = (typeof ac.velocityKnots === 'number' && !isNaN(ac.velocityKnots)) ? ac.velocityKnots : 0;
+      ac.heading = (typeof ac.heading === 'number' && !isNaN(ac.heading)) ? (ac.heading % 360 + 360) % 360 : 0;
+      ac.verticalRate = (typeof ac.verticalRate === 'number' && !isNaN(ac.verticalRate)) ? ac.verticalRate : 0;
+      // Ensure string fields are strings
+      ac.callsign = (ac.callsign || '').toString().trim();
+      ac.registration = (ac.registration || '').toString().trim();
+      ac.origin = (ac.origin || '').toString().trim();
+      ac.destination = (ac.destination || '').toString().trim();
+      ac.onGround = !!ac.onGround;
+      return ac;
+    });
+}
+
 // ============================================================================
 // Flights Endpoint - FR24 + adsb.fi fallback
 // ============================================================================
@@ -910,9 +941,10 @@ app.get('/api/flights', async (_req, res) => {
         const airborneCount = allAircraft.filter(a => !a.onGround).length;
         console.log(`[FLIGHTS] FR24: ${airborneCount} airborne + ${allAircraft.length - airborneCount} ground from ${7 - failedZones}/7 zones`);
         enrichWithRoutes(allAircraft);
-        cache.set('flights', allAircraft, 30); // 30s TTL
+        const validatedAircraft = validateFlightData(allAircraft);
+        cache.set('flights', validatedAircraft, 30); // 30s TTL
         refreshRouteRegistry().catch(() => {});
-        res.json(allAircraft);
+        res.json(validatedAircraft);
         return;
       } catch (primaryError) {
         // Apply exponential backoff for FR24 failures
