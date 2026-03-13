@@ -129,7 +129,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
             ref={badgeRef}
             onClick={handleMobileOpen}
             onTouchEnd={(e) => { e.preventDefault(); handleMobileOpen(); }}
-            className="fixed top-2 right-2 z-50 bg-black/80 border border-white/20 rounded-full px-3 py-1.5 flex items-center gap-1.5 active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
+            className="fixed top-2 right-2 z-50 bg-black/80 border border-white/20 rounded-full px-3 py-1.5 min-h-[44px] flex items-center gap-1.5 active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
             aria-label="Open intel feed"
           >
             <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
@@ -161,7 +161,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
                 <button
                   onClick={handleMobileClose}
                   onTouchEnd={(e) => { e.preventDefault(); handleMobileClose(); }}
-                  className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
+                  className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
                   aria-label="Close intel feed"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

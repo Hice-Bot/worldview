@@ -126,9 +126,9 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
       {!collapsed && (
         <div id="cctv-panel-content" className="flex flex-col overflow-y-auto panel-scroll" style={{ maxHeight: 'calc(100% - 36px)' }} onWheel={(e) => e.stopPropagation()}>
           {/* Country/region filter buttons */}
-          <div className="p-2 flex flex-wrap gap-1 border-b border-white/10" role="group" aria-label="Country filter">
+          <div className="p-2 flex flex-wrap gap-1.5 border-b border-white/10" role="group" aria-label="Country filter">
             <button
-              className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded transition-colors ${
+              className={`px-2.5 py-1.5 text-[10px] uppercase font-bold rounded transition-colors ${
                 countryFilter === null
                   ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
                   : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'
@@ -149,7 +149,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
               return (
                 <button
                   key={country}
-                  className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded transition-colors ${
+                  className={`px-2.5 py-1.5 text-[10px] uppercase font-bold rounded transition-colors ${
                     countryFilter === country ? colorClass + ' border' : inactiveClass
                   }`}
                   onClick={() => handleCountryFilter(country)}
@@ -195,14 +195,14 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
                 {selectedCamera.region ? ` | ${selectedCamera.region}` : ''}
               </div>
               <button
-                className="w-full py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/50 text-cyan-300 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
+                className="w-full py-2.5 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/50 text-cyan-300 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
                 onClick={() => handleFlyTo(selectedCamera)}
                 aria-label={`Fly to ${selectedCamera.name} location`}
               >
                 ◎ FLY TO LOCATION
               </button>
               <button
-                className="w-full mt-1 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-[10px] uppercase rounded transition-colors"
+                className="w-full mt-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-[10px] uppercase rounded transition-colors"
                 onClick={() => onSelectCamera(null)}
                 aria-label="Deselect camera"
               >
@@ -227,7 +227,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
             {/* Load More */}
             {hasMore && (
               <button
-                className="w-full mt-2 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
+                className="w-full mt-2 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
                 onClick={handleLoadMore}
               >
                 LOAD MORE ({filteredCameras.length - visibleCount} remaining)
@@ -256,7 +256,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
       {!mobileOpen && (
         <button
           ref={cctvBadgeRef}
-          className="fixed right-4 bottom-12 z-50 w-10 h-10 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center lg:hidden active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
+          className="fixed right-4 bottom-12 z-50 w-11 h-11 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center lg:hidden active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
           onClick={handleMobileOpen}
           onTouchEnd={(e) => { e.preventDefault(); handleMobileOpen(); }}
           aria-label="Open CCTV feeds"
@@ -284,7 +284,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
             <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0">
               <h2 className="text-sm font-bold text-white/80 uppercase tracking-widest">CCTV Feeds</h2>
               <button
-                className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
+                className="w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
                 onClick={handleMobileClose}
                 onTouchEnd={(e) => { e.preventDefault(); handleMobileClose(); }}
                 aria-label="Close CCTV feeds"
@@ -296,9 +296,9 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
             </div>
             <div className="flex-1 overflow-y-auto panel-scroll" onWheel={(e) => e.stopPropagation()}>
               {/* Country filters */}
-              <div className="p-2 flex flex-wrap gap-1 border-b border-white/10">
+              <div className="p-2 flex flex-wrap gap-2 border-b border-white/10">
                 <button
-                  className={`px-3 py-1 text-xs uppercase font-bold rounded ${
+                  className={`px-3 py-2 text-xs uppercase font-bold rounded ${
                     countryFilter === null
                       ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
                       : 'bg-white/5 text-white/50 border border-white/10'
@@ -312,7 +312,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
                   return (
                     <button
                       key={country}
-                      className={`px-3 py-1 text-xs uppercase font-bold rounded ${
+                      className={`px-3 py-2 text-xs uppercase font-bold rounded ${
                         countryFilter === country
                           ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
                           : 'bg-white/5 text-white/50 border border-white/10'

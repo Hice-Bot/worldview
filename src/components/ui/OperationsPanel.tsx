@@ -125,7 +125,7 @@ function PanelContent(props: {
               aria-pressed={isActive}
               aria-label={`${mode} optics mode`}
               className={`
-                px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
+                px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
                 ${isActive
                   ? `${colors.active} ${colors.text}`
                   : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
@@ -146,7 +146,7 @@ function PanelContent(props: {
           aria-pressed={mapTiles === 'GOOGLE_3D'}
           aria-label="Google 3D map tiles"
           className={`
-            px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
+            px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
             ${mapTiles === 'GOOGLE_3D'
               ? 'bg-blue-500/30 border-blue-400/60 text-blue-300'
               : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
@@ -160,7 +160,7 @@ function PanelContent(props: {
           aria-pressed={mapTiles === 'OSM'}
           aria-label="OpenStreetMap tiles"
           className={`
-            px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
+            px-2 py-2.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
             ${mapTiles === 'OSM'
               ? 'bg-blue-500/30 border-blue-400/60 text-blue-300'
               : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
@@ -186,7 +186,7 @@ function PanelContent(props: {
               aria-checked={isActive}
               aria-label={`Toggle ${label} layer${isActive && isLoading ? ', loading' : ''}${isActive && hasError ? ', error' : ''}`}
               className={`
-                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
+                w-full flex items-center gap-2 px-2 py-2.5 rounded border text-left transition-all ${FOCUS_RING}
                 ${isActive
                   ? hasError
                     ? 'bg-red-500/10 border-red-400/30 text-white/90'
@@ -232,7 +232,7 @@ function PanelContent(props: {
               aria-pressed={showRoutePaths}
               aria-label="Toggle route paths"
               className={`
-                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
+                w-full flex items-center gap-2 px-2 py-2.5 rounded border text-left transition-all ${FOCUS_RING}
                 ${showRoutePaths
                   ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
                   : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
@@ -244,7 +244,7 @@ function PanelContent(props: {
             </button>
 
             {/* Altitude band buttons */}
-            <div className="grid grid-cols-5 gap-1" role="group" aria-label="Altitude band filters">
+            <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Altitude band filters">
               {ALTITUDE_BANDS.map(({ key, label, color }) => {
                 const isActive = altitudeFilters[key];
                 return (
@@ -259,7 +259,7 @@ function PanelContent(props: {
                     aria-pressed={isActive}
                     aria-label={`${label} altitude band`}
                     className={`
-                      flex flex-col items-center gap-0.5 px-1 py-1 rounded border text-center transition-all ${FOCUS_RING}
+                      flex flex-col items-center gap-0.5 px-1.5 py-2 rounded border text-center transition-all ${FOCUS_RING}
                       ${isActive
                         ? 'bg-white/10 border-white/20 text-white/90'
                         : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
@@ -297,7 +297,7 @@ function PanelContent(props: {
               aria-pressed={satelliteFilters.showPaths}
               aria-label="Toggle orbit paths"
               className={`
-                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
+                w-full flex items-center gap-2 px-2 py-2.5 rounded border text-left transition-all ${FOCUS_RING}
                 ${satelliteFilters.showPaths
                   ? 'bg-green-500/20 border-green-400/40 text-green-300'
                   : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
@@ -309,7 +309,7 @@ function PanelContent(props: {
             </button>
 
             {/* Category filters */}
-            <div className="grid grid-cols-2 gap-1" role="group" aria-label="Satellite category filters">
+            <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Satellite category filters">
               <button
                 onClick={() =>
                   onSatelliteFilterChange({
@@ -320,7 +320,7 @@ function PanelContent(props: {
                 aria-pressed={satelliteFilters.iss}
                 aria-label="Toggle ISS satellites"
                 className={`
-                  flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
+                  flex items-center gap-1.5 px-2 py-2.5 rounded border text-left transition-all ${FOCUS_RING}
                   ${satelliteFilters.iss
                     ? 'bg-yellow-500/20 border-yellow-400/40 text-yellow-300'
                     : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
@@ -340,7 +340,7 @@ function PanelContent(props: {
                 aria-pressed={satelliteFilters.other}
                 aria-label="Toggle other satellites"
                 className={`
-                  flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
+                  flex items-center gap-1.5 px-2 py-2.5 rounded border text-left transition-all ${FOCUS_RING}
                   ${satelliteFilters.other
                     ? 'bg-green-500/20 border-green-400/40 text-green-300'
                     : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
@@ -363,7 +363,7 @@ function PanelContent(props: {
           disabled={locateMeState === 'requesting'}
           aria-label={locateMeState === 'requesting' ? 'Locating your position' : locateMeState === 'success' ? 'Location found' : locateMeState === 'error' ? 'Location error, showing default view' : 'Locate me on globe'}
           className={`
-            w-full flex items-center gap-2 px-2 py-1.5 rounded border transition-all ${FOCUS_RING}
+            w-full flex items-center gap-2 px-2 py-2.5 rounded border transition-all ${FOCUS_RING}
             ${locateMeState === 'requesting'
               ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300 cursor-wait'
               : locateMeState === 'success'
@@ -385,7 +385,7 @@ function PanelContent(props: {
         <button
           onClick={onResetView}
           aria-label="Reset camera to default view"
-          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded border bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all ${FOCUS_RING}`}
+          className={`w-full flex items-center gap-2 px-2 py-2.5 rounded border bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all ${FOCUS_RING}`}
         >
           <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 12a9 9 0 1 1 9 9M3 12V3m0 9h9" />
@@ -533,7 +533,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
                 <button
                   onClick={handleClose}
                   onTouchEnd={(e) => { e.preventDefault(); handleClose(); }}
-                  className={`w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150 ${FOCUS_RING}`}
+                  className={`w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150 ${FOCUS_RING}`}
                   aria-label="Close operations panel"
                 >
                   <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
