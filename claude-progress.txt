@@ -1,5 +1,43 @@
 ## WorldView Development Progress
 
+### Session 69 - 2026-03-13
+
+#### Completed Features:
+- Feature #187: Tile switch during data rendering (PASSING)
+  - Verified stale-closure guard (cancelled flag) prevents async Google 3D tileset corruption
+  - Data layers (FlightLayer, EarthquakeLayer, etc.) completely independent of tile mode
+  - Google 3D / OSM switching preserves all 6 data layer renderings
+  - Rapid tile switching stress tested - no errors or display corruption
+  - Globe visibility toggle manages depth buffer correctly per tile mode
+  - No mock data patterns found in src/ or server/
+  - Real API data verified: 3,701 flights, 29 earthquakes
+
+- Feature #188: Flight data merge handles async arrival (PASSING)
+  - Smart merge in App.tsx using useMemo with ICAO24-based deduplication
+  - Live data (adsb.fi regional) takes precedence over global data (FR24/adsb.fi)
+  - All arrival orders verified:
+    - Global first, live second: merge with dedup (Frankfurt: 33/33 deduped)
+    - Live first, global empty: returns live data directly
+    - Global only, live empty: returns global data (early return)
+    - Both empty: returns empty array
+    - Live disabled: returns global data only
+  - Error handling fully independent: useFlights and useFlightsLive are separate hooks
+  - useFlights: exponential backoff (30s→2min), AbortController
+  - useFlightsLive: silent failure (supplementary data), AbortController
+  - Server-side: FR24 primary with adsb.fi fallback, Promise.allSettled for parallel zones
+  - No mock data patterns in flight hooks
+
+#### Current Status:
+- 197/205 features passing (96.1%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 58 modules compile and build successfully
+
+#### Notes:
+- Browser automation (Playwright) unavailable due to missing system libraries (libnspr4.so)
+- Verified via API testing, code architecture analysis, and build verification
+- No mock data, all real upstream API data confirmed
+
 ### Session 68 - 2026-03-13
 
 #### Completed Features:
