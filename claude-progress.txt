@@ -1,5 +1,29 @@
 ## WorldView Development Progress
 
+### Session 51 - 2026-03-13
+
+#### Completed Features:
+- Feature #142: Ship filter excludes stationary vessels (PASSING)
+  - Server-side: filters SOG<=0.5, (0,0) coords, anchored/moored/aground navStat codes (1,5,6)
+  - Client-side: useShips.ts re-filters SOG>0.5 and excludes (0,0) coordinates
+  - ShipLayer skips dead reckoning for vessels with SOG < 0.5
+  - API test: 14,948 ships returned, all moving with valid coordinates
+  - No mock data patterns in src/ or server/
+
+- Feature #143: Live flights distance parameter works correctly (PASSING)
+  - useFlightsLive hook passes distanceNm as `dist` query parameter
+  - Server converts NM to bounding box: latDeg = dist/60, lonDeg = dist/(60*cos(lat))
+  - OpenSky Network primary source, adsb.fi fallback - both use bounding box
+  - Test results: 50 NM = 99 aircraft, 100 NM = 162, 250 NM = 533 (monotonic)
+  - All aircraft within expected range (bounding box tolerance)
+  - App.tsx dynamically computes distance from camera altitude: altitude/2000, clamped 50-250 NM
+  - Real data verified with valid ICAO24 codes and London-area coordinates
+
+#### Current Status:
+- 143/205 features passing (69.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
 ### Session 50 - 2026-03-13
 
 #### Completed Features:
