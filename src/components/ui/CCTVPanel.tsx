@@ -213,7 +213,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
 
           {/* Thumbnail grid */}
           <div className="p-2">
-            <div className="grid grid-cols-3 lg:grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 lg:grid-cols-3 gap-1.5">
               {visibleCameras.map((cam) => (
                 <CameraThumbnail
                   key={cam.id}
