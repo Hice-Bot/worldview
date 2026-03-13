@@ -253,6 +253,21 @@ export default function App() {
         });
         setShowRoutePaths(false);
       }
+      // Clear CCTV selection and tracking when disabling CCTV layer
+      if (layer === 'cctv' && !wasOff) {
+        setSelectedCamera(null);
+        setTrackedEntity((prev) => {
+          if (prev && prev.type === 'cctv') {
+            // Also clear viewer camera lock-on
+            const viewer = viewerRef.current;
+            if (viewer && !viewer.isDestroyed()) {
+              viewer.trackedEntity = undefined;
+            }
+            return null;
+          }
+          return prev;
+        });
+      }
       return newLayers;
     });
   }, []);
