@@ -307,15 +307,23 @@ export class ShaderManager {
 
     // Safety sweep: remove any leaked WorldView stages by name
     // This prevents accumulation if a prior remove silently failed
-    const stageNames = ['worldview_crt', 'worldview_nvg', 'worldview_flir'];
-    for (const name of stageNames) {
-      try {
-        const leaked = stages.getStageByName(name);
-        if (leaked) {
-          stages.remove(leaked);
+    const stageNames = new Set(['worldview_crt', 'worldview_nvg', 'worldview_flir']);
+    const toRemove: PostProcessStage[] = [];
+    try {
+      for (let i = 0; i < stages.length; i++) {
+        const stage = stages.get(i) as PostProcessStage;
+        if (stage && stageNames.has(stage.name)) {
+          toRemove.push(stage);
         }
+      }
+    } catch {
+      // Collection may be in transitional state
+    }
+    for (const leaked of toRemove) {
+      try {
+        stages.remove(leaked);
       } catch {
-        // Stage may not exist or already be removed
+        // Stage may already be removed
       }
     }
   }
