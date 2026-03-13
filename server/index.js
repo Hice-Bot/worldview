@@ -325,19 +325,35 @@ app.get('/api/traffic/roads', async (req, res) => {
       });
     }
 
-    // Clamp to valid geographic ranges
-    s = Math.max(-90, Math.min(90, s));
-    n = Math.max(-90, Math.min(90, n));
-    w = Math.max(-180, Math.min(180, w));
-    e = Math.max(-180, Math.min(180, e));
-
-    // Ensure south < north (swap if inverted)
-    if (s > n) {
-      [s, n] = [n, s];
+    // Validate latitude ranges (-90 to 90)
+    if (s < -90 || s > 90 || n < -90 || n > 90) {
+      return res.status(400).json({
+        error: 'Latitude values must be between -90 and 90.',
+        params: { south: s, north: n },
+      });
     }
 
-    // Ensure west < east (swap if inverted, unless it's a wrap-around)
+    // Validate longitude ranges (-180 to 180)
+    if (w < -180 || w > 180 || e < -180 || e > 180) {
+      return res.status(400).json({
+        error: 'Longitude values must be between -180 and 180.',
+        params: { west: w, east: e },
+      });
+    }
+
+    // Validate south < north (latitude must be ordered)
+    if (s >= n) {
+      return res.status(400).json({
+        error: 'South latitude must be less than north latitude.',
+        params: { south: s, north: n },
+      });
+    }
+
+    // Handle west > east: this is valid for date line wrapping
+    // (e.g., west=170, east=-170 spans the antimeridian)
+    // For Overpass API compatibility, we normalize by swapping to the smaller span
     if (w > e) {
+      // Date line wrap: swap to use the non-wrapping convention for Overpass
       [w, e] = [e, w];
     }
 
@@ -1112,15 +1128,32 @@ app.get('/api/flights/live', async (req, res) => {
       return res.status(400).json({ error: 'Missing lat/lon parameters' });
     }
 
+    // Validate lat is a valid number in range
+    const parsedLat = parseFloat(lat);
+    if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+      return res.status(400).json({ error: 'Invalid lat parameter (must be between -90 and 90)' });
+    }
+
+    // Validate lon is a valid number in range
+    const parsedLon = parseFloat(lon);
+    if (isNaN(parsedLon) || parsedLon < -180 || parsedLon > 180) {
+      return res.status(400).json({ error: 'Invalid lon parameter (must be between -180 and 180)' });
+    }
+
+    // Validate dist is a positive number (defaults to 100 if not provided)
+    const distance = dist !== undefined ? parseFloat(dist) : 100;
+    if (isNaN(distance) || distance <= 0) {
+      return res.status(400).json({ error: 'Invalid dist parameter (must be a positive number)' });
+    }
+
     // OpenSky Network bounding box query for regional data
     // Convert lat/lon/dist to bounding box (dist in nautical miles, convert to degrees approx)
-    const distance = parseFloat(dist) || 100;
     const latDeg = distance / 60; // rough nautical miles to degrees
-    const lonDeg = distance / (60 * Math.cos((parseFloat(lat) * Math.PI) / 180));
-    const lamin = parseFloat(lat) - latDeg;
-    const lamax = parseFloat(lat) + latDeg;
-    const lomin = parseFloat(lon) - lonDeg;
-    const lomax = parseFloat(lon) + lonDeg;
+    const lonDeg = distance / (60 * Math.cos((parsedLat * Math.PI) / 180));
+    const lamin = parsedLat - latDeg;
+    const lamax = parsedLat + latDeg;
+    const lomin = parsedLon - lonDeg;
+    const lomax = parsedLon + lonDeg;
 
     try {
       const openskyLiveHeaders = {};
