@@ -1,5 +1,37 @@
 ## WorldView Development Progress
 
+### Session 46 - 2026-03-13
+
+#### Completed Features:
+- Feature #128: Default camera position is Sydney 20M altitude (PASSING)
+  - DEFAULT_CAMERA constant: lat=-33.8688, lon=151.2093, altitude=20_000_000, heading=0, pitch=-90
+  - GlobeViewer useEffect runs camera.setView() on mount with defaultCamera prop
+  - Camera centered on Sydney Australia at 20M meters, top-down view
+  - Initial state applied every time app loads (empty deps array = mount only)
+
+- Feature #129: Default layers state on load (PASSING)
+  - flights: true (enabled by default, begins fetching immediately via useFlights)
+  - satellites: false, earthquakes: false, traffic: false, cctv: false, ships: false
+  - OperationsPanel receives layers state and reflects toggle states
+  - Data hooks accept enabled boolean — only flights fetches on load
+
+- Feature #130: Reset View returns to default camera (PASSING)
+  - handleResetView callback in App.tsx
+  - Cancels any in-progress camera flight (cancelFlight)
+  - Clears tracked entity (setTrackedEntity(null), viewer.trackedEntity = undefined)
+  - viewer.camera.flyTo with DEFAULT_CAMERA position/orientation, 2.0s smooth animation
+  - Reset View button in OperationsPanel Utility section wired to onResetView prop
+
+#### Current Status:
+- 130/205 features passing (63.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- Vite production build succeeds with no errors
+
+#### What's Next:
+- Continue with remaining Default & Reset features
+- Additional data layer and UI features
+
 ### Session 45 - 2026-03-13
 
 #### Completed Features:
