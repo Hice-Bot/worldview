@@ -1,5 +1,43 @@
 ## WorldView Development Progress
 
+### Session 59 - 2026-03-13
+
+#### Completed Features:
+- Feature #158: Desktop layout with all panels visible (PASSING)
+  - OperationsPanel: fixed left sidebar 224px (w-56), hidden lg:block
+  - IntelFeed: fixed right panel top 288px (w-72), hidden lg:flex
+  - CCTVPanel: fixed right panel below IntelFeed 320px (w-80), top-[50vh]
+  - StatusBar: bottom bar spanning full width, offset by sidebar on desktop (lg:left-56)
+  - Crosshair: center of viewport via fixed inset-0 with flex centering
+  - All panels visible simultaneously at 1024px+ via lg breakpoint
+  - Globe fills remaining space via .cesium-viewer absolute positioning
+
+- Feature #159: Mobile OperationsPanel as FAB (PASSING)
+  - FAB button (bottom-left, 48px from bottom) visible below 1024px via lg:hidden
+  - Active layer count badge (green circle) shows number of enabled layers
+  - Tapping FAB opens full-screen modal with all OperationsPanel sections
+  - PanelContent component extracted and shared between desktop sidebar and mobile modal
+  - Modal has close button (X icon) to dismiss
+  - Desktop sidebar preserved unchanged at lg breakpoint
+
+- Feature #160: Mobile IntelFeed as badge button (PASSING)
+  - Already implemented: badge button at top-right with "INTEL" label
+  - Badge count excludes SYS events (filter on type !== 'SYS')
+  - Full-screen scrollable modal on tap with all events
+  - Modal dismissible via close button
+  - renderEvents() shared between desktop panel and mobile modal
+
+#### Current Status:
+- 167/205 features passing (81.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- TypeScript compiles cleanly (only unused import warning in App.tsx)
+
+#### What's Next:
+- Continue with remaining responsive/layout features
+- Mobile CCTVPanel implementation
+- Additional UI/UX refinements
+
 ### Session 58 - 2026-03-13
 
 #### Completed Features:
