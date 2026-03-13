@@ -165,17 +165,20 @@ export default function App() {
   const prevShipCountRef = useRef(0);
   const prevCctvCountRef = useRef(0);
 
-  // Flight data changes
+  // Flight data changes — airborne count changes of 50+ trigger ACFT intel events (Feature #150)
   useEffect(() => {
     if (!booted || flights.length === 0) return;
+    const airborne = flights.filter(f => !f.onGround).length;
     const prev = prevFlightCountRef.current;
-    if (prev === 0 && flights.length > 0) {
-      addIntelEvent('ACFT', `TRACKING ${flights.length.toLocaleString()} AIRCRAFT GLOBALLY`);
-    } else if (Math.abs(flights.length - prev) > 100) {
-      addIntelEvent('ACFT', `FLIGHT COUNT UPDATED: ${flights.length.toLocaleString()} AIRCRAFT`);
+    if (prev === 0 && airborne > 0) {
+      addIntelEvent('ACFT', `TRACKING ${airborne.toLocaleString()} AIRCRAFT GLOBALLY`);
+    } else if (Math.abs(airborne - prev) >= 50) {
+      const diff = airborne - prev;
+      const direction = diff > 0 ? 'INCREASED' : 'DECREASED';
+      addIntelEvent('ACFT', `AIRBORNE COUNT ${direction} BY ${Math.abs(diff)} — ${airborne.toLocaleString()} AIRCRAFT`);
     }
-    prevFlightCountRef.current = flights.length;
-  }, [flights.length, booted, addIntelEvent]);
+    prevFlightCountRef.current = airborne;
+  }, [flights, booted, addIntelEvent]);
 
   // Satellite data changes
   useEffect(() => {
