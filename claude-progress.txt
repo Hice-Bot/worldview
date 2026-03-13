@@ -1,5 +1,46 @@
 ## WorldView Development Progress
 
+### Session 50 - 2026-03-13
+
+#### Completed Features:
+- Feature #136: Altitude band filter toggles individual bands (PASSING)
+  - Verified getAltitudeBand() classifies aircraft into 5 bands: cruise(>=35K), high(>=20K), mid(>=10K), low(>=3K), ground(<3K)
+  - FlightLayer correctly skips aircraft when their band's filter is disabled
+  - Disabling single band hides only that band's aircraft
+  - All bands disabled = zero aircraft visible
+  - All bands enabled = all airborne aircraft visible
+  - Band counts sum correctly to total airborne (no gaps in classification)
+  - OperationsPanel has 5 independent toggle buttons with color-coded indicators
+
+- Feature #137: Satellite category filter edge cases (PASSING)
+  - ISS identified by NORAD 25544, filters independently from "Other" satellites
+  - Disable ISS: only ISS hidden, 39 others visible
+  - Disable Other: only ISS visible (1 satellite)
+  - Both disabled: 0 satellites visible
+  - Both enabled: all 40 satellites visible
+  - Orbit paths respect category filters (ISS/Other) AND independent showPaths toggle
+  - showPaths is a master toggle; ISS/Other toggles don't affect path visibility independently
+
+- Feature #138: CCTV country filter edge cases (PASSING)
+  - GB filter shows 884 London cameras (lat ~51.x, TfL JamCam data)
+  - US filter shows 985 Austin cameras (lat ~30.x, Austin mobility data)
+  - AU filter returns 0 cameras (NSW_TRANSPORT_API_KEY not configured - expected)
+  - null filter (ALL) shows all 1869 cameras
+  - Country counts sum to total (no cameras lost)
+  - CCTVPanel uses useMemo for efficient filtering, dynamic country extraction
+  - Color-coded buttons: GB=cyan, US=amber, AU=green
+  - Pagination resets on filter change
+
+#### Current Status:
+- 142/205 features passing (69.3%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- All modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining Search & Filter Edge Cases features
+- Additional UI/UX features and data layer enhancements
+
 ### Session 49 - 2026-03-13
 
 #### Completed Features:
