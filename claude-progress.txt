@@ -1,5 +1,36 @@
 ## WorldView Development Progress
 
+### Session 38 - 2026-03-13
+
+#### Completed Features:
+- Feature #106: Shader mode state reflects in StatusBar (PASSING)
+  - StatusBar receives shaderMode prop from App.tsx
+  - Displays "STD" for STANDARD, "CRT", "NVG", "FLIR" for other modes
+  - Color-coded: CRT=amber, NVG=green, FLIR=red, STD=white/50%
+  - State always in sync: OperationsPanel→setShaderMode→StatusBar
+
+- Feature #107: Map tile mode state persists during session (PASSING)
+  - mapTiles React state in App.tsx persists across re-renders
+  - OperationsPanel buttons show active state (blue highlight)
+  - Toggling other layers doesn't affect mapTiles state
+  - GlobeViewer switches between Google 3D and OSM based on state
+
+- Feature #108: Flight filter states persist during session (PASSING)
+  - altitudeFilters and showRoutePaths are React state in App.tsx
+  - Filter states correctly passed: App→OperationsPanel (UI) and App→GlobeViewer→FlightLayer (rendering)
+  - Added: toggleLayer resets flight filters to defaults when flights re-enabled
+  - Altitude bands all reset to true, route paths reset to false on flights toggle off→on
+
+#### Current Status:
+- 112/205 features passing (54.6%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- TypeScript compiles cleanly (only pre-existing unused import warning)
+
+#### What's Next:
+- Continue with remaining state persistence and UI features
+- More data layer features and integration tests
+
 ### Session 37 - 2026-03-13
 
 #### Completed Features:
