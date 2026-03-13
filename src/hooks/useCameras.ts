@@ -42,16 +42,23 @@ export function useCameras(enabled: boolean, country?: string) {
       return;
     }
 
+    let cancelled = false;
+
     fetchCameras();
 
     const poll = () => {
+      if (cancelled) return;
       timeoutRef.current = setTimeout(() => {
-        fetchCameras().then(poll);
+        if (cancelled) return;
+        fetchCameras().then(() => {
+          if (!cancelled) poll();
+        });
       }, backoffRef.current);
     };
     poll();
 
     return () => {
+      cancelled = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [enabled, fetchCameras]);

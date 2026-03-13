@@ -40,16 +40,23 @@ export function useFlights(enabled: boolean) {
       return;
     }
 
+    let cancelled = false;
+
     fetchFlights();
 
     const poll = () => {
+      if (cancelled) return;
       intervalRef.current = setTimeout(() => {
-        fetchFlights().then(poll);
+        if (cancelled) return;
+        fetchFlights().then(() => {
+          if (!cancelled) poll();
+        });
       }, backoffRef.current);
     };
     poll();
 
     return () => {
+      cancelled = true;
       if (intervalRef.current) clearTimeout(intervalRef.current);
     };
   }, [enabled, fetchFlights]);

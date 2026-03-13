@@ -56,16 +56,23 @@ export function useEarthquakes(enabled: boolean) {
       return;
     }
 
+    let cancelled = false;
+
     fetchEarthquakes();
 
     const poll = () => {
+      if (cancelled) return;
       timeoutRef.current = setTimeout(() => {
-        fetchEarthquakes().then(poll);
+        if (cancelled) return;
+        fetchEarthquakes().then(() => {
+          if (!cancelled) poll();
+        });
       }, backoffRef.current);
     };
     poll();
 
     return () => {
+      cancelled = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [enabled, fetchEarthquakes]);

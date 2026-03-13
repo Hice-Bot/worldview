@@ -46,16 +46,23 @@ export function useShips(enabled: boolean) {
       return;
     }
 
+    let cancelled = false;
+
     fetchShips();
 
     const poll = () => {
+      if (cancelled) return;
       timeoutRef.current = setTimeout(() => {
-        fetchShips().then(poll);
+        if (cancelled) return;
+        fetchShips().then(() => {
+          if (!cancelled) poll();
+        });
       }, backoffRef.current);
     };
     poll();
 
     return () => {
+      cancelled = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [enabled, fetchShips]);

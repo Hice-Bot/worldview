@@ -380,6 +380,10 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
   const { viewer } = useCesium();
   const trackingEntityRef = useRef<import('cesium').Entity | null>(null);
   const trackingPositionRef = useRef<Cartesian3>(new Cartesian3());
+  // Guard against double-click creating duplicate tracking state
+  const currentTrackingIdRef = useRef<string | null>(null);
+  const lastClickTimeRef = useRef<number>(0);
+  const CLICK_DEBOUNCE_MS = 300; // Ignore clicks within 300ms of each other on same entity
 
   /**
    * Removes the temporary tracking entity from the viewer
@@ -393,6 +397,7 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       }
     }
     trackingEntityRef.current = null;
+    currentTrackingIdRef.current = null;
     trackingManager.clearTracking();
   }, [viewer]);
 
@@ -449,12 +454,32 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
         return;
       }
 
+      // Compute entity ID early for deduplication check
+      const clickedEntityId = entityType === 'cctv'
+        ? (extractCameraData(picked)?.id || getEntityId(picked))
+        : getEntityId(picked);
+
+      // Double-click guard: if clicking the same entity within debounce window, ignore
+      const now = Date.now();
+      if (
+        clickedEntityId === currentTrackingIdRef.current &&
+        now - lastClickTimeRef.current < CLICK_DEBOUNCE_MS
+      ) {
+        return; // Already tracking this entity, ignore duplicate click
+      }
+      lastClickTimeRef.current = now;
+
       // Handle CCTV entities — create tracking entity with directional offset
       if (entityType === 'cctv') {
         const cameraData = extractCameraData(picked);
         onCctvClick(cameraData);
 
         if (cameraData) {
+          // If already tracking this exact CCTV camera, skip re-creation
+          if (currentTrackingIdRef.current === cameraData.id && trackingEntityRef.current) {
+            return;
+          }
+
           // Build TrackedEntityInfo for CCTV
           const cctvTrackedInfo: TrackedEntityInfo = {
             type: 'cctv',
@@ -491,6 +516,9 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
             'cctv'
           );
 
+          // Record current tracking ID to prevent duplicate clicks
+          currentTrackingIdRef.current = cameraData.id;
+
           try {
             viewer.trackedEntity = trackEntity;
           } catch {
@@ -498,6 +526,7 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
           }
         } else {
           onTrackEntity(null);
+          currentTrackingIdRef.current = null;
           if (viewer.trackedEntity) {
             viewer.trackedEntity = undefined;
           }
@@ -507,12 +536,18 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
       }
 
       // Build TrackedEntityInfo
+      const entityId = getEntityId(picked);
       const trackedInfo: TrackedEntityInfo = {
         type: entityType,
-        id: getEntityId(picked),
+        id: entityId,
         name: getEntityName(picked),
         data: getEntityData(picked),
       };
+
+      // If already tracking this exact entity, skip re-creation (double-click guard)
+      if (currentTrackingIdRef.current === entityId && trackingEntityRef.current) {
+        return;
+      }
 
       onTrackEntity(trackedInfo);
       onCctvClick(null);
@@ -547,6 +582,9 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
 
           trackingEntityRef.current = trackEntity;
 
+          // Record current tracking ID to prevent duplicate clicks
+          currentTrackingIdRef.current = entityId;
+
           // Register with tracking manager so layers can update position
           trackingManager.setTracking(
             trackingPositionRef.current,
@@ -569,6 +607,8 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
             (cesiumEntity as { viewFrom: Cartesian3 }).viewFrom = VIEW_FROM_OFFSETS[entityType];
           }
           clearTrackingEntity();
+          // Record current tracking ID to prevent duplicate clicks
+          currentTrackingIdRef.current = entityId;
           try {
             viewer.trackedEntity = cesiumEntity as never;
           } catch {

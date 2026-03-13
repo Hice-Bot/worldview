@@ -41,16 +41,23 @@ export function useSatellites(enabled: boolean) {
       return;
     }
 
+    let cancelled = false;
+
     fetchSatellites();
 
     const poll = () => {
+      if (cancelled) return;
       timeoutRef.current = setTimeout(() => {
-        fetchSatellites().then(poll);
+        if (cancelled) return;
+        fetchSatellites().then(() => {
+          if (!cancelled) poll();
+        });
       }, backoffRef.current);
     };
     poll();
 
     return () => {
+      cancelled = true;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, [enabled, fetchSatellites]);
