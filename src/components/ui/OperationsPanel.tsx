@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type {
   LayerState,
   LayerLoading,
@@ -64,12 +65,27 @@ const ALTITUDE_BANDS: { key: keyof AltitudeFilters; label: string; color: string
 ];
 
 /**
- * OperationsPanel - Primary control interface
- * Desktop: fixed 224px left sidebar. Mobile: FAB with modal.
- * Sections: Optics Mode, Map Tiles, Data Layers, Flight Filters,
- * Satellite Filters, Utility (Locate Me, Reset View).
+ * Shared panel content rendered in both desktop sidebar and mobile modal.
  */
-export default function OperationsPanel(props: OperationsPanelProps) {
+function PanelContent(props: {
+  layers: LayerState;
+  layerLoading?: LayerLoading;
+  layerErrors?: Record<keyof LayerState, string | null>;
+  shaderMode: ShaderMode;
+  mapTiles: MapTileMode;
+  altitudeFilters: AltitudeFilters;
+  satelliteFilters: SatelliteFilters;
+  showRoutePaths: boolean;
+  locateMeState: 'idle' | 'requesting' | 'success' | 'error';
+  onToggleLayer: (layer: keyof LayerState) => void;
+  onShaderChange: (mode: ShaderMode) => void;
+  onMapTilesChange: (mode: MapTileMode) => void;
+  onAltitudeFilterChange: (filters: AltitudeFilters) => void;
+  onSatelliteFilterChange: (filters: SatelliteFilters) => void;
+  onShowRoutePathsChange: (show: boolean) => void;
+  onResetView: () => void;
+  onLocateMe: () => void;
+}) {
   const {
     layers,
     layerLoading,
@@ -79,7 +95,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
     altitudeFilters,
     satelliteFilters,
     showRoutePaths,
-    locateMeState = 'idle',
+    locateMeState,
     onToggleLayer,
     onShaderChange,
     onMapTilesChange,
@@ -91,15 +107,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   } = props;
 
   return (
-    <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 z-50 overflow-y-auto hidden lg:block pointer-events-auto">
-      {/* Header with pulsing green indicator */}
-      <div className="p-3 border-b border-white/10">
-        <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
-          <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
-          WorldView
-        </h1>
-      </div>
-
+    <>
       {/* === OPTICS MODE === */}
       <SectionLabel>Optics Mode</SectionLabel>
       <div className="grid grid-cols-2 gap-1.5 px-3">
@@ -358,6 +366,126 @@ export default function OperationsPanel(props: OperationsPanelProps) {
           <span className="text-[10px] font-bold uppercase tracking-wider">Reset View</span>
         </button>
       </div>
-    </div>
+    </>
+  );
+}
+
+/**
+ * OperationsPanel - Primary control interface
+ * Desktop: fixed 224px left sidebar. Mobile: FAB with full-screen modal.
+ * Sections: Optics Mode, Map Tiles, Data Layers, Flight Filters,
+ * Satellite Filters, Utility (Locate Me, Reset View).
+ */
+export default function OperationsPanel(props: OperationsPanelProps) {
+  const {
+    layers,
+    layerLoading,
+    layerErrors,
+    shaderMode,
+    mapTiles,
+    altitudeFilters,
+    satelliteFilters,
+    showRoutePaths,
+    locateMeState = 'idle',
+    onToggleLayer,
+    onShaderChange,
+    onMapTilesChange,
+    onAltitudeFilterChange,
+    onSatelliteFilterChange,
+    onShowRoutePathsChange,
+    onResetView,
+    onLocateMe,
+  } = props;
+
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Count active layers for FAB badge
+  const activeLayerCount = Object.values(layers).filter(Boolean).length;
+
+  const contentProps = {
+    layers,
+    layerLoading,
+    layerErrors,
+    shaderMode,
+    mapTiles,
+    altitudeFilters,
+    satelliteFilters,
+    showRoutePaths,
+    locateMeState,
+    onToggleLayer,
+    onShaderChange,
+    onMapTilesChange,
+    onAltitudeFilterChange,
+    onSatelliteFilterChange,
+    onShowRoutePathsChange,
+    onResetView,
+    onLocateMe,
+  };
+
+  return (
+    <>
+      {/* ===== DESKTOP: fixed 224px left sidebar (1024px+) ===== */}
+      <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 z-50 overflow-y-auto hidden lg:block pointer-events-auto">
+        {/* Header with pulsing green indicator */}
+        <div className="p-3 border-b border-white/10">
+          <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
+            WorldView
+          </h1>
+        </div>
+
+        <PanelContent {...contentProps} />
+      </div>
+
+      {/* ===== MOBILE: FAB + full-screen modal (below 1024px) ===== */}
+      <div className="lg:hidden">
+        {/* Floating Action Button - bottom-left for easy thumb access */}
+        <button
+          onClick={() => setMobileOpen(true)}
+          className="fixed left-4 bottom-12 z-50 w-12 h-12 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg shadow-black/50 active:scale-95 transition-transform pointer-events-auto"
+          aria-label="Open operations panel"
+        >
+          {/* Stacked bars icon representing layers/controls */}
+          <svg className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
+          {/* Active layer count badge */}
+          {activeLayerCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-green-500 text-black text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {activeLayerCount}
+            </span>
+          )}
+        </button>
+
+        {/* Full-screen modal */}
+        {mobileOpen && (
+          <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex flex-col pointer-events-auto">
+            {/* Modal header with close button */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+              <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
+                WorldView
+              </h1>
+              <button
+                onClick={() => setMobileOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 transition-colors"
+                aria-label="Close operations panel"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Scrollable panel content */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <PanelContent {...contentProps} />
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
