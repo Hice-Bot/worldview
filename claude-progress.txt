@@ -1,5 +1,39 @@
 ## WorldView Development Progress
 
+### Session 44 - 2026-03-13
+
+#### Completed Features:
+- Feature #118: Double-click entity doesn't duplicate tracking (PASSING)
+  - Added currentTrackingIdRef to track currently tracked entity ID
+  - Added 300ms time-based debounce for same-entity clicks (lastClickTimeRef)
+  - Added identity checks before creating tracking entities for all types (billboard, CCTV, satellite)
+  - clearTrackingEntity always resets currentTrackingIdRef on unlock
+  - Three layers of protection: time debounce, ID identity check, ref existence check
+
+- Feature #119: Rapid shader switching doesn't leak PostProcessStages (PASSING)
+  - Added re-entrant guard (_applying flag) to ShaderManager.applyMode()
+  - try/finally pattern ensures _applying flag always resets
+  - Added safety sweep in removeCurrentStage: iterates stages collection by name to find/remove any leaked WorldView stages
+  - Separated shader mode useEffect from unmount cleanup in GlobeViewer (unmount-only destroy in separate empty-deps effect)
+  - Stage names: worldview_crt, worldview_nvg, worldview_flir
+
+- Feature #120: Multiple ESC presses handled gracefully (PASSING)
+  - Added hasTracking guard checking currentTrackingIdRef, trackingEntityRef, and viewer.trackedEntity
+  - ESC is a true no-op when nothing is tracked (no state updates, no viewer mutations)
+  - Multiple ESC presses are safe — no errors, no unnecessary React re-renders
+  - trackingManager.clearTracking() is inherently idempotent (sets null to null)
+
+#### Key Code Changes:
+- src/components/globe/EntityClickHandler.tsx — Double-click dedup + ESC idempotency
+- src/shaders/postprocess.ts — ShaderManager re-entrant guard + safety sweep
+- src/components/globe/GlobeViewer.tsx — Separated shader mode/unmount useEffects
+
+#### Current Status:
+- 120/205 features passing (58.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
 ### Session 43 - 2026-03-13
 
 #### Completed Features:
