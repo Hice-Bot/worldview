@@ -1,5 +1,41 @@
 ## WorldView Development Progress
 
+### Session 64 - 2026-03-13
+
+#### Completed Features:
+- Feature #176: UTC clock displays correct time (PASSING)
+  - StatusBar uses new Date() with 1-second setInterval
+  - Format: YYYY-MM-DD HH:MM:SS UTC via toISOString()
+  - Creates fresh Date() each tick (no drift)
+  - Both desktop and mobile clock elements verified
+  - <time> element with ISO datetime attribute for accessibility
+
+- Feature #177: Satellite propagation timing correct (PASSING)
+  - satellite.propagate() called with current Date object
+  - gstime() computed from same date for GMST
+  - ISS position verified: ~424km altitude, within 51.6° inclination
+  - Same Date() gives deterministic position (no timezone offset errors)
+  - Different time gives different position (time-dependent)
+  - 5Hz position updates, 30s orbit path recomputation
+  - No timezone conversion functions used (UTC throughout)
+
+- Feature #178: Earthquake timestamps display correctly (PASSING)
+  - USGS time field (Unix ms) stored as number in EarthquakeData
+  - TrackedEntityPanel converts via new Date(time).toISOString() + 'Z' suffix
+  - IntelFeed SEIS events use new Date() for UTC timestamps
+  - Real USGS data verified: 26 earthquakes, timestamps 3-7 hours old
+  - Format: YYYY-MM-DD HH:MM:SSZ (UTC)
+  - No timezone conversion errors
+
+#### Current Status:
+- 181/205 features passing (88.3%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
+#### What's Next:
+- Continue with remaining Temporal & Timezone features
+- Additional data layer and UI features
+
 ### Session 63 - 2026-03-13
 
 #### Completed Features:
