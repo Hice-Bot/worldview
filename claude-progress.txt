@@ -1,5 +1,45 @@
 ## WorldView Development Progress
 
+### Session 61 - 2026-03-13
+
+#### Completed Features:
+- Feature #171: ARIA attributes on interactive panels (PASSING)
+  - All toggle buttons have aria-pressed state (11 occurrences across OperationsPanel, CCTVPanel)
+  - CCTVPanel collapsible header uses aria-expanded with aria-controls
+  - 4 modal panels have role="dialog" with aria-modal="true" and aria-label (OperationsPanel, CCTVPanel, IntelFeed, TrackedEntityPanel)
+  - Layer toggles have role="switch" with aria-checked and descriptive aria-labels
+  - Status indicators use aria-live="polite" for loading states and aria-live="assertive" for errors
+  - Decorative icons marked aria-hidden="true"
+  - Section groups use role="group" with aria-labelledby
+
+- Feature #172: Keyboard navigable OperationsPanel (PASSING)
+  - All interactive elements are native <button> elements (Tab/Enter/Space work natively)
+  - FOCUS_RING class applied to all buttons: focus:ring-2 focus:ring-cyan-400/60
+  - focus-visible CSS in index.css for keyboard-only focus indicators (not mouse)
+  - Enhanced focus ring for dialog close buttons with glow effect
+  - Logical tab order matches visual layout: Optics → Map Tiles → Data Layers → Filters → Utility
+  - useFocusTrap hook traps Tab/Shift+Tab within mobile modals
+  - Desktop sidebar uses <nav> with aria-label for landmark navigation
+
+- Feature #173: Screen reader compatible StatusBar (PASSING)
+  - Entity counts have descriptive aria-labels: "X aircraft tracked", "X satellites tracked", etc.
+  - UTC clock uses semantic <time> element with dateTime attribute and aria-label
+  - Camera position data labeled: latitude, longitude, altitude, heading
+  - Entity counts group uses aria-live="polite" for announced updates
+  - Both desktop and mobile StatusBars use <footer> with role="status"
+  - FPS counter labeled with "X frames per second"
+
+#### Current Status:
+- 174/205 features passing (84.9%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 57 modules compile and build successfully
+- All 3 assigned accessibility features completed and verified
+
+#### What's Next:
+- Continue with remaining features (31 remaining)
+- Additional accessibility, performance, and data layer features
+
 ### Session 60 - 2026-03-13
 
 #### Completed Features:
