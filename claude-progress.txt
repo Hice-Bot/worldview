@@ -1,5 +1,46 @@
 ## WorldView Development Progress
 
+### Session 49 - 2026-03-13
+
+#### Completed Features:
+- Feature #131: Default shader is STANDARD (PASSING)
+  - App initializes shaderMode state to 'STANDARD' via useState
+  - ShaderManager starts with currentMode='STANDARD' and currentStage=null (no PostProcessStage)
+  - applyMode('STANDARD') is a no-op (same-mode guard returns early)
+  - StatusBar shows 'STD' when shaderMode is STANDARD
+  - OperationsPanel highlights STANDARD button as active
+  - Globe renders without any visual filters
+
+- Feature #132: Default map tiles based on API key availability (PASSING)
+  - google3dAvailable initialized from !!VITE_GOOGLE_API_KEY
+  - With key: Google Photorealistic 3D Tiles loaded via createGooglePhotorealistic3DTileset
+  - Without key: Falls to OSM via OpenStreetMapImageryProvider
+  - Google 3D mode: globe.show=false (prevents black bleed-through)
+  - OSM mode: globe.show=true (depth buffer contribution)
+  - Added onMapTilesChange callback from GlobeViewer to App so OperationsPanel reflects actual tile mode
+  - OperationsPanel now correctly shows OSM when Google key is absent
+
+- Feature #133: Altitude band filters default to all enabled (PASSING)
+  - All 5 bands (cruise, high, mid, low, ground) initialized to true in App.tsx
+  - FlightLayer filters aircraft by getAltitudeBand() + altitudeFilters[band]
+  - When all bands true, all aircraft pass through (no filtering)
+  - OperationsPanel renders toggle buttons for each band
+  - AltitudeFilters type correctly defines all 5 bands as boolean
+
+#### Modified Files:
+- src/App.tsx — Added onMapTilesChange={setMapTiles} prop to GlobeViewer
+- src/components/globe/GlobeViewer.tsx — Added onMapTilesChange callback to notify parent when Google 3D tiles unavailable, fallback to OSM
+
+#### Current Status:
+- 133/205 features passing (64.9%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining Default & Reset features
+- Additional UI and data layer features
+
 ### Session 48 - 2026-03-13
 
 #### Completed Features:
