@@ -400,13 +400,39 @@ export default function App() {
         onSelectCamera={setSelectedCamera}
         onFlyTo={(camera) => {
           setSelectedCamera(camera);
-          // Animate globe camera to camera lat/lon with smooth flyTo
+          // Animate globe camera to camera lat/lon with street-level directional offset
           const viewer = viewerRef.current;
           if (viewer && !viewer.isDestroyed()) {
             // Cancel any in-progress flight before starting a new one
             viewer.camera.cancelFlight();
+            viewer.trackedEntity = undefined;
+            setTrackedEntity(null);
+
+            // Calculate heading based on camera's compass direction
+            const COMPASS_TO_HEADING: Record<string, number> = {
+              N: 0, NE: 45, E: 90, SE: 135,
+              S: 180, SW: 225, W: 270, NW: 315,
+            };
+            const dirStr = (camera.direction || '').toUpperCase();
+            const headingDeg = COMPASS_TO_HEADING[dirStr] ?? 0;
+
+            // Street-level altitude and offset: fly to ~200m above the camera,
+            // looking in the camera's direction
+            const streetAltitude = 200;
+            // Offset the destination slightly behind the camera's facing direction
+            // so the viewer sees what the camera sees
+            const offsetDist = 0.001; // ~100m in degrees
+            const headingRad = CesiumMath.toRadians(headingDeg + 180); // opposite direction (behind camera)
+            const offsetLat = camera.lat + offsetDist * Math.cos(headingRad);
+            const offsetLon = camera.lon + offsetDist * Math.sin(headingRad);
+
             viewer.camera.flyTo({
-              destination: Cartesian3.fromDegrees(camera.lon, camera.lat, 2000),
+              destination: Cartesian3.fromDegrees(offsetLon, offsetLat, streetAltitude),
+              orientation: {
+                heading: CesiumMath.toRadians(headingDeg),
+                pitch: CesiumMath.toRadians(-25), // Slight downward angle for street view
+                roll: 0,
+              },
               duration: 1.5,
             });
           }
