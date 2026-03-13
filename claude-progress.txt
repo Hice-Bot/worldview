@@ -1,5 +1,34 @@
 ## WorldView Development Progress
 
+### Session 63 - 2026-03-13
+
+#### Completed Features:
+- Feature #179: Intel feed timestamps accurate (PASSING)
+  - formatTime() uses date.toISOString().slice(11, 19) — always UTC HH:MM:SS
+  - Timestamps match StatusBar UTC clock exactly
+  - Events logged at correct time via new Date() at creation moment
+  - No local timezone used — toISOString() always returns Z (UTC) suffix
+  - All 6 event types (ACFT, SEIS, SATS, SYS, CCTV, AIS) get UTC timestamps
+
+- Feature #180: Data refresh intervals timing accurate (PASSING)
+  - useFlights: BASE_INTERVAL = 20,000ms (20s) ✓
+  - useFlightsLive: setInterval 5,000ms (5s) ✓
+  - useEarthquakes: BASE_INTERVAL = 60,000ms (60s) ✓
+  - useSatellites: BASE_INTERVAL = 7,200,000ms (2 hours) ✓
+  - useCameras: BASE_INTERVAL = 300,000ms (5 minutes) ✓
+  - useShips: BASE_INTERVAL = 30,000ms (30s) ✓
+  - Anti-drift: All main hooks use setTimeout-based recursive polling
+  - Backoff resets to BASE_INTERVAL on successful fetch
+  - Proper cleanup: clearTimeout/clearInterval on unmount
+
+#### Current Status:
+- 180/205 features passing (87.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
+#### What's Next:
+- Continue with remaining features in queue
+
 ### Session 62 - 2026-03-13
 
 #### Completed Features:
