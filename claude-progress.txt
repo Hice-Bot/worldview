@@ -1,5 +1,32 @@
 ## WorldView Development Progress
 
+### Session 53 - 2026-03-13
+
+#### Completed Features:
+- Feature #147: CCTV image URL validation (PASSING)
+  - URL must be present (missing = 400)
+  - URL must be valid HTTP/HTTPS URL (validated via URL constructor + protocol check)
+  - Non-URL strings rejected (invalid format = 400)
+  - Very long URLs rejected (>2048 chars = 400 with "URL too long" error)
+  - Real CCTV image proxy still works after changes (tested TfL JamCam)
+
+- Feature #148: Flight live endpoint parameter validation (PASSING)
+  - lat validated as number between -90 and 90
+  - lon validated as number between -180 and 180
+  - dist validated as positive number, defaults to 100 if not provided
+  - Missing lat/lon returns 400 error
+  - Boundary values (90, -90, 180, -180) accepted correctly
+  - All 18 test cases passing (invalid types, ranges, missing params, valid params)
+  - Used parsedLat/parsedLon for bounding box calculation (cleaner code)
+
+#### Current Status:
+- 148/205 features passing (72.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
+#### What's Next:
+- Continue with remaining Form Validation and other features
+
 ### Session 52 - 2026-03-13
 
 #### Completed Features:
