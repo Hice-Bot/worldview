@@ -1,5 +1,37 @@
 ## WorldView Development Progress
 
+### Session 47 - 2026-03-13
+
+#### Completed Features:
+- Feature #126: Component unmount cleans up intervals and primitives (PASSING)
+  - Verified all 6 layer components (Flight, Satellite, Traffic, Ship, Earthquake, CCTV) + EntityClickHandler
+  - FlightLayer: 4 primitive collections removed, preRender listener removed on unmount
+  - SatelliteLayer: 2 intervals cleared, all entities removed on unmount
+  - TrafficLayer: RAF cancelled, 2 primitive collections removed on unmount
+  - ShipLayer: 3 primitive collections removed, preRender listener removed on unmount
+  - EarthquakeLayer: 2 primitive collections removed, preRender listener removed on unmount
+  - CCTVLayer: 2 primitive collections removed, preRender listener removed on unmount
+  - EntityClickHandler: ScreenSpaceEventHandler destroyed, keydown listener removed, tracking entity cleared
+  - FIXED: ShipLayer trail polyline leak — changed from index-based tracking (trailIndex) to reference-based (trail), added trail removal in stale ship cleanup loop
+  - All data hooks (useFlights, useSatellites, useEarthquakes, useShips, useCameras, useTraffic, useFlightsLive) verified to properly clear intervals/timeouts on unmount
+
+- Feature #127: CCTV panel selection cleared on layer disable (PASSING)
+  - Added logic in toggleLayer to clear selectedCamera state when CCTV layer toggled off
+  - Clears viewer.trackedEntity if tracking a CCTV entity
+  - CCTVPanel preview cleared automatically (selectedCamera becomes null)
+  - CCTVLayer unmounts via conditional rendering, cleanup removes all primitives
+  - useCameras(false) returns empty cameras array
+
+#### Current Status:
+- 128/205 features passing (62.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining data cleanup and cascade features
+- Additional UI and layer features
+
 ### Session 46 - 2026-03-13
 
 #### Completed Features:
