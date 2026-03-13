@@ -186,6 +186,8 @@ export default function EarthquakeLayer({ earthquakes, trackedEntity }: Earthqua
   }, [trackedEntity]);
 
   // Animation loop: sinusoidal pulsing via scene.preRender
+  // Optimized: throttled to 30Hz (pulsing animation doesn't need 60fps)
+  // Uses PointPrimitiveCollection for O(1) GPU updates per point (no Entity/CallbackProperty overhead)
   useEffect(() => {
     if (!viewer || viewer.isDestroyed()) return;
 
@@ -195,14 +197,24 @@ export default function EarthquakeLayer({ earthquakes, trackedEntity }: Earthqua
       preRenderRef.current = null;
     }
 
+    const PULSE_INTERVAL_MS = 33; // ~30Hz throttle for animation updates
+    let lastPulseTime = 0;
+
     const onPreRender = () => {
-      const now = Date.now() / 1000; // seconds
+      const nowMs = Date.now();
+      // Throttle: only update pulse sizes at ~30Hz to reduce CPU overhead
+      if (nowMs - lastPulseTime < PULSE_INTERVAL_MS) return;
+      lastPulseTime = nowMs;
+
+      const nowSec = nowMs * 0.001; // Convert to seconds (multiply is faster than divide)
       const points = quakePointsRef.current;
-      for (let i = 0; i < points.length; i++) {
+      const len = points.length;
+      // Fast loop with cached length, no array bounds checks
+      for (let i = 0; i < len; i++) {
         const item = points[i];
-        if (!item) continue;
         // Sinusoidal pulsing: size oscillates around baseSize
-        const pulse = Math.sin(now * item.speed + item.phase);
+        // Each marker has unique phase offset via hashIdToPhase() — no synchronized pulsing
+        const pulse = Math.sin(nowSec * item.speed + item.phase);
         item.point.pixelSize = item.baseSize + pulse * item.amplitude;
       }
     };
