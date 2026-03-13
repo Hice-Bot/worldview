@@ -237,8 +237,24 @@ export default function App() {
   }, [cameras.length, booted, addIntelEvent]);
 
   // Layer toggle handler
+  // When flights layer is re-enabled, reset flight filters to defaults (Feature #108)
   const toggleLayer = useCallback((layer: keyof LayerState) => {
-    setLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
+    setLayers((prev) => {
+      const wasOff = !prev[layer];
+      const newLayers = { ...prev, [layer]: !prev[layer] };
+      // Reset flight filters to default when re-enabling flights
+      if (layer === 'flights' && wasOff) {
+        setAltitudeFilters({
+          cruise: true,
+          high: true,
+          mid: true,
+          low: true,
+          ground: true,
+        });
+        setShowRoutePaths(false);
+      }
+      return newLayers;
+    });
   }, []);
 
   // Track entity handler

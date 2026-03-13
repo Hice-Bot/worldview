@@ -12,6 +12,7 @@ import type { TrafficRoad } from '../../types';
 
 interface TrafficLayerProps {
   roads: TrafficRoad[];
+  onVehicleCount?: (count: number) => void;
 }
 
 // --- Road classification visual config ---
@@ -33,6 +34,9 @@ const ROAD_CONFIG: Record<string, RoadConfig> = {
 
 const DEFAULT_CONFIG: RoadConfig = { width: 1, color: Color.GRAY, vehiclesPerKm: 0.2, speedKmh: 30 };
 
+// 5Hz state sync interval (200ms) to reduce React render overhead
+const STATE_SYNC_INTERVAL = 200;
+
 // --- Haversine distance between two [lon, lat] points in meters ---
 function haversineDistance(p1: [number, number], p2: [number, number]): number {
   const R = 6371000;
@@ -42,6 +46,17 @@ function haversineDistance(p1: [number, number], p2: [number, number]): number {
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(p1[1])) * Math.cos(toRad(p2[1])) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// --- Compute bearing between two [lon, lat] points in radians ---
+function computeBearing(p1: [number, number], p2: [number, number]): number {
+  const toRad = (deg: number) => deg * Math.PI / 180;
+  const lat1 = toRad(p1[1]);
+  const lat2 = toRad(p2[1]);
+  const dLon = toRad(p2[0] - p1[0]);
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return Math.atan2(y, x); // radians, 0 = north, clockwise positive
 }
 
 // --- Compute cumulative distances along road geometry ---
@@ -55,14 +70,33 @@ function computeCumulativeDistances(geometry: [number, number][]): number[] {
   return distances;
 }
 
-// --- Interpolate position along road at a given distance ---
+// --- Precompute segment bearings for entire road geometry ---
+function computeSegmentBearings(geometry: [number, number][]): number[] {
+  const bearings: number[] = [];
+  for (let i = 0; i < geometry.length - 1; i++) {
+    bearings.push(computeBearing(geometry[i]!, geometry[i + 1]!));
+  }
+  // Last segment has same bearing as the one before it
+  if (bearings.length > 0) {
+    bearings.push(bearings[bearings.length - 1]!);
+  } else {
+    bearings.push(0);
+  }
+  return bearings;
+}
+
+// --- Interpolate position AND heading along road at a given distance ---
 function interpolateAlongRoad(
   geometry: [number, number][],
   cumDistances: number[],
+  segmentBearings: number[],
   distance: number
-): [number, number] {
+): { lon: number; lat: number; heading: number } {
   const totalLength = cumDistances[cumDistances.length - 1] ?? 0;
-  if (totalLength <= 0) return geometry[0] ?? [0, 0];
+  if (totalLength <= 0) {
+    const p = geometry[0] ?? [0, 0];
+    return { lon: p[0], lat: p[1], heading: segmentBearings[0] ?? 0 };
+  }
 
   // Wrap distance within road length
   const d = ((distance % totalLength) + totalLength) % totalLength;
@@ -73,17 +107,23 @@ function interpolateAlongRoad(
     const prevCumDist = cumDistances[i - 1] ?? 0;
     if (d <= cumDist) {
       const segLen = cumDist - prevCumDist;
-      if (segLen <= 0) return geometry[i - 1] ?? [0, 0];
+      if (segLen <= 0) {
+        const p = geometry[i - 1] ?? [0, 0];
+        return { lon: p[0], lat: p[1], heading: segmentBearings[i - 1] ?? 0 };
+      }
       const t = (d - prevCumDist) / segLen;
       const p1 = geometry[i - 1]!;
       const p2 = geometry[i]!;
-      return [
-        p1[0] + t * (p2[0] - p1[0]),
-        p1[1] + t * (p2[1] - p1[1]),
-      ];
+      return {
+        lon: p1[0] + t * (p2[0] - p1[0]),
+        lat: p1[1] + t * (p2[1] - p1[1]),
+        heading: segmentBearings[i - 1] ?? 0,
+      };
     }
   }
-  return geometry[geometry.length - 1] ?? [0, 0];
+
+  const lastP = geometry[geometry.length - 1] ?? [0, 0];
+  return { lon: lastP[0], lat: lastP[1], heading: segmentBearings[segmentBearings.length - 1] ?? 0 };
 }
 
 // --- Vehicle state ---
@@ -91,6 +131,7 @@ interface Vehicle {
   roadIdx: number;
   position: number;  // distance along road in meters
   velocity: number;  // m/s
+  heading: number;   // bearing in radians (computed from road geometry)
   point: PointPrimitive;
 }
 
@@ -99,6 +140,7 @@ interface RoadData {
   road: TrafficRoad;
   config: RoadConfig;
   cumDistances: number[];
+  segmentBearings: number[];
   totalLength: number;
 }
 
@@ -106,8 +148,10 @@ interface RoadData {
  * TrafficLayer - Animated street-level vehicle simulation
  * PolylineCollection for roads, PointPrimitiveCollection for vehicle particles.
  * 60fps animation via requestAnimationFrame with Haversine interpolation.
+ * Vehicle heading calculated from bearing between consecutive road geometry points.
+ * React state (vehicle count) syncs at 5Hz (200ms) to reduce render overhead.
  */
-export default function TrafficLayer({ roads }: TrafficLayerProps) {
+export default function TrafficLayer({ roads, onVehicleCount }: TrafficLayerProps) {
   const { viewer } = useCesium();
   const roadCollectionRef = useRef<PolylineCollection | null>(null);
   const vehicleCollectionRef = useRef<PointPrimitiveCollection | null>(null);
@@ -115,7 +159,14 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
   const vehiclesRef = useRef<Vehicle[]>([]);
   const roadDataRef = useRef<RoadData[]>([]);
   const lastTimeRef = useRef<number>(0);
+  const lastStateSyncRef = useRef<number>(0);
   const initRef = useRef(false);
+  const onVehicleCountRef = useRef(onVehicleCount);
+
+  // Keep callback ref in sync without triggering re-renders
+  useEffect(() => {
+    onVehicleCountRef.current = onVehicleCount;
+  }, [onVehicleCount]);
 
   // Initialize primitive collections
   useEffect(() => {
@@ -158,7 +209,10 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
     vehiclesRef.current = [];
     roadDataRef.current = [];
 
-    if (roads.length === 0) return;
+    if (roads.length === 0) {
+      if (onVehicleCountRef.current) onVehicleCountRef.current(0);
+      return;
+    }
 
     // Precompute road data
     const newRoadData: RoadData[] = [];
@@ -167,12 +221,13 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
 
       const config = ROAD_CONFIG[road.classification] || DEFAULT_CONFIG;
       const cumDistances = computeCumulativeDistances(road.geometry);
+      const segmentBearings = computeSegmentBearings(road.geometry);
       const totalLength = cumDistances[cumDistances.length - 1] ?? 0;
 
       // Skip very short roads (< 10m)
       if (totalLength < 10) continue;
 
-      newRoadData.push({ road, config, cumDistances, totalLength });
+      newRoadData.push({ road, config, cumDistances, segmentBearings, totalLength });
 
       // Add road polyline
       const positions = road.geometry.map(([lon, lat]) =>
@@ -204,10 +259,11 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
         const startPos = (rd.totalLength / cappedVehicles) * v + Math.random() * (rd.totalLength / cappedVehicles);
         const velocity = (rd.config.speedKmh * 1000) / 3600; // km/h to m/s
 
-        // Interpolate initial position
-        const [lon, lat] = interpolateAlongRoad(
+        // Interpolate initial position and heading
+        const { lon, lat, heading } = interpolateAlongRoad(
           rd.road.geometry,
           rd.cumDistances,
+          rd.segmentBearings,
           startPos
         );
 
@@ -222,6 +278,7 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
           roadIdx: ri,
           position: startPos,
           velocity,
+          heading,
           point,
         });
       }
@@ -229,10 +286,16 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
 
     vehiclesRef.current = newVehicles;
     lastTimeRef.current = performance.now();
+    lastStateSyncRef.current = performance.now();
+
+    // Report initial vehicle count via 5Hz sync
+    if (onVehicleCountRef.current) {
+      onVehicleCountRef.current(newVehicles.length);
+    }
 
   }, [viewer, roads]);
 
-  // Animation loop - 60fps vehicle movement
+  // Animation loop - 60fps vehicle movement with bearing computation
   useEffect(() => {
     if (!viewer || viewer.isDestroyed()) return;
 
@@ -243,6 +306,7 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
     }
 
     lastTimeRef.current = performance.now();
+    lastStateSyncRef.current = performance.now();
 
     const animate = (currentTime: number) => {
       if (!viewer || viewer.isDestroyed()) return;
@@ -271,15 +335,27 @@ export default function TrafficLayer({ roads }: TrafficLayerProps) {
           vehicle.position = vehicle.position % rd.totalLength;
         }
 
-        // Interpolate new geographic position
-        const [lon, lat] = interpolateAlongRoad(
+        // Interpolate new geographic position and heading from road geometry
+        const { lon, lat, heading } = interpolateAlongRoad(
           rd.road.geometry,
           rd.cumDistances,
+          rd.segmentBearings,
           vehicle.position
         );
 
+        // Store computed heading for external use (e.g., TrackedEntityPanel)
+        vehicle.heading = heading;
+
         // Update point position
         vehicle.point.position = Cartesian3.fromDegrees(lon, lat, 5);
+      }
+
+      // 5Hz (200ms) React state sync for vehicle count — avoids per-frame React renders
+      if (currentTime - lastStateSyncRef.current >= STATE_SYNC_INTERVAL) {
+        lastStateSyncRef.current = currentTime;
+        if (onVehicleCountRef.current) {
+          onVehicleCountRef.current(vehicles.length);
+        }
       }
 
       animationFrameRef.current = requestAnimationFrame(animate);
