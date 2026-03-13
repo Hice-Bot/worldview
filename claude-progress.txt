@@ -1,5 +1,36 @@
 ## WorldView Development Progress
 
+### Session 58 - 2026-03-13
+
+#### Completed Features:
+- Feature #161: Mobile CCTVPanel as button with modal (PASSING)
+  - Badge button with camera emoji and online count, positioned bottom-right
+  - lg:hidden breakpoint (shows below 1024px)
+  - Full-screen modal with 2-column grid (vs 3-column desktop)
+  - FLY TO auto-minimizes modal via setMobileOpen(false)
+  - Close button dismisses modal
+  - All requirements were already implemented in prior sessions
+
+- Feature #162: Mobile StatusBar compact mode (PASSING)
+  - Added toDMSShort() function for abbreviated coordinates (degrees+minutes only)
+  - Desktop bar: 32px, full 3-section layout (unchanged)
+  - Mobile bar: 28px height, 9px font, abbreviated coords + altitude, compact UTC (HH:MM:SSZ)
+  - Reduced entity counts (flights, earthquakes, ships only) + FPS
+  - hidden lg:flex / flex lg:hidden responsive breakpoints
+  - Removed HDG and OPTICS labels on mobile for reduced density
+
+- Feature #163: CCTVPanel collapsible on desktop (PASSING)
+  - Header toggle with ▶/▼ indicator
+  - Collapsed state hides all panel content, shows only header
+  - useState persists collapse state during session
+  - All requirements were already implemented in prior sessions
+
+#### Current Status:
+- 163/205 features passing (79.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- TypeScript compiles (only pre-existing unused import warning in App.tsx)
+
 ### Session 57 - 2026-03-13
 
 #### Completed Features:
