@@ -84,9 +84,11 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
   // Handle FLY TO
   const handleFlyTo = useCallback((cam: CameraData) => {
     onFlyTo(cam);
-    // Mobile: auto-minimize after flight
-    setMobileOpen(false);
-  }, [onFlyTo]);
+    // Mobile: auto-minimize after flight with animation
+    if (mobileOpen) {
+      handleMobileClose();
+    }
+  }, [onFlyTo, mobileOpen, handleMobileClose]);
 
   // Handle country filter change
   const handleCountryFilter = useCallback((country: string | null) => {
