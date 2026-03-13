@@ -55,6 +55,7 @@ interface GlobeViewerProps {
   onCameraChange: (state: CameraState) => void;
   onTrackEntity: (entity: TrackedEntityInfo | null) => void;
   onCctvClick: (camera: CameraData | null) => void;
+  onMapTilesChange?: (mode: MapTileMode) => void;
   defaultCamera: CameraState;
 }
 
@@ -141,6 +142,8 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
             // Google 3D Tiles failed — fall back to OSM
             console.warn('Google 3D Tiles failed to load, falling back to OSM:', err);
             setGoogle3dAvailable(false);
+            // Notify parent to update OperationsPanel tile mode indicator
+            props.onMapTilesChange?.('OSM');
           });
       } else if (useGoogle && google3dTilesetRef.current) {
         // Google 3D tileset already loaded — ensure it's visible
@@ -170,6 +173,12 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
             url: 'https://tile.openstreetmap.org/',
           });
           osmLayerRef.current = viewer.imageryLayers.addImageryProvider(osmProvider);
+        }
+
+        // Notify parent if user selected GOOGLE_3D but key is unavailable
+        // so OperationsPanel reflects the actual active tile mode
+        if (props.mapTiles === 'GOOGLE_3D' && !google3dAvailable) {
+          props.onMapTilesChange?.('OSM');
         }
       }
 

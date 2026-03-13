@@ -400,6 +400,7 @@ export default function App() {
         onCameraChange={setCameraState}
         onTrackEntity={handleTrackEntity}
         onCctvClick={setSelectedCamera}
+        onMapTilesChange={setMapTiles}
         defaultCamera={DEFAULT_CAMERA}
       />
 
