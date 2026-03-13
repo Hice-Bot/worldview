@@ -59,17 +59,61 @@ app.use(express.json());
 // Cache instances with per-route TTL
 const cache = new NodeCache({ checkperiod: 30 });
 
+// In-flight request deduplication map: prevents thundering herd when cache expires
+// Key → Promise: concurrent requests for the same key share a single upstream call
+const inflightRequests = new Map();
+
+/**
+ * Deduplicated fetch: if a request for this cache key is already in-flight,
+ * return its promise instead of making a duplicate upstream call.
+ * @param {string} cacheKey - The cache key to check
+ * @param {number} ttl - Cache TTL in seconds
+ * @param {Function} fetchFn - Async function that fetches from upstream and returns data
+ * @returns {Promise<any>} The cached or freshly fetched data
+ */
+async function cachedFetch(cacheKey, ttl, fetchFn) {
+  // 1. Check cache first
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // 2. Check if an in-flight request exists for this key
+  if (inflightRequests.has(cacheKey)) {
+    return inflightRequests.get(cacheKey);
+  }
+
+  // 3. No cache, no in-flight → create new upstream request
+  const promise = fetchFn()
+    .then(data => {
+      cache.set(cacheKey, data, ttl);
+      inflightRequests.delete(cacheKey);
+      return data;
+    })
+    .catch(err => {
+      inflightRequests.delete(cacheKey);
+      throw err;
+    });
+
+  inflightRequests.set(cacheKey, promise);
+  return promise;
+}
+
 // ============================================================================
 // Health Endpoint
 // ============================================================================
 app.get('/api/health', (_req, res) => {
   try {
+    const stats = cache.getStats();
+    const hitRate = (stats.hits + stats.misses) > 0
+      ? ((stats.hits / (stats.hits + stats.misses)) * 100).toFixed(1)
+      : '0.0';
     res.json({
       status: 'ok',
       uptime: process.uptime(),
       cache: {
         keys: cache.keys().length,
-        stats: cache.getStats(),
+        stats: stats,
+        hitRate: `${hitRate}%`,
+        inflightRequests: inflightRequests.size,
       },
       timestamp: new Date().toISOString(),
     });
@@ -103,22 +147,24 @@ app.get('/api/geolocation', async (_req, res) => {
 // ============================================================================
 app.get('/api/earthquakes', async (_req, res) => {
   try {
-    const cached = cache.get('earthquakes');
-    if (cached) return res.json(cached);
+    const data = await cachedFetch('earthquakes', 60, async () => {
+      const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
+      const json = await response.json();
 
-    const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
-    const data = await response.json();
+      // Validate GeoJSON format
+      if (!json || json.type !== 'FeatureCollection' || !Array.isArray(json.features)) {
+        console.error('[SEIS] Validation failed: upstream response is not valid GeoJSON FeatureCollection');
+        throw new Error('Upstream earthquake data is not valid GeoJSON');
+      }
 
-    // Validate GeoJSON format
-    if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
-      console.error('[SEIS] Validation failed: upstream response is not valid GeoJSON FeatureCollection');
-      return res.status(502).json({ error: 'Upstream earthquake data is not valid GeoJSON' });
-    }
-
-    cache.set('earthquakes', data, 60); // 60s TTL
+      return json;
+    });
     res.json(data);
   } catch (error) {
     console.error('[SEIS] Error:', error.message);
+    if (error.message.includes('not valid GeoJSON')) {
+      return res.status(502).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Earthquake data fetch failed' });
   }
 });
@@ -216,32 +262,30 @@ app.get('/api/satellites', async (req, res) => {
   try {
     const groups = req.query.groups || 'stations,active';
     const cacheKey = `satellites_${groups}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
 
-    const groupList = String(groups).split(',').map(g => g.trim());
-    let allSatellites = [];
+    const data = await cachedFetch(cacheKey, 7200, async () => {
+      const groupList = String(groups).split(',').map(g => g.trim());
+      let allSatellites = [];
 
-    // Primary: tle.ivanstanojevic.me (as per app spec)
-    try {
-      const results = await Promise.all(
-        groupList.map(async (group) => {
-          const searchTerm = IVAN_SEARCH_MAP[group] || group;
-          const response = await fetch(
-            `https://tle.ivanstanojevic.me/api/tle/?search=${searchTerm}&page_size=50`,
-            { signal: AbortSignal.timeout(10000) }
-          );
-          if (!response.ok) throw new Error(`TLE API ${response.status}`);
-          const data = await response.json();
-          return parseIvanTLE(data, group);
-        })
-      );
-      allSatellites = results.flat();
-      console.log(`[SAT] ivanstanojevic: ${allSatellites.length} satellites from groups: ${groups}`);
-    } catch (primaryError) {
-      console.error('[SAT] ivanstanojevic failed, trying CelesTrak:', primaryError.message);
-      // Fallback: CelesTrak
+      // Primary: tle.ivanstanojevic.me (as per app spec)
       try {
+        const results = await Promise.all(
+          groupList.map(async (group) => {
+            const searchTerm = IVAN_SEARCH_MAP[group] || group;
+            const response = await fetch(
+              `https://tle.ivanstanojevic.me/api/tle/?search=${searchTerm}&page_size=50`,
+              { signal: AbortSignal.timeout(10000) }
+            );
+            if (!response.ok) throw new Error(`TLE API ${response.status}`);
+            const apiData = await response.json();
+            return parseIvanTLE(apiData, group);
+          })
+        );
+        allSatellites = results.flat();
+        console.log(`[SAT] ivanstanojevic: ${allSatellites.length} satellites from groups: ${groups}`);
+      } catch (primaryError) {
+        console.error('[SAT] ivanstanojevic failed, trying CelesTrak:', primaryError.message);
+        // Fallback: CelesTrak
         const results = await Promise.all(
           groupList.map(async (group) => {
             const celestrakGroup = CELESTRAK_GROUP_MAP[group] || group;
@@ -256,38 +300,36 @@ app.get('/api/satellites', async (req, res) => {
         );
         allSatellites = results.flat();
         console.log(`[SAT] CelesTrak fallback: ${allSatellites.length} satellites`);
-      } catch (fallbackError) {
-        console.error('[SAT] Both sources failed:', fallbackError.message);
-        return res.status(500).json({ error: 'Satellite data fetch failed' });
       }
-    }
 
-    // Validate all satellites have proper TLE format before deduplication
-    const validSatellites = allSatellites.filter(s => {
-      if (!isValidTLE(s)) {
-        console.warn(`[SAT] Validation: dropping satellite "${s.name}" (NORAD ${s.noradId}) — invalid TLE format`);
-        return false;
+      // Validate all satellites have proper TLE format before deduplication
+      const validSatellites = allSatellites.filter(s => {
+        if (!isValidTLE(s)) {
+          console.warn(`[SAT] Validation: dropping satellite "${s.name}" (NORAD ${s.noradId}) — invalid TLE format`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validSatellites.length === 0 && allSatellites.length > 0) {
+        throw new Error('Upstream satellite data failed TLE validation');
       }
-      return true;
+
+      // Deduplicate by NORAD ID (keep first occurrence)
+      const seen = new Set();
+      return validSatellites.filter(s => {
+        if (seen.has(s.noradId)) return false;
+        seen.add(s.noradId);
+        return true;
+      });
     });
 
-    if (validSatellites.length === 0 && allSatellites.length > 0) {
-      console.error(`[SAT] Validation failed: all ${allSatellites.length} satellites had invalid TLE format`);
-      return res.status(502).json({ error: 'Upstream satellite data failed TLE validation' });
-    }
-
-    // Deduplicate by NORAD ID (keep first occurrence)
-    const seen = new Set();
-    const deduplicated = validSatellites.filter(s => {
-      if (seen.has(s.noradId)) return false;
-      seen.add(s.noradId);
-      return true;
-    });
-
-    cache.set(cacheKey, deduplicated, 7200); // 2hr TTL
-    res.json(deduplicated);
+    res.json(data);
   } catch (error) {
     console.error('[SAT] Error:', error.message);
+    if (error.message.includes('TLE validation')) {
+      return res.status(502).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Satellite data fetch failed' });
   }
 });
@@ -375,64 +417,62 @@ app.get('/api/traffic/roads', async (req, res) => {
     }
 
     const cacheKey = `traffic_${s}_${w}_${n}_${e}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
 
-    const query = `[out:json][timeout:15];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential)$"](${s},${w},${n},${e});out geom;`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    try {
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        body: `data=${encodeURIComponent(query)}`,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      const data = await response.json();
-
-      // Haversine distance between two [lon, lat] points in meters
-      function haversineDistance(p1, p2) {
-        const R = 6371000; // Earth radius in meters
-        const toRad = (deg) => deg * Math.PI / 180;
-        const dLat = toRad(p2[1] - p1[1]);
-        const dLon = toRad(p2[0] - p1[0]);
-        const a = Math.sin(dLat / 2) ** 2 +
-          Math.cos(toRad(p1[1])) * Math.cos(toRad(p2[1])) * Math.sin(dLon / 2) ** 2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      }
-
-      // Calculate total road segment length via Haversine
-      function calcRoadLength(geometry) {
-        let total = 0;
-        for (let i = 1; i < geometry.length; i++) {
-          total += haversineDistance(geometry[i - 1], geometry[i]);
-        }
-        return total;
-      }
-
-      // Parse OSM elements into road segments
-      const roads = (data.elements || []).map((el) => {
-        const geometry = (el.geometry || []).map((p) => [p.lon, p.lat]);
-        return {
-          id: String(el.id),
-          classification: el.tags?.highway || 'residential',
-          geometry,
-          length: calcRoadLength(geometry),
-          name: el.tags?.name || '',
-        };
-      });
-
-      cache.set(cacheKey, roads, 86400); // 24hr TTL
-      res.json(roads);
-    } catch (fetchError) {
-      clearTimeout(timeout);
-      console.error('[TRAFFIC] Overpass failed, using fallback:', fetchError.message);
-      const { sydneyRoads } = await import('./data/sydneyRoads.js');
-      cache.set(cacheKey, sydneyRoads, 86400);
-      res.json(sydneyRoads);
+    // Haversine distance between two [lon, lat] points in meters
+    function haversineDistance(p1, p2) {
+      const R = 6371000; // Earth radius in meters
+      const toRad = (deg) => deg * Math.PI / 180;
+      const dLat = toRad(p2[1] - p1[1]);
+      const dLon = toRad(p2[0] - p1[0]);
+      const a = Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(p1[1])) * Math.cos(toRad(p2[1])) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
+
+    // Calculate total road segment length via Haversine
+    function calcRoadLength(geometry) {
+      let total = 0;
+      for (let i = 1; i < geometry.length; i++) {
+        total += haversineDistance(geometry[i - 1], geometry[i]);
+      }
+      return total;
+    }
+
+    const roads = await cachedFetch(cacheKey, 86400, async () => {
+      const query = `[out:json][timeout:15];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential)$"](${s},${w},${n},${e});out geom;`;
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        const response = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: `data=${encodeURIComponent(query)}`,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          signal: controller.signal,
+        });
+        clearTimeout(fetchTimeout);
+        const data = await response.json();
+
+        // Parse OSM elements into road segments
+        return (data.elements || []).map((el) => {
+          const geometry = (el.geometry || []).map((p) => [p.lon, p.lat]);
+          return {
+            id: String(el.id),
+            classification: el.tags?.highway || 'residential',
+            geometry,
+            length: calcRoadLength(geometry),
+            name: el.tags?.name || '',
+          };
+        });
+      } catch (fetchError) {
+        clearTimeout(fetchTimeout);
+        console.error('[TRAFFIC] Overpass failed, using fallback:', fetchError.message);
+        const { sydneyRoads } = await import('./data/sydneyRoads.js');
+        return sydneyRoads;
+      }
+    });
+
+    res.json(roads);
   } catch (error) {
     console.error('[TRAFFIC] Error:', error.message);
     res.status(500).json({ error: 'Traffic data fetch failed' });
@@ -469,75 +509,76 @@ app.get('/api/cctv', async (req, res) => {
   try {
     const country = req.query.country;
     const cacheKey = `cctv_${country || 'all'}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
 
-    const sources = await Promise.allSettled([
-      // TfL London
-      fetch('https://api.tfl.gov.uk/Place/Type/JamCam')
-        .then(r => r.json())
-        .then(data => (data || []).map(cam => ({
-          id: cam.id || cam.commonName,
-          name: cam.commonName || 'Unknown',
-          lat: cam.lat,
-          lon: cam.lon,
-          imageUrl: cam.additionalProperties?.find(p => p.key === 'imageUrl')?.value || '',
-          available: true,
-          region: 'London',
-          country: 'GB',
-          direction: extractCompassDirection(cam.additionalProperties?.find(p => p.key === 'view')?.value || '', cam.commonName || ''),
-        }))),
-      // Austin TX — location is GeoJSON Point: {type:"Point", coordinates:[lon, lat]}
-      fetch('https://data.austintexas.gov/resource/b4k4-adkb.json?$limit=2000')
-        .then(r => r.json())
-        .then(data => (data || []).filter(cam => cam.location && cam.location.coordinates).map(cam => ({
-          id: cam.camera_id || cam.location_name,
-          name: (cam.location_name || 'Unknown').trim(),
-          lat: cam.location.coordinates[1],
-          lon: cam.location.coordinates[0],
-          imageUrl: cam.screenshot_address || cam.camera_mfg_url || '',
-          available: cam.camera_status === 'TURNED_ON',
-          region: 'Austin, TX',
-          country: 'US',
-          direction: '',
-        }))),
-      // NSW Transport (requires API key)
-      ...(process.env.NSW_TRANSPORT_API_KEY ? [
-        fetch('https://api.transport.nsw.gov.au/v1/live/cameras', {
-          headers: { Authorization: `apikey ${process.env.NSW_TRANSPORT_API_KEY}` },
-        })
+    const cameras = await cachedFetch(cacheKey, 300, async () => {
+      const sources = await Promise.allSettled([
+        // TfL London
+        fetch('https://api.tfl.gov.uk/Place/Type/JamCam')
           .then(r => r.json())
-          .then(data => (data?.features || []).map(cam => ({
-            id: cam.id || 'nsw_cam',
-            name: cam.properties?.title || 'Unknown',
-            lat: cam.geometry?.coordinates?.[1] || 0,
-            lon: cam.geometry?.coordinates?.[0] || 0,
-            imageUrl: cam.properties?.href || '',
+          .then(data => (data || []).map(cam => ({
+            id: cam.id || cam.commonName,
+            name: cam.commonName || 'Unknown',
+            lat: cam.lat,
+            lon: cam.lon,
+            imageUrl: cam.additionalProperties?.find(p => p.key === 'imageUrl')?.value || '',
             available: true,
-            region: 'NSW',
-            country: 'AU',
-            direction: cam.properties?.direction || '',
-          })))
-      ] : []),
-    ]);
+            region: 'London',
+            country: 'GB',
+            direction: extractCompassDirection(cam.additionalProperties?.find(p => p.key === 'view')?.value || '', cam.commonName || ''),
+          }))),
+        // Austin TX — location is GeoJSON Point: {type:"Point", coordinates:[lon, lat]}
+        fetch('https://data.austintexas.gov/resource/b4k4-adkb.json?$limit=2000')
+          .then(r => r.json())
+          .then(data => (data || []).filter(cam => cam.location && cam.location.coordinates).map(cam => ({
+            id: cam.camera_id || cam.location_name,
+            name: (cam.location_name || 'Unknown').trim(),
+            lat: cam.location.coordinates[1],
+            lon: cam.location.coordinates[0],
+            imageUrl: cam.screenshot_address || cam.camera_mfg_url || '',
+            available: cam.camera_status === 'TURNED_ON',
+            region: 'Austin, TX',
+            country: 'US',
+            direction: '',
+          }))),
+        // NSW Transport (requires API key)
+        ...(process.env.NSW_TRANSPORT_API_KEY ? [
+          fetch('https://api.transport.nsw.gov.au/v1/live/cameras', {
+            headers: { Authorization: `apikey ${process.env.NSW_TRANSPORT_API_KEY}` },
+          })
+            .then(r => r.json())
+            .then(data => (data?.features || []).map(cam => ({
+              id: cam.id || 'nsw_cam',
+              name: cam.properties?.title || 'Unknown',
+              lat: cam.geometry?.coordinates?.[1] || 0,
+              lon: cam.geometry?.coordinates?.[0] || 0,
+              imageUrl: cam.properties?.href || '',
+              available: true,
+              region: 'NSW',
+              country: 'AU',
+              direction: cam.properties?.direction || '',
+            })))
+        ] : []),
+      ]);
 
-    let cameras = [];
-    const providerNames = ['TfL London', 'Austin TX', ...(process.env.NSW_TRANSPORT_API_KEY ? ['NSW Transport'] : [])];
-    for (let i = 0; i < sources.length; i++) {
-      const result = sources[i];
-      if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-        cameras = cameras.concat(result.value);
-      } else if (result.status === 'rejected') {
-        console.error(`[CCTV] Provider ${providerNames[i] || i} failed:`, result.reason?.message || result.reason);
+      let result = [];
+      const providerNames = ['TfL London', 'Austin TX', ...(process.env.NSW_TRANSPORT_API_KEY ? ['NSW Transport'] : [])];
+      for (let i = 0; i < sources.length; i++) {
+        const source = sources[i];
+        if (source.status === 'fulfilled' && Array.isArray(source.value)) {
+          result = result.concat(source.value);
+        } else if (source.status === 'rejected') {
+          console.error(`[CCTV] Provider ${providerNames[i] || i} failed:`, source.reason?.message || source.reason);
+        }
       }
-    }
 
-    // Apply country filter
-    if (country) {
-      cameras = cameras.filter(c => c.country === country);
-    }
+      // Apply country filter
+      if (country) {
+        result = result.filter(c => c.country === country);
+      }
 
-    cache.set(cacheKey, cameras, 300); // 5min TTL
+      return result;
+    });
+
     res.json(cameras);
   } catch (error) {
     console.error('[CCTV] Error:', error.message);
@@ -608,9 +649,7 @@ const NAV_STATUS_AGROUND = 6;
 
 app.get('/api/ships', async (_req, res) => {
   try {
-    const cached = cache.get('ships');
-    if (cached) return res.json(cached);
-
+    const data = await cachedFetch('ships', 120, async () => {
     let ships = [];
 
     // Primary: Finnish Digitraffic AIS API (free, no auth, gzip required)
@@ -703,8 +742,10 @@ app.get('/api/ships', async (_req, res) => {
       }
     }
 
-    cache.set('ships', ships, 120); // 2min TTL
-    res.json(ships);
+    return ships;
+    }); // end cachedFetch
+
+    res.json(data);
   } catch (error) {
     console.error('[SHIPS] Error:', error.message);
     res.status(500).json({ error: 'Ship data fetch failed' });
