@@ -1,5 +1,43 @@
 ## WorldView Development Progress
 
+### Session 60 - 2026-03-13
+
+#### Completed Features:
+- Feature #164: Panels don't overlap globe controls (PASSING)
+  - StatusBar uses lg:left-56 on desktop to avoid overlapping OperationsPanel sidebar
+  - OperationsPanel uses bottom-8 to stop at StatusBar boundary
+  - All panels use explicit pointer-events-auto for clear click handling
+  - Crosshair at z-40 with pointer-events-none, all panels at z-50, modals at z-[60]
+  - No dead zones where invisible areas swallow clicks
+  - OperationsPanel refactored with mobile FAB + full-screen modal pattern
+
+- Feature #165: Glass-morphism styling on all panels (PASSING)
+  - All panels have semi-transparent dark backgrounds (bg-black/80-95)
+  - backdrop-blur-md on all panels (desktop + mobile) including IntelFeed mobile modal (was missing)
+  - Subtle border-white/10 borders on all panel edges
+  - Rounded corners on exposed interior edges: OperationsPanel (rounded-br-lg), IntelFeed (rounded-bl-lg), CCTVPanel (rounded-tl-lg), TrackedEntityPanel (rounded-lg)
+  - StatusBar uses inline styles for fine-tuned glass effect (rgba, blur(12px))
+
+- Feature #166: Panel scroll behavior with containment (PASSING)
+  - panel-scroll CSS class with overscroll-behavior: contain and thin 4px scrollbar styling
+  - onWheel stopPropagation() on all 6 scrollable areas prevents scroll leaking to globe
+  - OperationsPanel desktop sidebar and mobile modal both scroll properly
+  - IntelFeed desktop event list and mobile modal both scroll properly
+  - CCTVPanel desktop thumbnail grid and mobile modal both scroll properly
+  - Consistent scrollbar styling: thin, rgba(255,255,255,0.15) thumb, transparent track, hover state
+
+#### Current Status:
+- 169/205 features passing (82.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- All responsive layout features verified
+
+#### What's Next:
+- Continue with remaining features
+- Performance optimization features
+- Additional data layer enhancements
+
 ### Session 59 - 2026-03-13
 
 #### Completed Features:
