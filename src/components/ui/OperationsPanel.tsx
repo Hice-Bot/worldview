@@ -425,7 +425,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   return (
     <>
       {/* ===== DESKTOP: fixed 224px left sidebar (1024px+) ===== */}
-      <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 z-50 overflow-y-auto hidden lg:block pointer-events-auto">
+      <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 rounded-br-lg z-50 overflow-y-auto hidden lg:block pointer-events-auto">
         {/* Header with pulsing green indicator */}
         <div className="p-3 border-b border-white/10">
           <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
