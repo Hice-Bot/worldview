@@ -1,5 +1,52 @@
 ## WorldView Development Progress
 
+### Session 34 - 2026-03-13
+
+#### Completed Features:
+- Feature #85: Full entity track-untrack cycle for satellite (PASSING)
+  - Click satellite → EntityClickHandler classifies via "norad"/"satellite"/"tle" keywords
+  - Camera locks with 700km offset (Cartesian3(0, -500000, 500000))
+  - TrackedEntityPanel shows NORAD ID (cyan), ALT (km), GROUP (category)
+  - Added altitude display to SatelliteDetails (was missing)
+  - Camera follows orbital path via native Cesium trackedEntity + 5Hz propagation
+  - ESC/empty click untracks, satellite returns to normal rendering
+
+- Feature #86: Full entity track-untrack cycle for ship (PASSING)
+  - Click ship → BillboardCollection pick with { type: 'ship', data: ship }
+  - Camera locks with 2.4km offset (Cartesian3(0, -1200, 2100))
+  - TrackedEntityPanel shows MMSI, IMO, CALL SIGN, TYPE, SOG, COG, HDG, DEST
+  - Added vessel TYPE field (AIS ship type → human-readable: CARGO, TANKER, etc.)
+  - Dead reckoning: tracked ship updated every frame for smooth camera following
+  - trackingManager.updatePosition() bridges position to CallbackProperty entity
+  - ESC/empty click untracks, billboard returns to normal
+
+- Feature #87: Full entity track-untrack cycle for earthquake (PASSING)
+  - Click earthquake → PointPrimitiveCollection pick with { type: 'earthquake', data: eq }
+  - Camera focuses with 280km offset (Cartesian3(0, -200000, 200000))
+  - TrackedEntityPanel shows MAG, DEPTH, LOC, TIME
+  - Static events — no dead reckoning needed
+  - Labels hidden during tracking mode (reduce clutter)
+  - ESC/empty click untracks, marker returns to normal pulsing
+
+#### Modified Files:
+- src/components/ui/TrackedEntityPanel.tsx
+  - SatelliteDetails: Added ALT field showing altitude in km from entity properties
+  - ShipDetails: Added TYPE field with getVesselTypeName() AIS ship type classifier
+  - getVesselTypeName(): Maps AIS numeric codes to human-readable vessel types
+    (CARGO 70-79, TANKER 80-89, PASSENGER 60-69, TUG 31/32/52, FISHING 30, etc.)
+
+#### Current Status:
+- 99/205 features passing (48.3%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- More workflow completeness features
+- Additional data layer enhancements
+- Performance optimizations
+
 ### Session 33 - 2026-03-13
 
 #### Completed Features:
