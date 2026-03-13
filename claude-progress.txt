@@ -1,5 +1,46 @@
 ## WorldView Development Progress
 
+### Session 40 - 2026-03-13
+
+#### Completed Features:
+- Feature #110: App loads at root URL without errors (PASSING)
+  - GET / returns 200 with HTML containing <div id="root"> React mount point
+  - CesiumJS globe begins loading (cesium/Widgets/widgets.css linked, vite-plugin-cesium active)
+  - No JavaScript compilation errors (56 modules build successfully)
+  - App reaches interactive state (backend uptime confirmed via /api/health)
+  - Vite HMR and react-refresh active
+
+- Feature #111: No 404 errors for static assets (PASSING)
+  - All critical static assets return 200 (/, src/main.tsx, src/App.tsx, src/index.css, /cesium/Widgets/widgets.css, /vite.svg)
+  - Cesium Workers load correctly (vite-plugin-cesium configured in vite.config.ts)
+  - Tailwind CSS styles apply correctly (@tailwindcss/vite plugin active)
+  - All 22 imported modules resolve (components, hooks, layers, shaders, trackingManager)
+  - Cesium draco_decoder.wasm accessible at /cesium/ThirdParty/Workers/
+
+- Feature #112: All proxy routes respond (PASSING)
+  - GET /api/health responds 200 with uptime and cache stats
+  - GET /api/earthquakes responds 200 with 31 real USGS earthquakes
+  - GET /api/satellites responds 200 with 40 real TLE satellites
+  - GET /api/flights responds 200 with 4,063 real aircraft
+  - GET /api/flights/live responds 400 gracefully (requires lat/lon params) — returns data with valid params
+  - GET /api/cctv responds 200 with 1,869 real cameras
+  - GET /api/ships responds 200 with 14,949 real ships
+  - GET /api/traffic/roads responds 200 with OSM road data (London bbox tested)
+  - GET /api/geolocation responds 200 with location data
+  - GET /api/cctv/image responds 400 gracefully (requires URL param)
+  - All 10 routes handle requests — no 500 server errors
+
+#### Current Status:
+- 115/205 features passing (56.1%)
+- Express proxy server: running on port 3001
+- Vite dev server: running on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining URL & Direct Access features
+- Additional data layer refinements
+- UI component enhancements
+
 ### Session 39 - 2026-03-13
 
 #### Completed Features:
