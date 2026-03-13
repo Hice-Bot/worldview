@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { CameraState, ShaderMode } from '../../types';
 
 interface StatusBarProps {
@@ -53,10 +53,38 @@ export default function StatusBar({
   shipCount,
 }: StatusBarProps) {
   const [utcTime, setUtcTime] = useState(new Date());
+  const [fps, setFps] = useState(0);
+  const frameCountRef = useRef(0);
+  const lastFpsTimeRef = useRef(performance.now());
+  const rafIdRef = useRef<number>(0);
 
   useEffect(() => {
     const interval = setInterval(() => setUtcTime(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // FPS counter: counts requestAnimationFrame callbacks, updates display every 500ms
+  useEffect(() => {
+    let cancelled = false;
+
+    const measureFps = (now: number) => {
+      if (cancelled) return;
+      frameCountRef.current++;
+      const elapsed = now - lastFpsTimeRef.current;
+      if (elapsed >= 500) {
+        const currentFps = Math.round((frameCountRef.current * 1000) / elapsed);
+        setFps(currentFps);
+        frameCountRef.current = 0;
+        lastFpsTimeRef.current = now;
+      }
+      rafIdRef.current = requestAnimationFrame(measureFps);
+    };
+
+    rafIdRef.current = requestAnimationFrame(measureFps);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafIdRef.current);
+    };
   }, []);
 
   const formatUtc = (date: Date) => {
@@ -138,6 +166,16 @@ export default function StatusBar({
           }}
         >
           OPTICS {shaderLabel}
+        </span>
+        <span
+          style={{
+            color: fps >= 30 ? '#4ade80' : fps >= 15 ? '#fbbf24' : '#f87171',
+            textShadow: `0 0 4px ${fps >= 30 ? 'rgba(74, 222, 128, 0.3)' : fps >= 15 ? 'rgba(251, 191, 36, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
+            borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingLeft: '10px',
+          }}
+        >
+          FPS <span style={{ fontWeight: 600 }}>{fps}</span>
         </span>
       </div>
     </div>
