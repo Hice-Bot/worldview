@@ -1,5 +1,34 @@
 ## WorldView Development Progress
 
+### Session 39 - 2026-03-13
+
+#### Completed Features:
+- Feature #113: Vite proxy correctly forwards API requests (PASSING)
+  - vite.config.ts has proxy: /api -> localhost:3001 with changeOrigin:true
+  - /ws WebSocket proxy configured with ws:true
+  - Browser requests to /api/health go through Vite and reach Express (verified)
+  - WebSocket upgrade for /ws path proxied correctly (ws client connected via port 5173)
+  - Query parameters preserved (tested with /api/traffic/roads bounding box params, got 471 roads)
+  - Response headers preserved (x-powered-by: Express, content-type: application/json)
+  - Multiple API endpoints tested through proxy: health, earthquakes (31 events), traffic roads
+
+- Feature #114: App loads without any login screen (PASSING)
+  - Opening http://localhost:5173/ returns HTTP 200 with no redirect
+  - No login form, no auth redirect, no PrivateRoute/AuthGuard patterns
+  - Zero auth-related code in src/ or server/ (grep confirmed)
+  - HTML contains #root mount point, React app renders directly
+  - All API endpoints accessible without credentials (health, earthquakes, flights, satellites, CCTV all return 200)
+  - App.tsx renders GlobeViewer directly with no auth gate component
+
+#### Current Status:
+- 114/205 features passing (55.6%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
+#### What's Next:
+- Continue with remaining URL & Direct Access features
+- Additional UI/UX verification features
+
 ### Session 38 - 2026-03-13
 
 #### Completed Features:
