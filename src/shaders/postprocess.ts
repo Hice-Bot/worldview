@@ -252,41 +252,71 @@ export class ShaderManager {
   private currentStage: PostProcessStage | null = null;
   private currentMode: ShaderModeType = 'STANDARD';
   private timeStart: number = Date.now();
+  // Guard against concurrent/rapid applyMode calls
+  private _applying: boolean = false;
 
   /**
    * Apply a shader mode to the Cesium viewer.
    * STANDARD mode removes all custom post-processing.
+   * Idempotent: calling with the same mode is a no-op.
+   * Re-entrant safe: guards against concurrent calls during rapid switching.
    */
   applyMode(viewer: CesiumViewer, mode: ShaderModeType): void {
     if (mode === this.currentMode) return;
+    if (this._applying) return; // Prevent re-entrant calls during rapid switching
+    this._applying = true;
 
-    // Remove current post-process stage
-    this.removeCurrentStage(viewer);
+    try {
+      // Remove current post-process stage (and any leaked stages with our names)
+      this.removeCurrentStage(viewer);
 
-    this.currentMode = mode;
+      this.currentMode = mode;
 
-    // STANDARD mode: just remove, don't add anything
-    if (mode === 'STANDARD') return;
+      // STANDARD mode: just remove, don't add anything
+      if (mode === 'STANDARD') return;
 
-    // Create and add the new PostProcessStage
-    const stage = this.createStage(mode);
-    if (stage) {
-      viewer.scene.postProcessStages.add(stage);
-      this.currentStage = stage;
+      // Create and add the new PostProcessStage
+      const stage = this.createStage(mode);
+      if (stage) {
+        viewer.scene.postProcessStages.add(stage);
+        this.currentStage = stage;
+      }
+    } finally {
+      this._applying = false;
     }
   }
 
   /**
    * Remove the current PostProcessStage from the viewer.
+   * Also scans for any leftover WorldView stages to prevent accumulation.
    */
   private removeCurrentStage(viewer: CesiumViewer): void {
-    if (this.currentStage && !viewer.isDestroyed()) {
+    if (viewer.isDestroyed()) return;
+
+    const stages = viewer.scene.postProcessStages;
+
+    // Remove tracked current stage
+    if (this.currentStage) {
       try {
-        viewer.scene.postProcessStages.remove(this.currentStage);
-      } catch (e) {
+        stages.remove(this.currentStage);
+      } catch {
         // Stage may already be removed
       }
       this.currentStage = null;
+    }
+
+    // Safety sweep: remove any leaked WorldView stages by name
+    // This prevents accumulation if a prior remove silently failed
+    const stageNames = ['worldview_crt', 'worldview_nvg', 'worldview_flir'];
+    for (const name of stageNames) {
+      try {
+        const leaked = stages.getStageByName(name);
+        if (leaked) {
+          stages.remove(leaked);
+        }
+      } catch {
+        // Stage may not exist or already be removed
+      }
     }
   }
 

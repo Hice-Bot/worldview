@@ -106,18 +106,26 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
     }, []); // Run only once on mount
 
     // Manage tile sources: Google 3D Tiles vs OSM fallback
+    // Uses a cancelled flag to prevent stale async Google 3D Tileset loads from
+    // corrupting the globe when the user rapidly switches between tile providers.
     useEffect(() => {
       const viewer = viewerRef.current;
       if (!viewer || viewer.isDestroyed()) return;
+
+      let cancelled = false; // Stale-closure guard for async tileset load
 
       const useGoogle = props.mapTiles === 'GOOGLE_3D' && google3dAvailable;
 
       // --- Google 3D Tiles ---
       if (useGoogle && !google3dTilesetRef.current) {
-        // Load Google Photorealistic 3D Tiles
+        // Load Google Photorealistic 3D Tiles (async — may resolve after user switches away)
         createGooglePhotorealistic3DTileset({ key: GOOGLE_API_KEY })
           .then((tileset) => {
-            if (viewer.isDestroyed()) return;
+            if (cancelled || viewer.isDestroyed()) {
+              // User switched away before tileset loaded — discard it
+              try { tileset.destroy(); } catch { /* already destroyed */ }
+              return;
+            }
             google3dTilesetRef.current = tileset;
             viewer.scene.primitives.add(tileset);
             // Hide default globe to prevent reference system mismatch and black bleed-through
@@ -129,6 +137,7 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
             }
           })
           .catch((err) => {
+            if (cancelled) return; // Ignore errors for stale requests
             // Google 3D Tiles failed — fall back to OSM
             console.warn('Google 3D Tiles failed to load, falling back to OSM:', err);
             setGoogle3dAvailable(false);
@@ -164,24 +173,30 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
         }
       }
 
-      // Cleanup on unmount
+      // Cleanup: mark as cancelled so in-flight async tileset loads are discarded
       return () => {
-        // Don't destroy on re-renders, only track refs
+        cancelled = true;
       };
     }, [props.mapTiles, google3dAvailable]);
 
     // Manage post-processing shader modes (CRT, NVG, FLIR, STANDARD)
+    // This effect only applies the mode — no cleanup on dependency change needed
+    // because applyMode is idempotent and removes the old stage before adding new
     useEffect(() => {
       const viewer = viewerRef.current;
       if (!viewer || viewer.isDestroyed()) return;
       shaderManagerRef.current.applyMode(viewer, props.shaderMode as ShaderModeType);
+    }, [props.shaderMode]);
+
+    // Separate unmount-only cleanup for shader stages
+    useEffect(() => {
       return () => {
-        // Cleanup shader on unmount
+        const viewer = viewerRef.current;
         if (viewer && !viewer.isDestroyed()) {
           shaderManagerRef.current.destroy(viewer);
         }
       };
-    }, [props.shaderMode]);
+    }, []);
 
     // Sync camera state to App.tsx via camera.changed event (Feature #46)
     // Uses percentageChanged threshold of 0.01 to avoid excessive re-renders
