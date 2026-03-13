@@ -1,5 +1,59 @@
 ## WorldView Development Progress
 
+### Session 62 - 2026-03-13
+
+#### Completed Features:
+- Feature #168: ESC key to unlock camera (PASSING)
+  - Already implemented in EntityClickHandler.tsx (Session 9)
+  - ESC keydown listener registered on document via addEventListener
+  - Listener cleaned up on useEffect unmount via removeEventListener
+  - Idempotent: checks hasTracking before any action (safe no-op if not tracking)
+  - Works regardless of focus state (registered on document, not a specific element)
+  - Unlocks: onTrackEntity(null), onCctvClick(null), viewer.trackedEntity=undefined, clearTrackingEntity()
+
+- Feature #169: Focus management for panels (PASSING)
+  - Created useFocusTrap hook (src/hooks/useFocusTrap.ts)
+  - Traps Tab/Shift+Tab cycling within modal containers
+  - Saves previousFocusRef on mount, restores focus on cleanup
+  - Applied to all 3 mobile modals: OperationsPanel, IntelFeed, CCTVPanel
+  - Each modal stores ref to trigger button (fabRef, badgeRef, cctvBadgeRef)
+  - Focus restored to trigger button when modal closes
+  - Added role="dialog", aria-modal="true" to all modals
+  - Added aria-label to all modal open/close buttons
+  - CSS :focus-visible styles added to index.css with cyan outline (2px solid)
+  - Enhanced focus ring for [role="dialog"] buttons with box-shadow glow
+
+- Feature #170: Color contrast ratios adequate (PASSING)
+  - Upgraded text-white/30 (2.5:1 ratio - FAIL) to text-white/50 (5.3:1 - AA PASS)
+  - Upgraded text-white/40 (3.7:1 ratio - AA-Large only) to text-white/50 (5.3:1 - AA PASS)
+  - TrackedEntityPanel: all field labels upgraded from white/40 to white/50
+  - OperationsPanel: section labels and inactive button text upgraded to white/50
+  - IntelFeed: timestamps, empty state text upgraded to white/50
+  - CCTVPanel: empty state and coordinate text upgraded to white/50
+  - All StatusBar entity colors verified passing: ACFT 11.5:1, SEIS 12.0:1, CCTV 7.3:1, AIS 11.1:1
+  - Active button states (cyan-300 14.5:1, green-400 12.1:1) well above threshold
+  - Error states (red-400) at 7.6:1, well above AA minimum
+  - Only decorative elements (aria-hidden) allowed below 4.5:1
+
+#### New/Modified Files:
+- src/hooks/useFocusTrap.ts — New hook for modal focus trapping
+- src/components/ui/OperationsPanel.tsx — Focus trap, aria attrs, contrast fixes
+- src/components/ui/IntelFeed.tsx — Focus trap, aria attrs, contrast fixes
+- src/components/ui/CCTVPanel.tsx — Focus trap, aria attrs, contrast fixes
+- src/components/ui/TrackedEntityPanel.tsx — Contrast fixes (white/40 → white/50)
+- src/index.css — :focus-visible CSS styles for keyboard navigation
+
+#### Current Status:
+- 171/205 features passing (83.4%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 57 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining accessibility features
+- Performance optimization features
+- Remaining data layer refinements
+
 ### Session 61 - 2026-03-13
 
 #### Completed Features:
