@@ -1,5 +1,51 @@
 ## WorldView Development Progress
 
+### Session 66 - 2026-03-13
+
+#### Completed Features:
+- Feature #184: Layer disable during active fetch (PASSING)
+  - All 7 data hooks (useFlights, useSatellites, useEarthquakes, useShips, useCameras, useTraffic, useFlightsLive) use AbortController
+  - In-flight fetch requests cancelled via AbortController.abort() when layer disabled
+  - Cancelled flag prevents stale state updates after disable
+  - AbortError handled gracefully (no error state set on abort)
+  - setLoading(false) guarded with cancelled check in finally blocks
+  - Fetch function defined inside useEffect (has access to cancelled closure variable)
+  - 75/75 code analysis checks pass
+
+- Feature #185: Multiple WebSocket connections handled (PASSING)
+  - Two WebSocket connections to /ws both receive independent flight data broadcasts
+  - Closing one connection doesn't affect the other (per-connection closure-scoped cleanup)
+  - Server handles connection cleanup properly: clearInterval(flightPollInterval) on close/error
+  - Heartbeat interval (30s) detects and terminates unresponsive clients (ws.terminate())
+  - 10 simultaneous connections opened/closed without memory leak
+  - 24/24 WebSocket tests pass
+
+- Feature #186: Shader switch during entity tracking (PASSING)
+  - Shader and tracking are completely independent systems
+  - ShaderManager only touches PostProcessStages, never viewer.trackedEntity or viewer.entities
+  - TrackedEntityPanel visibility depends only on trackedEntity state (not shaderMode)
+  - EntityClickHandler has no reference to shaderMode
+  - Layer components don't receive shaderMode as a prop (no cross-coupling)
+  - ShaderManager is idempotent and re-entrant safe
+  - Safety sweep removes leaked stages by name (worldview_crt/nvg/flir)
+  - 34/34 architecture independence tests pass
+
+#### Current Status:
+- 188/205 features passing (91.7%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 58 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### Key Technical Decisions:
+- AbortController + cancelled flag dual protection for all data hooks
+- WebSocket server uses per-connection closure-scoped resources (no shared state between connections)
+- PostProcessStage (shader) and viewer.trackedEntity (tracking) are architecturally independent
+
+#### What's Next:
+- Remaining concurrency & race condition features
+- Any remaining edge case features
+
 ### Session 65 - 2026-03-13
 
 #### Completed Features:
