@@ -1,5 +1,43 @@
 ## WorldView Development Progress
 
+### Session 37 - 2026-03-13
+
+#### Completed Features:
+- Feature #103: Layer toggle states reflect in UI (PASSING)
+  - Toggle switches accurately show on/off state matching actual layer state
+  - Colored indicator dot (layer-specific color) for active, gray for inactive
+  - Loading pulse animation (animate-pulse) during data fetch with "loading" text
+  - onClick triggers onToggleLayer callback via functional setState (rapid toggle safe)
+  - All 6 layers defined in LAYER_CONFIG with proper color coding
+  - layerLoading aggregated from all 6 data hooks and passed to OperationsPanel
+
+- Feature #104: Camera state syncs across components (PASSING)
+  - CameraState type has lat/lon/altitude/heading/pitch fields
+  - GlobeViewer syncs camera via camera.changed event with 0.01 threshold
+  - Ref-based callback prevents stale closure issues
+  - Initial camera state fired immediately on mount (no stale data)
+  - StatusBar displays lat/lon in DMS format, altitude formatted, heading in degrees
+  - Camera state also feeds trafficBbox and liveFlights enable logic
+
+- Feature #105: Tracked entity state consistent across UI (PASSING)
+  - App.tsx is single source of truth for trackedEntity state
+  - TrackedEntityPanel shows type-specific details (aircraft, satellite, ship, earthquake)
+  - Camera follows tracked entity via viewer.trackedEntity
+  - Billboard enlarged to 1.0 scale with depth test disabled for tracked aircraft
+  - Untracking: panel hides, camera stops, billboard returns to normal
+  - No phantom entities: clearTrackingEntity removes temp entity + clears tracking manager
+  - Switching entities works: old tracking entity cleared before creating new one
+  - ESC key and empty space click both unlock tracking with proper cleanup
+
+#### Current Status:
+- 109/205 features passing (53.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
+#### What's Next:
+- Continue with remaining State & Persistence features
+- Additional UI and data layer features
+
 ### Session 36 - 2026-03-13
 
 #### Completed Features:
@@ -1531,3 +1569,46 @@
 - TrackedEntityPanel type-specific detail views
 - Post-processing shaders (CRT, NVG, FLIR)
 - StatusBar live entity counts
+
+### Session 36 - 2026-03-13
+
+#### Completed Features:
+- Feature #99: StatusBar displays camera data and entity counts (PASSING)
+  - DMS coordinate format with N/S/E/W hemisphere indicators (toDMS function)
+  - Altitude formatting: meters below 1km, km above 1km (formatAltitude function)
+  - Glass-morphism styling with cyan/green tactical glows and text shadows
+  - Entity counts with color-coded labels: ACFT/SATS green, SEIS amber, CCTV red, AIS cyan
+  - OPTICS mode display with shader-specific coloring
+  - Three-section layout: left (camera pos), center (UTC clock), right (entity counts + optics)
+  - UTC clock updates every 1 second
+
+- Feature #100: TrackedEntityPanel shows type-specific details (PASSING)
+  - Already fully implemented with type-specific detail views:
+    - Aircraft: callsign, ICAO24, registration, altitude, speed, heading, vertical rate, route
+    - Satellite: name, NORAD ID, altitude, group/category
+    - Ship: MMSI, IMO, call sign, SOG, COG, heading, destination, vessel type
+    - Earthquake: magnitude, depth, location, time
+  - Panel appears when entity tracked, hides when untracked
+  - Floating panel positioned next to OperationsPanel sidebar
+  - AIS vessel type mapping for 15+ vessel categories
+  - Generic fallback view for unknown entity types
+
+- Feature #102: Crosshair overlay always visible (PASSING)
+  - CSS-only implementation (no canvas/WebGL)
+  - Fixed positioning at exact center of viewport
+  - Subtle design: 8x8px crosshair with 20-35% opacity white lines
+  - Drop-shadow filter ensures visibility on both light and dark backgrounds
+  - Horizontal line, vertical line, and center dot
+  - pointer-events-none so clicks pass through to globe
+  - Always visible regardless of shader mode (z-40)
+
+#### Current Status:
+- 106/205 features passing (51.7%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining UI and data layer features
+- IntelFeed enhancements
+- Additional data layer features
