@@ -1,5 +1,47 @@
 ## WorldView Development Progress
 
+### Session 73 - 2026-03-13
+
+#### Completed Features:
+- Feature #200: EllipsoidalOccluder hides far-side entities (PASSING)
+  - Created shared src/occlusion.ts module using Cesium's EllipsoidalOccluder
+  - Replaced dot-product hemisphere checks in all 4 layers: FlightLayer, ShipLayer, CCTVLayer, SatelliteLayer
+  - EllipsoidalOccluder provides more accurate horizon culling than simple dot-product
+  - Singleton occluder with WGS84 ellipsoid, camera position updated per batch
+  - 24/24 code verification tests passing + runtime accuracy tests passing
+
+- Feature #201: Concurrent proxy cache prevents upstream overload (PASSING)
+  - Added cachedFetch() utility with in-flight request deduplication (thundering herd prevention)
+  - Concurrent requests for same cache key share single upstream call via inflightRequests Map
+  - Health endpoint now shows hitRate%, inflightRequests count
+  - Migrated all 5 data endpoints (earthquakes, satellites, cctv, ships, traffic) to cachedFetch
+  - FR24 15s minimum interval and exponential backoff preserved
+  - Per-endpoint TTLs: earthquakes=60s, ships=120s, cctv=300s, satellites=7200s, traffic=86400s
+  - 25/25 verification tests passing
+
+- Feature #202: No memory leaks over extended sessions (PASSING)
+  - Comprehensive static analysis audit of all memory management patterns
+  - All setInterval/setTimeout have corresponding cleanup in useEffect returns
+  - All event listeners (preRender, camera.changed) removed on unmount
+  - All primitive collections (Billboard, Label, Polyline) remove stale entries on data refresh
+  - All data hooks use setState(newData) replacement, not accumulation
+  - All 7 data hooks have AbortController with abort() in cleanup
+  - All entity Maps cleared on unmount, viewer.isDestroyed() checked everywhere
+  - Server: route registry prunes entries >6hr, node-cache checkperiod=30s
+  - 53/53 verification tests passing
+
+#### Current Status:
+- **205/205 features passing (100.0%) — PROJECT COMPLETE! 🎉**
+- Express proxy server: working on port 3001 with in-flight deduplication
+- Vite dev server: working on port 5173
+- 59 modules compile and build successfully
+
+#### Key Technical Decisions:
+- EllipsoidalOccluder accessed via runtime Cesium namespace (marked @private, no TS types)
+- Created typed wrapper interface for type safety without modifying Cesium types
+- cachedFetch uses Map<string, Promise> for in-flight deduplication — simple and effective
+- Memory leak verification done via static analysis (53 checks) rather than long-running test
+
 ### Session 72 - 2026-03-13
 
 #### Completed Features:
