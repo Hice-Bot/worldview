@@ -1,5 +1,45 @@
 ## WorldView Development Progress
 
+### Session 57 - 2026-03-13
+
+#### Completed Features:
+- Feature #153: StatusBar entity counts update live (PASSING)
+  - All 5 entity counts (ACFT/SATS/SEIS/CCTV/AIS) update reactively from data hooks
+  - Hooks clear arrays (return []) when layer disabled → zero count shown
+  - Color-coded per category: ACFT/SATS green, SEIS amber, CCTV red, AIS cyan
+  - Counts are .length of live data arrays, updated on every hook refresh
+  - All 5 API endpoints verified returning real upstream data
+
+- Feature #154: StatusBar UTC clock ticks every second (PASSING)
+  - YYYY-MM-DD HH:MM:SS UTC format via toISOString().replace('T',' ').slice(0,19)
+  - setInterval(1000) drives 1-second tick updates
+  - Always UTC (toISOString guarantees UTC output)
+  - useEffect with empty deps [] runs independently of app state
+  - clearInterval cleanup on unmount prevents memory leaks
+
+- Feature #155: StatusBar FPS counter (PASSING - NEW IMPLEMENTATION)
+  - Added requestAnimationFrame-based FPS measurement to StatusBar
+  - Counts rAF callbacks over 500ms windows, calculates FPS = frames * 1000 / elapsed
+  - useState(0) + setFps for reactive rendering
+  - Color-coded performance indicator: green (>=30fps), amber (>=15fps), red (<15fps)
+  - performance.now() for high-resolution timing
+  - cancelAnimationFrame cleanup on unmount
+  - Displayed after OPTICS mode label with separator border
+
+#### Modified Files:
+- src/components/ui/StatusBar.tsx — Added FPS counter (requestAnimationFrame loop, color-coded display)
+
+#### Current Status:
+- 160/205 features passing (78.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with remaining features (45 left)
+- Additional UI refinements and edge cases
+
 ### Session 56 - 2026-03-13
 
 #### Completed Features:
