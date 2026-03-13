@@ -164,6 +164,7 @@ export default function App() {
   const prevQuakeIdsRef = useRef<Set<string>>(new Set());
   const prevShipCountRef = useRef(0);
   const prevCctvCountRef = useRef(0);
+  const prevCctvAvailRef = useRef<Map<string, boolean>>(new Map());
 
   // Flight data changes — airborne count changes of 50+ trigger ACFT intel events (Feature #150)
   useEffect(() => {
@@ -227,17 +228,45 @@ export default function App() {
     prevShipCountRef.current = ships.length;
   }, [ships.length, booted, addIntelEvent]);
 
-  // CCTV data changes
+  // CCTV data changes — camera availability changes trigger CCTV intel events (Feature #151)
   useEffect(() => {
     if (!booted || cameras.length === 0) return;
     const prev = prevCctvCountRef.current;
+    const prevAvail = prevCctvAvailRef.current;
+
     if (prev === 0 && cameras.length > 0) {
+      // Initial load — report summary
+      const onlineCount = cameras.filter(c => c.available).length;
       const gbCount = cameras.filter(c => c.country === 'GB').length;
       const usCount = cameras.filter(c => c.country === 'US').length;
-      addIntelEvent('CCTV', `${cameras.length} CAMERAS ONLINE — GB:${gbCount} US:${usCount}`);
+      addIntelEvent('CCTV', `${onlineCount} CAMERAS ONLINE — GB:${gbCount} US:${usCount}`);
+    } else if (prevAvail.size > 0) {
+      // Detect camera availability changes (online/offline status)
+      let cameOnline = 0;
+      let wentOffline = 0;
+      for (const cam of cameras) {
+        const wasAvailable = prevAvail.get(cam.id);
+        if (wasAvailable !== undefined) {
+          if (!wasAvailable && cam.available) cameOnline++;
+          if (wasAvailable && !cam.available) wentOffline++;
+        }
+      }
+      if (cameOnline > 0) {
+        addIntelEvent('CCTV', `${cameOnline} CAMERA${cameOnline > 1 ? 'S' : ''} CAME ONLINE`);
+      }
+      if (wentOffline > 0) {
+        addIntelEvent('CCTV', `${wentOffline} CAMERA${wentOffline > 1 ? 'S' : ''} WENT OFFLINE`);
+      }
     }
+
+    // Update refs for next comparison
     prevCctvCountRef.current = cameras.length;
-  }, [cameras.length, booted, addIntelEvent]);
+    const newAvailMap = new Map<string, boolean>();
+    for (const cam of cameras) {
+      newAvailMap.set(cam.id, cam.available);
+    }
+    prevCctvAvailRef.current = newAvailMap;
+  }, [cameras, booted, addIntelEvent]);
 
   // Layer toggle handler
   // When flights layer is re-enabled, reset flight filters to defaults (Feature #108)
