@@ -56,9 +56,12 @@ function AircraftDetails({ data }: { data: Record<string, unknown> }) {
 
 /** Satellite-specific detail view */
 function SatelliteDetails({ data }: { data: Record<string, unknown> }) {
+  const noradId = str(data.noradId) !== '—' ? str(data.noradId) : str(data.norad);
+  const altKm = has(data.altitude) ? fmt(data.altitude, 1) : '—';
   return (
     <div className="text-[10px] text-white/60 font-mono space-y-0.5">
-      <div><span className="text-white/40">NORAD ID </span><span className="text-cyan-400 font-bold">{str(data.noradId) !== '—' ? str(data.noradId) : str(data.norad)}</span></div>
+      <div><span className="text-white/40">NORAD ID </span><span className="text-cyan-400 font-bold">{noradId}</span></div>
+      <div><span className="text-white/40">ALT </span><span className="text-white/80">{altKm} km</span></div>
       {has(data.category) && (
         <div><span className="text-white/40">GROUP </span><span className="text-white/80">{str(data.category).toUpperCase()}</span></div>
       )}
@@ -66,8 +69,33 @@ function SatelliteDetails({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+/** AIS ship type code to human-readable vessel type */
+function getVesselTypeName(shipType: unknown): string {
+  const t = Number(shipType);
+  if (isNaN(t) || t === 0) return '—';
+  if (t >= 70 && t <= 79) return 'CARGO';
+  if (t >= 80 && t <= 89) return 'TANKER';
+  if (t >= 60 && t <= 69) return 'PASSENGER';
+  if (t >= 40 && t <= 49) return 'HIGH SPEED';
+  if (t === 37) return 'PLEASURE CRAFT';
+  if (t === 30) return 'FISHING';
+  if (t === 35) return 'MILITARY';
+  if (t === 31 || t === 32) return 'TUG';
+  if (t === 52) return 'TUG';
+  if (t === 33) return 'DREDGER';
+  if (t === 34) return 'DIVING OPS';
+  if (t === 36) return 'SAILING';
+  if (t === 50) return 'PILOT VESSEL';
+  if (t === 51) return 'SAR VESSEL';
+  if (t === 53) return 'PORT TENDER';
+  if (t === 55) return 'LAW ENFORCEMENT';
+  if (t >= 90 && t <= 99) return 'OTHER';
+  return 'TYPE ' + t;
+}
+
 /** Ship-specific detail view */
 function ShipDetails({ data }: { data: Record<string, unknown> }) {
+  const vesselType = getVesselTypeName(data.shipType);
   return (
     <div className="text-[10px] text-white/60 font-mono space-y-0.5">
       <div className="grid grid-cols-2 gap-x-3">
@@ -76,6 +104,9 @@ function ShipDetails({ data }: { data: Record<string, unknown> }) {
       </div>
       {has(data.callSign) && (
         <div><span className="text-white/40">CALL SIGN </span><span className="text-white/80">{str(data.callSign)}</span></div>
+      )}
+      {vesselType !== '—' && (
+        <div><span className="text-white/40">TYPE </span><span className="text-white/80">{vesselType}</span></div>
       )}
       <div className="grid grid-cols-2 gap-x-3 mt-1">
         <div><span className="text-white/40">SOG </span><span className="text-white/80">{fmt(data.sog, 1)} kts</span></div>
