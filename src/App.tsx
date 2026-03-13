@@ -125,6 +125,16 @@ export default function App() {
     ships: shipsLoading,
   }), [flightsLoading, satellitesLoading, earthquakesLoading, trafficLoading, cctvLoading, shipsLoading]);
 
+  // Aggregate error states for layer toggle indicators (Feature #152)
+  const layerErrors = useMemo<Record<keyof LayerState, string | null>>(() => ({
+    flights: flightsError,
+    satellites: satellitesError,
+    earthquakes: earthquakesError,
+    traffic: trafficError,
+    cctv: cctvError,
+    ships: shipsError,
+  }), [flightsError, satellitesError, earthquakesError, trafficError, cctvError, shipsError]);
+
   // UI state
   const [intelEvents, setIntelEvents] = useState<IntelEvent[]>([]);
   const [booted, setBooted] = useState(false);
@@ -440,6 +450,7 @@ export default function App() {
       <OperationsPanel
         layers={layers}
         layerLoading={layerLoading}
+        layerErrors={layerErrors}
         shaderMode={shaderMode}
         mapTiles={mapTiles}
         altitudeFilters={altitudeFilters}

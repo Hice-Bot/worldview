@@ -107,9 +107,9 @@ export default function IntelFeed({ events }: IntelFeedProps) {
         >
           <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
           <span className="text-[10px] font-mono text-white/80">INTEL</span>
-          {displayEvents.length > 0 && (
+          {badgeCount > 0 && (
             <span className="bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-              {displayEvents.length}
+              {badgeCount}
             </span>
           )}
         </button>

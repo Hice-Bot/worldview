@@ -10,6 +10,7 @@ import type {
 interface OperationsPanelProps {
   layers: LayerState;
   layerLoading?: LayerLoading;
+  layerErrors?: Record<keyof LayerState, string | null>;
   shaderMode: ShaderMode;
   mapTiles: MapTileMode;
   altitudeFilters: AltitudeFilters;
@@ -72,6 +73,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   const {
     layers,
     layerLoading,
+    layerErrors,
     shaderMode,
     mapTiles,
     altitudeFilters,
@@ -157,6 +159,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
         {LAYER_CONFIG.map(({ key, label, color }) => {
           const isActive = layers[key];
           const isLoading = layerLoading?.[key] ?? false;
+          const hasError = !!(layerErrors?.[key]);
           return (
             <button
               key={key}
@@ -164,7 +167,9 @@ export default function OperationsPanel(props: OperationsPanelProps) {
               className={`
                 w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all
                 ${isActive
-                  ? 'bg-white/10 border-white/20 text-white/90'
+                  ? hasError
+                    ? 'bg-red-500/10 border-red-400/30 text-white/90'
+                    : 'bg-white/10 border-white/20 text-white/90'
                   : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
                 }
               `}
@@ -172,14 +177,22 @@ export default function OperationsPanel(props: OperationsPanelProps) {
               <span
                 className={`
                   w-2 h-2 rounded-full transition-all
-                  ${isActive ? `${color}${isLoading ? ' animate-pulse' : ''}` : 'bg-white/20'}
+                  ${isActive
+                    ? hasError
+                      ? 'bg-red-500 animate-pulse'
+                      : `${color}${isLoading ? ' animate-pulse' : ''}`
+                    : 'bg-white/20'
+                  }
                 `}
               />
               <span className="text-[10px] font-bold uppercase tracking-wider flex-1">
                 {label}
               </span>
-              {isActive && isLoading && (
+              {isActive && isLoading && !hasError && (
                 <span className="text-[8px] text-white/40 uppercase">loading</span>
+              )}
+              {isActive && hasError && (
+                <span className="text-[8px] text-red-400 uppercase">error</span>
               )}
             </button>
           );
