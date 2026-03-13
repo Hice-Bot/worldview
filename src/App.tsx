@@ -71,10 +71,10 @@ export default function App() {
   const [showRoutePaths, setShowRoutePaths] = useState(false);
 
   // Data state — hooks for layers that have been implemented
-  const { earthquakes, loading: earthquakesLoading } = useEarthquakes(layers.earthquakes);
-  const { satellites, loading: satellitesLoading } = useSatellites(layers.satellites);
-  const { flights: globalFlights, loading: flightsLoading } = useFlights(layers.flights);
-  const { cameras, loading: cctvLoading } = useCameras(layers.cctv);
+  const { earthquakes, loading: earthquakesLoading, error: earthquakesError } = useEarthquakes(layers.earthquakes);
+  const { satellites, loading: satellitesLoading, error: satellitesError } = useSatellites(layers.satellites);
+  const { flights: globalFlights, loading: flightsLoading, error: flightsError } = useFlights(layers.flights);
+  const { cameras, loading: cctvLoading, error: cctvError } = useCameras(layers.cctv);
 
   // Live regional flights - only active when zoomed in (altitude < 500km)
   const liveEnabled = layers.flights && cameraState.altitude < 500_000;
@@ -112,8 +112,8 @@ export default function App() {
     };
   }, [cameraState.lat, cameraState.lon, cameraState.altitude]);
 
-  const { roads: trafficRoads, loading: trafficLoading } = useTraffic(layers.traffic, trafficBbox);
-  const { ships, loading: shipsLoading } = useShips(layers.ships);
+  const { roads: trafficRoads, loading: trafficLoading, error: trafficError } = useTraffic(layers.traffic, trafficBbox);
+  const { ships, loading: shipsLoading, error: shipsError } = useShips(layers.ships);
 
   // Aggregate loading states for UI indicators
   const layerLoading = useMemo(() => ({

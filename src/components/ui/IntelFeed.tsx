@@ -50,6 +50,9 @@ export default function IntelFeed({ events }: IntelFeedProps) {
   // Most recent 20 entries (already sliced by addIntelEvent, but safety cap)
   const displayEvents = events.slice(0, 20);
 
+  // Badge count excludes system messages
+  const badgeCount = displayEvents.filter(e => e.type !== 'SYS').length;
+
   const renderEvents = () => (
     <>
       {displayEvents.map((event, idx) => {
