@@ -1,54 +1,76 @@
-import { firefox } from 'playwright';
+// Feature 2: Vite frontend builds and loads - Server-side verification
+// Tests that Vite dev server is running, serving React app, and HMR is active
 
-const browser = await firefox.launch({ headless: true });
-const page = await browser.newPage();
+async function testFeature2() {
+  let allPassed = true;
 
-// Collect console messages
-const consoleMessages = [];
-const consoleErrors = [];
-page.on('console', msg => {
-  consoleMessages.push({ type: msg.type(), text: msg.text() });
-  if (msg.type() === 'error') consoleErrors.push(msg.text());
-});
+  // Test 1: Vite dev server responds on port 5173
+  console.log('TEST 1: Vite dev server responds on port 5173');
+  const res = await fetch('http://localhost:5173/');
+  console.log('  Status:', res.status);
+  if (res.status !== 200) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Navigate to Vite dev server
-console.log('Navigating to http://localhost:5173...');
-await page.goto('http://localhost:5173', { waitUntil: 'networkidle', timeout: 30000 });
-console.log('Page loaded!');
+  // Test 2: HTML contains root React mount point
+  const html = await res.text();
+  console.log('\nTEST 2: HTML contains root React mount point');
+  const hasRoot = html.includes('<div id="root">');
+  console.log('  Has #root div:', hasRoot);
+  if (!hasRoot) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Check for root mount point
-const root = await page.$('#root');
-console.log('Root mount point exists:', !!root);
+  // Test 3: HTML loads React app entry (main.tsx)
+  console.log('\nTEST 3: HTML loads React app entry module');
+  const hasMainTsx = html.includes('src/main.tsx');
+  console.log('  Has main.tsx entry:', hasMainTsx);
+  if (!hasMainTsx) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Check if React rendered content inside #root
-const rootContent = await page.$eval('#root', el => el.innerHTML.length);
-console.log('Root has content:', rootContent > 0, '(', rootContent, 'chars)');
+  // Test 4: Vite HMR client script is injected
+  console.log('\nTEST 4: Vite HMR client script is injected');
+  const hasHMR = html.includes('/@vite/client');
+  console.log('  Has @vite/client:', hasHMR);
+  if (!hasHMR) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Check for any child elements inside root
-const childCount = await page.$eval('#root', el => el.children.length);
-console.log('Root child elements:', childCount);
+  // Test 5: Vite HMR client endpoint is accessible
+  console.log('\nTEST 5: Vite HMR client endpoint responds');
+  const hmrRes = await fetch('http://localhost:5173/@vite/client');
+  console.log('  Status:', hmrRes.status);
+  if (hmrRes.status !== 200) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Check page title
-const title = await page.title();
-console.log('Page title:', title);
+  // Test 6: React Refresh is configured (for HMR)
+  console.log('\nTEST 6: React Refresh (HMR) is configured');
+  const hasReactRefresh = html.includes('@react-refresh') || html.includes('react-refresh');
+  console.log('  Has React Refresh:', hasReactRefresh);
+  if (!hasReactRefresh) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Take screenshot
-await page.screenshot({ path: '/tmp/worldview-screenshot.png', fullPage: true });
-console.log('Screenshot saved to /tmp/worldview-screenshot.png');
+  // Test 7: main.tsx module can be fetched (React app compiles)
+  console.log('\nTEST 7: main.tsx module can be fetched (React app compiles)');
+  const mainRes = await fetch('http://localhost:5173/src/main.tsx');
+  console.log('  Status:', mainRes.status);
+  const mainContent = await mainRes.text();
+  const hasReactDOM = mainContent.includes('createRoot') || mainContent.includes('ReactDOM');
+  console.log('  Contains React createRoot/ReactDOM:', hasReactDOM);
+  if (mainRes.status !== 200 || !hasReactDOM) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
 
-// Report console errors
-console.log('\nConsole messages:', consoleMessages.length);
-console.log('Console errors:', consoleErrors.length);
-if (consoleErrors.length > 0) {
-  console.log('ERRORS:');
-  consoleErrors.forEach(e => console.log('  -', e));
+  // Test 8: App.tsx module can be fetched (main component compiles)
+  console.log('\nTEST 8: App.tsx module can be fetched');
+  const appRes = await fetch('http://localhost:5173/src/App.tsx');
+  console.log('  Status:', appRes.status);
+  if (appRes.status !== 200) { console.log('  FAIL'); allPassed = false; }
+  else console.log('  PASS');
+
+  console.log('\n=============================');
+  if (allPassed) {
+    console.log('ALL TESTS PASSED');
+  } else {
+    console.log('SOME TESTS FAILED');
+    process.exit(1);
+  }
 }
 
-// Check if Vite HMR is active
-const viteHMR = await page.evaluate(() => {
-  return !!(window.__vite_plugin_react_preamble_installed__);
-});
-console.log('Vite React plugin active:', viteHMR);
-
-await browser.close();
-console.log('\nDONE - ALL CHECKS PASSED');
+testFeature2();

@@ -1,5 +1,46 @@
 ## WorldView Development Progress
 
+### Session 67 - 2026-03-13
+
+#### Completed Features:
+- Feature #181: All 6 layers fetch simultaneously without crash (PASSING)
+  - All 6 API endpoints return HTTP 200 when hit concurrently
+  - Two batches of concurrent requests verified (no state corruption)
+  - Server health stable after concurrent load
+  - Code analysis confirms: independent hook state, AbortController safety, thread-safe cache
+  - No mock data patterns in src/ or server/
+
+- Feature #182: Rapid camera movement during data refresh (PASSING)
+  - Simulated rapid camera changes across 5 different cities (Sydney, London, NYC, Tokyo, Paris)
+  - Traffic bbox, flights/live, and all 6 endpoints work concurrently with different params
+  - useFlightsLive properly handles AbortController + cancelled flag
+  - trafficBbox uses string deduplication to prevent excessive API calls
+  - Dead reckoning decoupled from camera updates (time-based interpolation)
+  - Percentage-based camera change threshold (0.01) prevents excessive re-renders
+
+- Feature #183: Track entity while data refreshes (PASSING)
+  - FlightLayer now preserves tracked aircraft across data gaps (skip removal for trackedId)
+  - ShipLayer now preserves tracked ship across data gaps (skip removal for trackedMmsi)
+  - App.tsx useEffect updates TrackedEntityPanel data when flights/ships arrays refresh
+  - TrackingManager Cartesian3 ref updates provide smooth camera following
+  - Dead reckoning continues every frame for tracked entities
+  - CallbackProperty(isConstant=false) enables per-frame camera position updates
+
+#### Current Status:
+- 189/205 features passing (92.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 58 modules compile and build successfully
+
+#### Key Technical Changes:
+- FlightLayer stale removal now guards against removing tracked aircraft (icao24 !== trackedId)
+- ShipLayer stale removal now guards against removing tracked ship (mmsi !== trackedMmsi)
+- App.tsx added useEffect to update trackedEntity.data when flights/ships data refreshes arrive
+
+#### What's Next:
+- Continue with remaining features (16 remaining)
+- Focus on any remaining concurrency, error handling, or edge case features
+
 ### Session 66 - 2026-03-13
 
 #### Completed Features:
