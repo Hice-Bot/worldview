@@ -375,35 +375,45 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
     const showLabels = cameraAlt < 3000000;
 
     for (const flight of flights) {
-      if (!flight.icao24 || !flight.lat || !flight.lon) continue;
+      // Validate required fields: icao24 must be non-empty string, lat/lon must be finite numbers
+      if (!flight.icao24 || typeof flight.lat !== 'number' || typeof flight.lon !== 'number') continue;
+      if (isNaN(flight.lat) || isNaN(flight.lon)) continue;
       if (flight.onGround) continue;
 
-      const band = getAltitudeBand(flight.altitudeFeet);
+      // Safely coerce numeric fields with NaN fallback to 0
+      const altFeet = (typeof flight.altitudeFeet === 'number' && !isNaN(flight.altitudeFeet)) ? flight.altitudeFeet : 0;
+      const altMeters = (typeof flight.altitudeMeters === 'number' && !isNaN(flight.altitudeMeters)) ? flight.altitudeMeters : 0;
+      const velKnots = (typeof flight.velocityKnots === 'number' && !isNaN(flight.velocityKnots)) ? flight.velocityKnots : 0;
+      const velMs = (typeof flight.velocityMs === 'number' && !isNaN(flight.velocityMs)) ? flight.velocityMs : 0;
+      const hdg = (typeof flight.heading === 'number' && !isNaN(flight.heading)) ? flight.heading : 0;
+      const vRate = (typeof flight.verticalRate === 'number' && !isNaN(flight.verticalRate)) ? flight.verticalRate : 0;
+
+      const band = getAltitudeBand(altFeet);
       if (!altitudeFilters[band]) continue;
 
       currentIds.add(flight.icao24);
-      const position = Cartesian3.fromDegrees(flight.lon, flight.lat, flight.altitudeMeters);
-      const color = getAltitudeColor(flight.altitudeFeet);
-      const scale = getAltitudeScale(flight.altitudeFeet);
-      const rotation = -CesiumMath.toRadians(flight.heading || 0);
+      const position = Cartesian3.fromDegrees(flight.lon, flight.lat, altMeters);
+      const color = getAltitudeColor(altFeet);
+      const scale = getAltitudeScale(altFeet);
+      const rotation = -CesiumMath.toRadians(hdg);
       const occluded = isOccluded(position);
 
       const isTracked = trackedEntity?.type === 'aircraft' && trackedEntity?.id === flight.icao24;
       const finalScale = isTracked ? 1.0 : scale;
 
       if (isTracked) {
-        trackingManager.updatePosition(flight.icao24, 'aircraft', flight.lon, flight.lat, flight.altitudeMeters);
+        trackingManager.updatePosition(flight.icao24, 'aircraft', flight.lon, flight.lat, altMeters);
       }
 
       const callsignStr = flight.callsign || flight.icao24;
-      const altStr = flight.altitudeFeet > 0 ? ' ' + Math.round(flight.altitudeFeet) + 'ft' : '';
-      const spdStr = flight.velocityKnots > 0 ? ' ' + Math.round(flight.velocityKnots) + 'kts' : '';
+      const altStr = altFeet > 0 ? ' ' + Math.round(altFeet) + 'ft' : '';
+      const spdStr = velKnots > 0 ? ' ' + Math.round(velKnots) + 'kts' : '';
       const routeStr = (flight.origin && flight.destination) ? '\n' + flight.origin + '-' + flight.destination : '';
       const labelText = callsignStr + altStr + spdStr + routeStr;
 
       const trailPositions = computeHeadingTrail(
-        flight.lon, flight.lat, flight.altitudeMeters,
-        flight.heading || 0, flight.velocityMs || 0
+        flight.lon, flight.lat, altMeters,
+        hdg, velMs
       );
 
       // Compute split route arcs: completed (origin→aircraft) and remaining (aircraft→destination)
@@ -416,7 +426,7 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
             originAirport.lat, originAirport.lon,
             destAirport.lat, destAirport.lon,
             flight.lat, flight.lon,
-            flight.altitudeMeters || 10000
+            altMeters || 10000
           );
         }
       }
@@ -508,14 +518,14 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         existing.position = position;
         existing.baseLat = flight.lat;
         existing.baseLon = flight.lon;
-        existing.baseAlt = flight.altitudeMeters;
-        existing.heading = flight.heading || 0;
-        existing.velocityMs = flight.velocityMs || 0;
-        existing.verticalRate = flight.verticalRate || 0;
+        existing.baseAlt = altMeters;
+        existing.heading = hdg;
+        existing.velocityMs = velMs;
+        existing.verticalRate = vRate;
         existing.lastDataTime = now;
         existing.drLat = flight.lat;
         existing.drLon = flight.lon;
-        existing.drAlt = flight.altitudeMeters;
+        existing.drAlt = altMeters;
       } else {
         // Add new billboard
         const bb = bbCollection.add({
@@ -591,14 +601,14 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           // Initialize dead reckoning state
           baseLat: flight.lat,
           baseLon: flight.lon,
-          baseAlt: flight.altitudeMeters,
-          heading: flight.heading || 0,
-          velocityMs: flight.velocityMs || 0,
-          verticalRate: flight.verticalRate || 0,
+          baseAlt: altMeters,
+          heading: hdg,
+          velocityMs: velMs,
+          verticalRate: vRate,
           lastDataTime: now,
           drLat: flight.lat,
           drLon: flight.lon,
-          drAlt: flight.altitudeMeters,
+          drAlt: altMeters,
         });
       }
     }

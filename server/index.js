@@ -8,6 +8,37 @@ import dotenv from 'dotenv';
 // Load server-side env
 dotenv.config({ path: './server/.env' });
 
+// ============================================================================
+// Environment Variable Validation
+// ============================================================================
+function validateEnvVars() {
+  const warnings = [];
+
+  // AISSTREAM_API_KEY — optional, enables AISStream.io WebSocket fallback for ship data
+  if (!process.env.AISSTREAM_API_KEY) {
+    warnings.push('[ENV] WARNING: AISSTREAM_API_KEY not set — AISStream.io ship fallback unavailable, /api/ships will return empty if Digitraffic fails');
+  }
+
+  // NSW_TRANSPORT_API_KEY — optional, enables NSW Australia CCTV cameras
+  if (!process.env.NSW_TRANSPORT_API_KEY) {
+    warnings.push('[ENV] WARNING: NSW_TRANSPORT_API_KEY not set — NSW Transport cameras will be excluded from /api/cctv');
+  }
+
+  // OPENSKY credentials — optional, enhances flight route lookups and live data
+  if (!process.env.OPENSKY_CLIENT_ID || !process.env.OPENSKY_CLIENT_SECRET) {
+    warnings.push('[ENV] WARNING: OPENSKY_CLIENT_ID/OPENSKY_CLIENT_SECRET not set — OpenSky API will use anonymous access with lower rate limits');
+  }
+
+  // Log all warnings
+  for (const warning of warnings) {
+    console.warn(warning);
+  }
+
+  return warnings;
+}
+
+const envWarnings = validateEnvVars();
+
 // Global handlers for unhandled rejections and uncaught exceptions
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[SERVER] Unhandled promise rejection:', reason?.message || reason);
@@ -981,11 +1012,12 @@ app.get('/api/flights', async (_req, res) => {
           onGround: ac.alt_baro === 'ground' || !!ac.ground,
         }));
       enrichWithRoutes(aircraft);
-      const fallbackAirborne = aircraft.filter(a => !a.onGround).length;
-      console.log(`[FLIGHTS] adsb.fi fallback: ${fallbackAirborne} airborne + ${aircraft.length - fallbackAirborne} ground`);
-      cache.set('flights', aircraft, 30);
+      const validatedFallback = validateFlightData(aircraft);
+      const fallbackAirborne = validatedFallback.filter(a => !a.onGround).length;
+      console.log(`[FLIGHTS] adsb.fi fallback: ${fallbackAirborne} airborne + ${validatedFallback.length - fallbackAirborne} ground`);
+      cache.set('flights', validatedFallback, 30);
       refreshRouteRegistry().catch(() => {});
-      res.json(aircraft);
+      res.json(validatedFallback);
     } catch (fallbackError) {
       console.error('[FLIGHTS] Both sources failed:', fallbackError.message);
       res.json([]);
@@ -1081,11 +1113,12 @@ app.get('/api/flights/live', async (req, res) => {
 
       // Enrich with route data from registry (including freshly looked-up routes)
       enrichWithRoutes(aircraft);
-      const enrichedCount = aircraft.filter(a => a.origin && a.origin.length > 0).length;
+      const validatedLive = validateFlightData(aircraft);
+      const enrichedCount = validatedLive.filter(a => a.origin && a.origin.length > 0).length;
       console.log(`[FLIGHTS] Live: enriched ${enrichedCount} aircraft with routes`);
 
-      cache.set(cacheKey, aircraft, 4); // 4s TTL
-      res.json(aircraft);
+      cache.set(cacheKey, validatedLive, 4); // 4s TTL
+      res.json(validatedLive);
     } catch (primaryError) {
       console.error('[FLIGHTS] OpenSky live failed:', primaryError.message);
       // Fallback to adsb.fi
@@ -1126,8 +1159,9 @@ app.get('/api/flights/live', async (req, res) => {
           } catch (_) { /* non-critical */ }
         }
         enrichWithRoutes(aircraft);
-        cache.set(cacheKey, aircraft, 4);
-        res.json(aircraft);
+        const validatedLiveFb = validateFlightData(aircraft);
+        cache.set(cacheKey, validatedLiveFb, 4);
+        res.json(validatedLiveFb);
       } catch (fallbackError) {
         console.error('[FLIGHTS] Both live sources failed:', fallbackError.message);
         res.json([]);
