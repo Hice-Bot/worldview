@@ -115,7 +115,9 @@ export default function StatusBar({
   return (
     <>
       {/* Desktop StatusBar (>= 1024px) */}
-      <div
+      <footer
+        role="status"
+        aria-label="Status bar"
         className="fixed bottom-0 left-0 lg:left-56 right-0 z-50 hidden lg:flex items-center justify-between font-mono pointer-events-auto"
         style={{
           height: '32px',
@@ -130,23 +132,26 @@ export default function StatusBar({
         }}
       >
         {/* Left Section: Camera Position */}
-        <div className="flex items-center" style={{ gap: '10px' }}>
-          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }}>
+        <div className="flex items-center" style={{ gap: '10px' }} aria-label="Camera position" role="group">
+          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }} aria-label={`Latitude ${toDMS(cameraState.lat, true)}`}>
             LAT <span style={{ color: 'rgba(0, 255, 200, 0.9)' }}>{toDMS(cameraState.lat, true)}</span>
           </span>
-          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }}>
+          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }} aria-label={`Longitude ${toDMS(cameraState.lon, false)}`}>
             LON <span style={{ color: 'rgba(0, 255, 200, 0.9)' }}>{toDMS(cameraState.lon, false)}</span>
           </span>
-          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }}>
+          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }} aria-label={`Altitude ${formatAltitude(cameraState.altitude)}`}>
             ALT <span style={{ color: 'rgba(0, 255, 200, 0.9)' }}>{formatAltitude(cameraState.altitude)}</span>
           </span>
-          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }}>
+          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }} aria-label={`Heading ${cameraState.heading.toFixed(0)} degrees`}>
             HDG <span style={{ color: 'rgba(0, 255, 200, 0.9)' }}>{cameraState.heading.toFixed(0)}&deg;</span>
           </span>
         </div>
 
         {/* Center Section: UTC Clock */}
-        <div
+        <time
+          aria-label={`UTC time: ${formatUtc(utcTime)}`}
+          aria-live="off"
+          dateTime={utcTime.toISOString()}
           style={{
             color: '#00ffc8',
             textShadow: '0 0 6px rgba(0, 255, 200, 0.4)',
@@ -154,26 +159,27 @@ export default function StatusBar({
           }}
         >
           {formatUtc(utcTime)}
-        </div>
+        </time>
 
         {/* Right Section: Entity Counts + Optics */}
-        <div className="flex items-center" style={{ gap: '10px' }}>
-          <span style={{ color: '#4ade80', textShadow: '0 0 4px rgba(74, 222, 128, 0.3)' }}>
+        <div className="flex items-center" style={{ gap: '10px' }} aria-live="polite" aria-label="Entity counts" role="group">
+          <span style={{ color: '#4ade80', textShadow: '0 0 4px rgba(74, 222, 128, 0.3)' }} aria-label={`${flightCount.toLocaleString()} aircraft tracked`}>
             ACFT <span style={{ fontWeight: 600 }}>{flightCount.toLocaleString()}</span>
           </span>
-          <span style={{ color: '#4ade80', textShadow: '0 0 4px rgba(74, 222, 128, 0.3)' }}>
+          <span style={{ color: '#4ade80', textShadow: '0 0 4px rgba(74, 222, 128, 0.3)' }} aria-label={`${satelliteCount.toLocaleString()} satellites tracked`}>
             SATS <span style={{ fontWeight: 600 }}>{satelliteCount.toLocaleString()}</span>
           </span>
-          <span style={{ color: '#fbbf24', textShadow: '0 0 4px rgba(251, 191, 36, 0.3)' }}>
+          <span style={{ color: '#fbbf24', textShadow: '0 0 4px rgba(251, 191, 36, 0.3)' }} aria-label={`${earthquakeCount} seismic events`}>
             SEIS <span style={{ fontWeight: 600 }}>{earthquakeCount}</span>
           </span>
-          <span style={{ color: '#f87171', textShadow: '0 0 4px rgba(248, 113, 113, 0.3)' }}>
+          <span style={{ color: '#f87171', textShadow: '0 0 4px rgba(248, 113, 113, 0.3)' }} aria-label={`${cctvCount.toLocaleString()} CCTV cameras`}>
             CCTV <span style={{ fontWeight: 600 }}>{cctvCount.toLocaleString()}</span>
           </span>
-          <span style={{ color: '#22d3ee', textShadow: '0 0 4px rgba(34, 211, 238, 0.3)' }}>
+          <span style={{ color: '#22d3ee', textShadow: '0 0 4px rgba(34, 211, 238, 0.3)' }} aria-label={`${shipCount.toLocaleString()} AIS ships tracked`}>
             AIS <span style={{ fontWeight: 600 }}>{shipCount.toLocaleString()}</span>
           </span>
           <span
+            aria-label={`Optics mode: ${shaderMode}`}
             style={{
               color: shaderMode === 'CRT' ? '#fbbf24' :
                      shaderMode === 'NVG' ? '#4ade80' :
@@ -189,6 +195,7 @@ export default function StatusBar({
             OPTICS {shaderLabel}
           </span>
           <span
+            aria-label={`${fps} frames per second`}
             style={{
               color: fps >= 30 ? '#4ade80' : fps >= 15 ? '#fbbf24' : '#f87171',
               textShadow: `0 0 4px ${fps >= 30 ? 'rgba(74, 222, 128, 0.3)' : fps >= 15 ? 'rgba(251, 191, 36, 0.3)' : 'rgba(248, 113, 113, 0.3)'}`,
@@ -199,10 +206,12 @@ export default function StatusBar({
             FPS <span style={{ fontWeight: 600 }}>{fps}</span>
           </span>
         </div>
-      </div>
+      </footer>
 
       {/* Mobile StatusBar (< 1024px) - Compact single row, 28px height */}
-      <div
+      <footer
+        role="status"
+        aria-label="Status bar"
         className="fixed bottom-0 left-0 right-0 z-50 flex lg:hidden items-center justify-between font-mono pointer-events-auto"
         data-testid="mobile-statusbar"
         style={{
@@ -218,17 +227,19 @@ export default function StatusBar({
         }}
       >
         {/* Left: Abbreviated coords + altitude */}
-        <div className="flex items-center" style={{ gap: '6px' }}>
-          <span style={{ color: 'rgba(0, 255, 200, 0.9)' }}>
+        <div className="flex items-center" style={{ gap: '6px' }} aria-label="Camera position">
+          <span style={{ color: 'rgba(0, 255, 200, 0.9)' }} aria-label={`Position: ${toDMSShort(cameraState.lat, true)} ${toDMSShort(cameraState.lon, false)}`}>
             {toDMSShort(cameraState.lat, true)} {toDMSShort(cameraState.lon, false)}
           </span>
-          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }}>
+          <span style={{ color: 'rgba(0, 255, 200, 0.7)' }} aria-label={`Altitude ${formatAltitude(cameraState.altitude)}`}>
             {formatAltitude(cameraState.altitude)}
           </span>
         </div>
 
         {/* Center: Compact UTC time */}
-        <div
+        <time
+          aria-label={`UTC time: ${formatUtcCompact(utcTime)}`}
+          dateTime={utcTime.toISOString()}
           style={{
             color: '#00ffc8',
             textShadow: '0 0 4px rgba(0, 255, 200, 0.3)',
@@ -236,20 +247,21 @@ export default function StatusBar({
           }}
         >
           {formatUtcCompact(utcTime)}
-        </div>
+        </time>
 
         {/* Right: Key entity counts only (abbreviated) */}
-        <div className="flex items-center" style={{ gap: '5px' }}>
-          <span style={{ color: '#4ade80' }}>
+        <div className="flex items-center" style={{ gap: '5px' }} aria-live="polite" aria-label="Entity counts">
+          <span style={{ color: '#4ade80' }} aria-label={`${flightCount.toLocaleString()} aircraft`}>
             <span style={{ fontWeight: 600 }}>{flightCount.toLocaleString()}</span>
           </span>
-          <span style={{ color: '#fbbf24' }}>
+          <span style={{ color: '#fbbf24' }} aria-label={`${earthquakeCount} seismic events`}>
             <span style={{ fontWeight: 600 }}>{earthquakeCount}</span>
           </span>
-          <span style={{ color: '#22d3ee' }}>
+          <span style={{ color: '#22d3ee' }} aria-label={`${shipCount.toLocaleString()} ships`}>
             <span style={{ fontWeight: 600 }}>{shipCount.toLocaleString()}</span>
           </span>
           <span
+            aria-label={`${fps} frames per second`}
             style={{
               color: fps >= 30 ? '#4ade80' : fps >= 15 ? '#fbbf24' : '#f87171',
               borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
@@ -259,7 +271,7 @@ export default function StatusBar({
             {fps}
           </span>
         </div>
-      </div>
+      </footer>
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import type { CameraData } from '../../types';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface CCTVPanelProps {
   cameras: CameraData[];
@@ -39,6 +40,10 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
   const [countryFilter, setCountryFilter] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const mobileModalRef = useRef<HTMLDivElement>(null);
+  const cctvBadgeRef = useRef<HTMLButtonElement>(null);
+
+  // Focus trap: traps Tab within modal, restores focus to badge on close
+  useFocusTrap(mobileModalRef, mobileOpen && !isMobileClosing);
 
   // Animated close handler for mobile modal
   const handleMobileClose = useCallback(() => {
@@ -46,6 +51,8 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
     setTimeout(() => {
       setMobileOpen(false);
       setIsMobileClosing(false);
+      // Restore focus to the badge trigger
+      cctvBadgeRef.current?.focus();
     }, 250);
   }, []);
 
@@ -102,21 +109,24 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
   const panelContent = (
     <>
       {/* Header */}
-      <div
-        className="p-2 border-b border-white/10 flex items-center justify-between cursor-pointer select-none"
+      <button
+        className="w-full p-2 border-b border-white/10 flex items-center justify-between cursor-pointer select-none text-left focus:outline-none focus:ring-2 focus:ring-cyan-400/60 focus:ring-offset-1 focus:ring-offset-black"
         onClick={() => setCollapsed(!collapsed)}
+        aria-expanded={!collapsed}
+        aria-controls="cctv-panel-content"
+        aria-label={`CCTV Feeds, ${onlineCameras.length} online, ${collapsed ? 'expand' : 'collapse'}`}
       >
         <div className="flex items-center gap-2">
-          <h2 className="text-xs font-bold text-white/80 uppercase tracking-widest">CCTV Feeds</h2>
-          <span className="text-[10px] text-green-400 font-mono">{onlineCameras.length} ONLINE</span>
+          <span className="text-xs font-bold text-white/80 uppercase tracking-widest">CCTV Feeds</span>
+          <span className="text-[10px] text-green-400 font-mono" aria-live="polite">{onlineCameras.length} ONLINE</span>
         </div>
-        <span className="text-white/40 text-xs">{collapsed ? '▶' : '▼'}</span>
-      </div>
+        <span aria-hidden="true" className="text-white/40 text-xs">{collapsed ? '▶' : '▼'}</span>
+      </button>
 
       {!collapsed && (
-        <div className="flex flex-col overflow-y-auto panel-scroll" style={{ maxHeight: 'calc(100% - 36px)' }} onWheel={(e) => e.stopPropagation()}>
+        <div id="cctv-panel-content" className="flex flex-col overflow-y-auto panel-scroll" style={{ maxHeight: 'calc(100% - 36px)' }} onWheel={(e) => e.stopPropagation()}>
           {/* Country/region filter buttons */}
-          <div className="p-2 flex flex-wrap gap-1 border-b border-white/10">
+          <div className="p-2 flex flex-wrap gap-1 border-b border-white/10" role="group" aria-label="Country filter">
             <button
               className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded transition-colors ${
                 countryFilter === null
@@ -124,6 +134,8 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
                   : 'bg-white/5 text-white/50 border border-white/10 hover:bg-white/10'
               }`}
               onClick={() => handleCountryFilter(null)}
+              aria-pressed={countryFilter === null}
+              aria-label={`Show all cameras, ${cameras.length} total`}
             >
               ALL ({cameras.length})
             </button>
@@ -141,6 +153,8 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
                     countryFilter === country ? colorClass + ' border' : inactiveClass
                   }`}
                   onClick={() => handleCountryFilter(country)}
+                  aria-pressed={countryFilter === country}
+                  aria-label={`Filter ${country} cameras, ${count} available`}
                 >
                   {country} ({count})
                 </button>
@@ -176,19 +190,21 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
               <div className="text-[10px] text-white/80 font-mono mb-1 truncate">
                 {selectedCamera.name}
               </div>
-              <div className="text-[9px] text-white/40 font-mono mb-2">
+              <div className="text-[9px] text-white/50 font-mono mb-2">
                 {formatDMS(selectedCamera.lat, true)} | {formatDMS(selectedCamera.lon, false)}
                 {selectedCamera.region ? ` | ${selectedCamera.region}` : ''}
               </div>
               <button
                 className="w-full py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/50 text-cyan-300 text-[10px] font-bold uppercase tracking-wider rounded transition-colors"
                 onClick={() => handleFlyTo(selectedCamera)}
+                aria-label={`Fly to ${selectedCamera.name} location`}
               >
                 ◎ FLY TO LOCATION
               </button>
               <button
                 className="w-full mt-1 py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-[10px] uppercase rounded transition-colors"
                 onClick={() => onSelectCamera(null)}
+                aria-label="Deselect camera"
               >
                 DESELECT
               </button>
@@ -219,7 +235,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
             )}
 
             {filteredCameras.length === 0 && (
-              <div className="text-center text-white/30 text-xs py-4 font-mono uppercase">
+              <div className="text-center text-white/50 text-xs py-4 font-mono uppercase">
                 No cameras available
               </div>
             )}
@@ -237,120 +253,138 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
       </div>
 
       {/* Mobile: badge button + full-screen modal */}
-      <button
-        className="fixed right-4 bottom-12 z-50 w-10 h-10 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center lg:hidden"
-        onClick={() => setMobileOpen(true)}
-      >
-        <span className="text-white/80 text-sm">📹</span>
-        {onlineCameras.length > 0 && (
-          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-            {onlineCameras.length > 99 ? '99+' : onlineCameras.length}
-          </span>
-        )}
-      </button>
+      {!mobileOpen && (
+        <button
+          ref={cctvBadgeRef}
+          className="fixed right-4 bottom-12 z-50 w-10 h-10 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center lg:hidden active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
+          onClick={handleMobileOpen}
+          onTouchEnd={(e) => { e.preventDefault(); handleMobileOpen(); }}
+          aria-label="Open CCTV feeds"
+        >
+          <span className="text-white/80 text-sm">📹</span>
+          {onlineCameras.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+              {onlineCameras.length > 99 ? '99+' : onlineCameras.length}
+            </span>
+          )}
+        </button>
+      )}
 
-      {/* Mobile modal */}
+      {/* Mobile modal with slide-in/out animation */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-md flex flex-col lg:hidden">
-          <div className="flex items-center justify-between p-3 border-b border-white/10">
-            <h2 className="text-sm font-bold text-white/80 uppercase tracking-widest">CCTV Feeds</h2>
-            <button
-              className="text-white/60 hover:text-white text-lg"
-              onClick={() => setMobileOpen(false)}
-            >
-              ✕
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto panel-scroll" onWheel={(e) => e.stopPropagation()}>
-            {/* Country filters */}
-            <div className="p-2 flex flex-wrap gap-1 border-b border-white/10">
+        <div
+          ref={mobileModalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="CCTV feeds"
+          className={`fixed inset-0 z-[60] flex flex-col lg:hidden pointer-events-auto ${isMobileClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
+          style={{ backgroundColor: 'rgba(0,0,0,0.90)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+        >
+          <div className={`flex flex-col h-full ${isMobileClosing ? 'modal-exit' : 'modal-enter'}`}>
+            <div className="flex items-center justify-between p-3 border-b border-white/10 shrink-0">
+              <h2 className="text-sm font-bold text-white/80 uppercase tracking-widest">CCTV Feeds</h2>
               <button
-                className={`px-3 py-1 text-xs uppercase font-bold rounded ${
-                  countryFilter === null
-                    ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
-                    : 'bg-white/5 text-white/50 border border-white/10'
-                }`}
-                onClick={() => handleCountryFilter(null)}
+                className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
+                onClick={handleMobileClose}
+                onTouchEnd={(e) => { e.preventDefault(); handleMobileClose(); }}
+                aria-label="Close CCTV feeds"
               >
-                ALL ({cameras.length})
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
               </button>
-              {countries.map((country) => {
-                const count = cameras.filter((c) => c.country === country).length;
-                return (
-                  <button
-                    key={country}
-                    className={`px-3 py-1 text-xs uppercase font-bold rounded ${
-                      countryFilter === country
-                        ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
-                        : 'bg-white/5 text-white/50 border border-white/10'
-                    }`}
-                    onClick={() => handleCountryFilter(country)}
-                  >
-                    {country} ({count})
-                  </button>
-                );
-              })}
             </div>
+            <div className="flex-1 overflow-y-auto panel-scroll" onWheel={(e) => e.stopPropagation()}>
+              {/* Country filters */}
+              <div className="p-2 flex flex-wrap gap-1 border-b border-white/10">
+                <button
+                  className={`px-3 py-1 text-xs uppercase font-bold rounded ${
+                    countryFilter === null
+                      ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
+                      : 'bg-white/5 text-white/50 border border-white/10'
+                  }`}
+                  onClick={() => handleCountryFilter(null)}
+                >
+                  ALL ({cameras.length})
+                </button>
+                {countries.map((country) => {
+                  const count = cameras.filter((c) => c.country === country).length;
+                  return (
+                    <button
+                      key={country}
+                      className={`px-3 py-1 text-xs uppercase font-bold rounded ${
+                        countryFilter === country
+                          ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/50'
+                          : 'bg-white/5 text-white/50 border border-white/10'
+                      }`}
+                      onClick={() => handleCountryFilter(country)}
+                    >
+                      {country} ({count})
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Selected camera preview */}
-            {selectedCamera && (
-              <div className="p-3 border-b border-white/10 bg-white/5">
-                <div className="relative w-full aspect-video bg-black rounded overflow-hidden mb-2">
-                  {selectedCamera.imageUrl ? (
-                    <img
-                      src={proxyImageUrl(selectedCamera.imageUrl)}
-                      alt={selectedCamera.name}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = 'none';
-                        const sibling = target.nextElementSibling as HTMLElement;
-                        if (sibling) sibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className="absolute inset-0 items-center justify-center bg-black/80 text-red-500 font-mono text-sm uppercase"
-                    style={{ display: selectedCamera.imageUrl ? 'none' : 'flex' }}
-                  >
-                    ⚠ SIGNAL LOST
+              {/* Selected camera preview */}
+              {selectedCamera && (
+                <div className="p-3 border-b border-white/10 bg-white/5">
+                  <div className="relative w-full aspect-video bg-black rounded overflow-hidden mb-2">
+                    {selectedCamera.imageUrl ? (
+                      <img
+                        src={proxyImageUrl(selectedCamera.imageUrl)}
+                        alt={selectedCamera.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = 'none';
+                          const sibling = target.nextElementSibling as HTMLElement;
+                          if (sibling) sibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="absolute inset-0 items-center justify-center bg-black/80 text-red-500 font-mono text-sm uppercase"
+                      style={{ display: selectedCamera.imageUrl ? 'none' : 'flex' }}
+                    >
+                      ⚠ SIGNAL LOST
+                    </div>
                   </div>
+                  <div className="text-xs text-white/80 font-mono mb-1">{selectedCamera.name}</div>
+                  <div className="text-[10px] text-white/50 font-mono mb-2">
+                    {formatDMS(selectedCamera.lat, true)} | {formatDMS(selectedCamera.lon, false)}
+                  </div>
+                  <button
+                    className="w-full py-2 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/50 text-cyan-300 text-xs font-bold uppercase tracking-wider rounded"
+                    onClick={() => handleFlyTo(selectedCamera)}
+                  >
+                    ◎ FLY TO LOCATION
+                  </button>
                 </div>
-                <div className="text-xs text-white/80 font-mono mb-1">{selectedCamera.name}</div>
-                <div className="text-[10px] text-white/40 font-mono mb-2">
-                  {formatDMS(selectedCamera.lat, true)} | {formatDMS(selectedCamera.lon, false)}
-                </div>
-                <button
-                  className="w-full py-2 bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/50 text-cyan-300 text-xs font-bold uppercase tracking-wider rounded"
-                  onClick={() => handleFlyTo(selectedCamera)}
-                >
-                  ◎ FLY TO LOCATION
-                </button>
-              </div>
-            )}
-
-            {/* Mobile thumbnail grid: 2 columns */}
-            <div className="p-2">
-              <div className="grid grid-cols-2 gap-1.5">
-                {visibleCameras.map((cam) => (
-                  <CameraThumbnail
-                    key={cam.id}
-                    camera={cam}
-                    isSelected={selectedCamera?.id === cam.id}
-                    onClick={() => onSelectCamera(cam)}
-                  />
-                ))}
-              </div>
-
-              {hasMore && (
-                <button
-                  className="w-full mt-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-xs font-bold uppercase tracking-wider rounded"
-                  onClick={handleLoadMore}
-                >
-                  LOAD MORE ({filteredCameras.length - visibleCount} remaining)
-                </button>
               )}
+
+              {/* Mobile thumbnail grid: 2 columns */}
+              <div className="p-2">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {visibleCameras.map((cam) => (
+                    <CameraThumbnail
+                      key={cam.id}
+                      camera={cam}
+                      isSelected={selectedCamera?.id === cam.id}
+                      onClick={() => onSelectCamera(cam)}
+                    />
+                  ))}
+                </div>
+
+                {hasMore && (
+                  <button
+                    className="w-full mt-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 text-xs font-bold uppercase tracking-wider rounded"
+                    onClick={handleLoadMore}
+                  >
+                    LOAD MORE ({filteredCameras.length - visibleCount} remaining)
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -370,13 +404,15 @@ function CameraThumbnail({
   onClick: () => void;
 }) {
   return (
-    <div
-      className={`relative cursor-pointer rounded overflow-hidden transition-all ${
+    <button
+      className={`relative cursor-pointer rounded overflow-hidden transition-all text-left w-full focus:outline-none focus:ring-2 focus:ring-cyan-400/60 ${
         isSelected
           ? 'ring-1 ring-red-500 scale-[1.02]'
           : 'ring-1 ring-transparent hover:ring-white/30'
       }`}
       onClick={onClick}
+      aria-pressed={isSelected}
+      aria-label={`${camera.name}${camera.available ? ', online' : ', offline'}${isSelected ? ', selected' : ''}`}
     >
       <div className="relative aspect-video bg-black/60">
         {camera.imageUrl ? (
@@ -410,10 +446,11 @@ function CameraThumbnail({
       </div>
       {/* Available indicator */}
       <div
+        aria-hidden="true"
         className={`absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full ${
           camera.available ? 'bg-green-400' : 'bg-red-500'
         }`}
       />
-    </div>
+    </button>
   );
 }

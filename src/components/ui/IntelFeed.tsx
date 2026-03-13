@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import type { IntelEvent } from '../../types';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface IntelFeedProps {
   events: IntelEvent[];
@@ -33,7 +34,29 @@ const EVENT_BG_COLORS: Record<IntelEvent['type'], string> = {
  */
 export default function IntelFeed({ events }: IntelFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const badgeRef = useRef<HTMLButtonElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Focus trap: traps Tab within modal, restores focus to badge on close
+  useFocusTrap(modalRef, mobileOpen && !isClosing);
+
+  // Animated close handler for mobile modal
+  const handleMobileClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setMobileOpen(false);
+      setIsClosing(false);
+      // Restore focus to the badge trigger
+      badgeRef.current?.focus();
+    }, 250);
+  }, []);
+
+  const handleMobileOpen = useCallback(() => {
+    setMobileOpen(true);
+    setIsClosing(false);
+  }, []);
 
   // Format timestamp as HH:MM:SS
   const formatTime = (date: Date) => {
@@ -63,7 +86,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
             key={event.id}
             className={`text-[10px] font-mono px-2 py-[3px] border-b border-white/5 ${bgColor} ${idx === 0 ? 'animate-pulse' : ''}`}
           >
-            <span className="text-white/40">{formatTime(event.timestamp)}</span>
+            <span className="text-white/50">{formatTime(event.timestamp)}</span>
             <span className="text-white/20"> | </span>
             <span className={`${typeColor} font-bold`}>[{event.type}]</span>
             <span className="text-white/20"> | </span>
@@ -72,7 +95,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
         );
       })}
       {displayEvents.length === 0 && (
-        <div className="text-[10px] font-mono text-white/30 text-center py-4">
+        <div className="text-[10px] font-mono text-white/50 text-center py-4">
           AWAITING INTEL...
         </div>
       )}
@@ -82,55 +105,73 @@ export default function IntelFeed({ events }: IntelFeedProps) {
   return (
     <>
       {/* Desktop: fixed 288px right panel at top */}
-      <div className="fixed right-0 top-0 w-72 max-h-[50vh] bg-black/85 backdrop-blur-md border-l border-b border-white/10 rounded-bl-lg z-50 hidden lg:flex flex-col pointer-events-auto">
+      <aside className="fixed right-0 top-0 w-72 max-h-[50vh] bg-black/85 backdrop-blur-md border-l border-b border-white/10 rounded-bl-lg z-50 hidden lg:flex flex-col pointer-events-auto" aria-label="Intel feed">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            <div aria-hidden="true" className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
             <h2 className="text-xs font-bold text-white/80 uppercase tracking-widest">Intel Feed</h2>
           </div>
-          <span className="text-[9px] font-mono text-white/30">{displayEvents.length}/20</span>
+          <span className="text-[9px] font-mono text-white/50" aria-label={`${displayEvents.length} of 20 events`}>{displayEvents.length}/20</span>
         </div>
 
         {/* Scrollable event list */}
-        <div ref={scrollRef} className="overflow-y-auto flex-1 min-h-0 panel-scroll" onWheel={(e) => e.stopPropagation()}>
+        <div ref={scrollRef} className="overflow-y-auto flex-1 min-h-0 panel-scroll" role="log" aria-live="polite" aria-label="Intelligence events" onWheel={(e) => e.stopPropagation()}>
           {renderEvents()}
         </div>
-      </div>
+      </aside>
 
       {/* Mobile: badge button + sliding modal */}
       <div className="lg:hidden">
         {/* Badge button */}
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="fixed top-2 right-2 z-50 bg-black/80 border border-white/20 rounded-full px-3 py-1.5 flex items-center gap-1.5"
-        >
-          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-[10px] font-mono text-white/80">INTEL</span>
-          {badgeCount > 0 && (
-            <span className="bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-              {badgeCount}
-            </span>
-          )}
-        </button>
+        {!mobileOpen && (
+          <button
+            ref={badgeRef}
+            onClick={handleMobileOpen}
+            onTouchEnd={(e) => { e.preventDefault(); handleMobileOpen(); }}
+            className="fixed top-2 right-2 z-50 bg-black/80 border border-white/20 rounded-full px-3 py-1.5 flex items-center gap-1.5 active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
+            aria-label="Open intel feed"
+          >
+            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-[10px] font-mono text-white/80">INTEL</span>
+            {badgeCount > 0 && (
+              <span className="bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {badgeCount}
+              </span>
+            )}
+          </button>
+        )}
 
-        {/* Full-screen modal */}
+        {/* Full-screen modal with slide-in/out animation */}
         {mobileOpen && (
-          <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                <h2 className="text-sm font-bold text-white/80 uppercase tracking-widest">Intel Feed</h2>
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Intel feed"
+            className={`fixed inset-0 z-[60] flex flex-col pointer-events-auto ${isClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
+            style={{ backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+          >
+            <div className={`flex flex-col h-full ${isClosing ? 'modal-exit' : 'modal-enter'}`}>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <h2 className="text-sm font-bold text-white/80 uppercase tracking-widest">Intel Feed</h2>
+                </div>
+                <button
+                  onClick={handleMobileClose}
+                  onTouchEnd={(e) => { e.preventDefault(); handleMobileClose(); }}
+                  className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
+                  aria-label="Close intel feed"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              <button
-                onClick={() => setMobileOpen(false)}
-                className="text-white/60 text-lg px-2"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="overflow-y-auto flex-1 panel-scroll" onWheel={(e) => e.stopPropagation()}>
-              {renderEvents()}
+              <div className="overflow-y-auto flex-1 panel-scroll" onWheel={(e) => e.stopPropagation()}>
+                {renderEvents()}
+              </div>
             </div>
           </div>
         )}

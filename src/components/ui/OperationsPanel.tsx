@@ -7,6 +7,7 @@ import type {
   AltitudeFilters,
   SatelliteFilters,
 } from '../../types';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface OperationsPanelProps {
   layers: LayerState;
@@ -28,10 +29,10 @@ interface OperationsPanelProps {
   onLocateMe: () => void;
 }
 
-// Section label component
-function SectionLabel({ children }: { children: string }) {
+// Section label component with id for aria-labelledby
+function SectionLabel({ children, id }: { children: string; id?: string }) {
   return (
-    <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest mt-4 mb-2 px-3">
+    <div id={id} className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-4 mb-2 px-3" role="heading" aria-level={2}>
       {children}
     </div>
   );
@@ -63,6 +64,9 @@ const ALTITUDE_BANDS: { key: keyof AltitudeFilters; label: string; color: string
   { key: 'low', label: 'Low', color: 'bg-orange-400' },
   { key: 'ground', label: 'Ground', color: 'bg-red-500' },
 ];
+
+// Focus ring class for keyboard navigation (Feature #172)
+const FOCUS_RING = 'focus:outline-none focus:ring-2 focus:ring-cyan-400/60 focus:ring-offset-1 focus:ring-offset-black';
 
 /**
  * Shared panel content rendered in both desktop sidebar and mobile modal.
@@ -109,8 +113,8 @@ function PanelContent(props: {
   return (
     <>
       {/* === OPTICS MODE === */}
-      <SectionLabel>Optics Mode</SectionLabel>
-      <div className="grid grid-cols-2 gap-1.5 px-3">
+      <SectionLabel id="section-optics">Optics Mode</SectionLabel>
+      <div className="grid grid-cols-2 gap-1.5 px-3" role="group" aria-labelledby="section-optics">
         {(['STANDARD', 'CRT', 'NVG', 'FLIR'] as ShaderMode[]).map((mode) => {
           const isActive = shaderMode === mode;
           const colors = SHADER_COLORS[mode];
@@ -118,11 +122,13 @@ function PanelContent(props: {
             <button
               key={mode}
               onClick={() => onShaderChange(mode)}
+              aria-pressed={isActive}
+              aria-label={`${mode} optics mode`}
               className={`
-                px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all
+                px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
                 ${isActive
                   ? `${colors.active} ${colors.text}`
-                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
                 }
               `}
             >
@@ -133,15 +139,17 @@ function PanelContent(props: {
       </div>
 
       {/* === MAP TILES === */}
-      <SectionLabel>Map Tiles</SectionLabel>
-      <div className="grid grid-cols-2 gap-1.5 px-3">
+      <SectionLabel id="section-tiles">Map Tiles</SectionLabel>
+      <div className="grid grid-cols-2 gap-1.5 px-3" role="group" aria-labelledby="section-tiles">
         <button
           onClick={() => onMapTilesChange('GOOGLE_3D')}
+          aria-pressed={mapTiles === 'GOOGLE_3D'}
+          aria-label="Google 3D map tiles"
           className={`
-            px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all
+            px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
             ${mapTiles === 'GOOGLE_3D'
               ? 'bg-blue-500/30 border-blue-400/60 text-blue-300'
-              : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+              : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
             }
           `}
         >
@@ -149,11 +157,13 @@ function PanelContent(props: {
         </button>
         <button
           onClick={() => onMapTilesChange('OSM')}
+          aria-pressed={mapTiles === 'OSM'}
+          aria-label="OpenStreetMap tiles"
           className={`
-            px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all
+            px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded border transition-all ${FOCUS_RING}
             ${mapTiles === 'OSM'
               ? 'bg-blue-500/30 border-blue-400/60 text-blue-300'
-              : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+              : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
             }
           `}
         >
@@ -162,8 +172,8 @@ function PanelContent(props: {
       </div>
 
       {/* === DATA LAYERS === */}
-      <SectionLabel>Data Layers</SectionLabel>
-      <div className="space-y-1 px-3">
+      <SectionLabel id="section-layers">Data Layers</SectionLabel>
+      <div className="space-y-1 px-3" role="group" aria-labelledby="section-layers">
         {LAYER_CONFIG.map(({ key, label, color }) => {
           const isActive = layers[key];
           const isLoading = layerLoading?.[key] ?? false;
@@ -172,17 +182,21 @@ function PanelContent(props: {
             <button
               key={key}
               onClick={() => onToggleLayer(key)}
+              role="switch"
+              aria-checked={isActive}
+              aria-label={`Toggle ${label} layer${isActive && isLoading ? ', loading' : ''}${isActive && hasError ? ', error' : ''}`}
               className={`
-                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all
+                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
                 ${isActive
                   ? hasError
                     ? 'bg-red-500/10 border-red-400/30 text-white/90'
                     : 'bg-white/10 border-white/20 text-white/90'
-                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
                 }
               `}
             >
               <span
+                aria-hidden="true"
                 className={`
                   w-2 h-2 rounded-full transition-all
                   ${isActive
@@ -197,10 +211,10 @@ function PanelContent(props: {
                 {label}
               </span>
               {isActive && isLoading && !hasError && (
-                <span className="text-[8px] text-white/40 uppercase">loading</span>
+                <span className="text-[8px] text-white/50 uppercase" aria-live="polite">loading</span>
               )}
               {isActive && hasError && (
-                <span className="text-[8px] text-red-400 uppercase">error</span>
+                <span className="text-[8px] text-red-400 uppercase" aria-live="assertive">error</span>
               )}
             </button>
           );
@@ -210,25 +224,27 @@ function PanelContent(props: {
       {/* === FLIGHT FILTERS (conditional) === */}
       {layers.flights && (
         <>
-          <SectionLabel>Flight Filters</SectionLabel>
-          <div className="space-y-1.5 px-3">
+          <SectionLabel id="section-flight-filters">Flight Filters</SectionLabel>
+          <div className="space-y-1.5 px-3" role="group" aria-labelledby="section-flight-filters">
             {/* Route Paths toggle */}
             <button
               onClick={() => onShowRoutePathsChange(!showRoutePaths)}
+              aria-pressed={showRoutePaths}
+              aria-label="Toggle route paths"
               className={`
-                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all
+                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
                 ${showRoutePaths
                   ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
-                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
                 }
               `}
             >
-              <span className={`w-2 h-2 rounded-full ${showRoutePaths ? 'bg-cyan-400' : 'bg-white/20'}`} />
+              <span aria-hidden="true" className={`w-2 h-2 rounded-full ${showRoutePaths ? 'bg-cyan-400' : 'bg-white/20'}`} />
               <span className="text-[10px] font-bold uppercase tracking-wider">Route Paths</span>
             </button>
 
             {/* Altitude band buttons */}
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-5 gap-1" role="group" aria-label="Altitude band filters">
               {ALTITUDE_BANDS.map(({ key, label, color }) => {
                 const isActive = altitudeFilters[key];
                 return (
@@ -240,15 +256,18 @@ function PanelContent(props: {
                         [key]: !altitudeFilters[key],
                       })
                     }
+                    aria-pressed={isActive}
+                    aria-label={`${label} altitude band`}
                     className={`
-                      flex flex-col items-center gap-0.5 px-1 py-1 rounded border text-center transition-all
+                      flex flex-col items-center gap-0.5 px-1 py-1 rounded border text-center transition-all ${FOCUS_RING}
                       ${isActive
                         ? 'bg-white/10 border-white/20 text-white/90'
-                        : 'bg-white/5 border-white/10 text-white/30 hover:bg-white/10'
+                        : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
                       }
                     `}
                   >
                     <span
+                      aria-hidden="true"
                       className={`w-1.5 h-1.5 rounded-full ${isActive ? color : 'bg-white/20'}`}
                     />
                     <span className="text-[8px] font-bold uppercase leading-none">
@@ -265,8 +284,8 @@ function PanelContent(props: {
       {/* === SATELLITE FILTERS (conditional) === */}
       {layers.satellites && (
         <>
-          <SectionLabel>Satellite Filters</SectionLabel>
-          <div className="space-y-1.5 px-3">
+          <SectionLabel id="section-sat-filters">Satellite Filters</SectionLabel>
+          <div className="space-y-1.5 px-3" role="group" aria-labelledby="section-sat-filters">
             {/* Orbit Paths toggle */}
             <button
               onClick={() =>
@@ -275,20 +294,22 @@ function PanelContent(props: {
                   showPaths: !satelliteFilters.showPaths,
                 })
               }
+              aria-pressed={satelliteFilters.showPaths}
+              aria-label="Toggle orbit paths"
               className={`
-                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all
+                w-full flex items-center gap-2 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
                 ${satelliteFilters.showPaths
                   ? 'bg-green-500/20 border-green-400/40 text-green-300'
-                  : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:text-white/60'
+                  : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/60'
                 }
               `}
             >
-              <span className={`w-2 h-2 rounded-full ${satelliteFilters.showPaths ? 'bg-green-400' : 'bg-white/20'}`} />
+              <span aria-hidden="true" className={`w-2 h-2 rounded-full ${satelliteFilters.showPaths ? 'bg-green-400' : 'bg-white/20'}`} />
               <span className="text-[10px] font-bold uppercase tracking-wider">Orbit Paths</span>
             </button>
 
             {/* Category filters */}
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-2 gap-1" role="group" aria-label="Satellite category filters">
               <button
                 onClick={() =>
                   onSatelliteFilterChange({
@@ -296,15 +317,17 @@ function PanelContent(props: {
                     iss: !satelliteFilters.iss,
                   })
                 }
+                aria-pressed={satelliteFilters.iss}
+                aria-label="Toggle ISS satellites"
                 className={`
-                  flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-all
+                  flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
                   ${satelliteFilters.iss
                     ? 'bg-yellow-500/20 border-yellow-400/40 text-yellow-300'
-                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
                   }
                 `}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${satelliteFilters.iss ? 'bg-yellow-400' : 'bg-white/20'}`} />
+                <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${satelliteFilters.iss ? 'bg-yellow-400' : 'bg-white/20'}`} />
                 <span className="text-[10px] font-bold uppercase tracking-wider">ISS</span>
               </button>
               <button
@@ -314,15 +337,17 @@ function PanelContent(props: {
                     other: !satelliteFilters.other,
                   })
                 }
+                aria-pressed={satelliteFilters.other}
+                aria-label="Toggle other satellites"
                 className={`
-                  flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-all
+                  flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-all ${FOCUS_RING}
                   ${satelliteFilters.other
                     ? 'bg-green-500/20 border-green-400/40 text-green-300'
-                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
                   }
                 `}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${satelliteFilters.other ? 'bg-green-400' : 'bg-white/20'}`} />
+                <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${satelliteFilters.other ? 'bg-green-400' : 'bg-white/20'}`} />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Other</span>
               </button>
             </div>
@@ -331,13 +356,14 @@ function PanelContent(props: {
       )}
 
       {/* === UTILITY === */}
-      <SectionLabel>Utility</SectionLabel>
-      <div className="space-y-1 px-3 pb-4">
+      <SectionLabel id="section-utility">Utility</SectionLabel>
+      <div className="space-y-1 px-3 pb-4" role="group" aria-labelledby="section-utility">
         <button
           onClick={onLocateMe}
           disabled={locateMeState === 'requesting'}
+          aria-label={locateMeState === 'requesting' ? 'Locating your position' : locateMeState === 'success' ? 'Location found' : locateMeState === 'error' ? 'Location error, showing default view' : 'Locate me on globe'}
           className={`
-            w-full flex items-center gap-2 px-2 py-1.5 rounded border transition-all
+            w-full flex items-center gap-2 px-2 py-1.5 rounded border transition-all ${FOCUS_RING}
             ${locateMeState === 'requesting'
               ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300 cursor-wait'
               : locateMeState === 'success'
@@ -348,7 +374,7 @@ function PanelContent(props: {
             }
           `}
         >
-          <svg className={`w-3 h-3 ${locateMeState === 'requesting' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg aria-hidden="true" className={`w-3 h-3 ${locateMeState === 'requesting' ? 'animate-pulse' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3" />
             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
           </svg>
@@ -358,9 +384,10 @@ function PanelContent(props: {
         </button>
         <button
           onClick={onResetView}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded border bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all"
+          aria-label="Reset camera to default view"
+          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded border bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white/80 transition-all ${FOCUS_RING}`}
         >
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg aria-hidden="true" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 12a9 9 0 1 1 9 9M3 12V3m0 9h9" />
           </svg>
           <span className="text-[10px] font-bold uppercase tracking-wider">Reset View</span>
@@ -400,6 +427,10 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLButtonElement>(null);
+
+  // Focus trap: traps Tab within modal, restores focus to FAB on close
+  useFocusTrap(modalRef, mobileOpen && !isClosing);
 
   // Animated close handler - play exit animation then unmount
   const handleClose = useCallback(() => {
@@ -408,6 +439,8 @@ export default function OperationsPanel(props: OperationsPanelProps) {
     setTimeout(() => {
       setMobileOpen(false);
       setIsClosing(false);
+      // Restore focus to the FAB trigger
+      fabRef.current?.focus();
     }, 250); // matches modal-exit duration
   }, []);
 
@@ -442,37 +475,38 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   return (
     <>
       {/* ===== DESKTOP: fixed 224px left sidebar (1024px+) ===== */}
-      <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 rounded-br-lg z-50 overflow-y-auto hidden lg:block pointer-events-auto panel-scroll" onWheel={(e) => e.stopPropagation()}>
+      <nav className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 rounded-br-lg z-50 overflow-y-auto hidden lg:block pointer-events-auto panel-scroll" aria-label="Operations panel" onWheel={(e) => e.stopPropagation()}>
         {/* Header with pulsing green indicator */}
         <div className="p-3 border-b border-white/10">
           <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
+            <span aria-hidden="true" className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
             WorldView
           </h1>
         </div>
 
         <PanelContent {...contentProps} />
-      </div>
+      </nav>
 
       {/* ===== MOBILE: FAB + full-screen modal (below 1024px) ===== */}
       <div className="lg:hidden">
         {/* Floating Action Button - bottom-left for easy thumb access */}
         {!mobileOpen && (
           <button
+            ref={fabRef}
             onClick={handleOpen}
             onTouchEnd={(e) => { e.preventDefault(); handleOpen(); }}
-            className="fixed left-4 bottom-12 z-50 w-12 h-12 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg shadow-black/50 active:scale-90 transition-all duration-200 ease-out pointer-events-auto"
-            aria-label="Open operations panel"
+            className={`fixed left-4 bottom-12 z-50 w-12 h-12 rounded-full bg-black/80 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg shadow-black/50 active:scale-90 transition-all duration-200 ease-out pointer-events-auto ${FOCUS_RING}`}
+            aria-label={`Open operations panel${activeLayerCount > 0 ? `, ${activeLayerCount} layers active` : ''}`}
           >
             {/* Stacked bars icon representing layers/controls */}
-            <svg className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg aria-hidden="true" className="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 2L2 7l10 5 10-5-10-5z" />
               <path d="M2 17l10 5 10-5" />
               <path d="M2 12l10 5 10-5" />
             </svg>
             {/* Active layer count badge */}
             {activeLayerCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-green-500 text-black text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              <span aria-hidden="true" className="absolute -top-1 -right-1 bg-green-500 text-black text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                 {activeLayerCount}
               </span>
             )}
@@ -483,6 +517,9 @@ export default function OperationsPanel(props: OperationsPanelProps) {
         {mobileOpen && (
           <div
             ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Operations panel"
             className={`fixed inset-0 z-[60] flex flex-col pointer-events-auto ${isClosing ? 'backdrop-exit' : 'backdrop-enter'}`}
             style={{ backgroundColor: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
           >
@@ -490,16 +527,16 @@ export default function OperationsPanel(props: OperationsPanelProps) {
               {/* Modal header with close button */}
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
                 <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">
-                  <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
+                  <span aria-hidden="true" className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2" />
                   WorldView
                 </h1>
                 <button
                   onClick={handleClose}
                   onTouchEnd={(e) => { e.preventDefault(); handleClose(); }}
-                  className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150"
+                  className={`w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white/60 hover:text-white/90 active:scale-90 transition-all duration-150 ${FOCUS_RING}`}
                   aria-label="Close operations panel"
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>

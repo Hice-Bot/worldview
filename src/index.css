@@ -133,3 +133,23 @@ html, body, #root {
 .backdrop-exit {
   animation: backdrop-fade-out 0.25s ease-out forwards;
 }
+
+/* Focus-visible indicators for keyboard navigation */
+/* Only show focus ring when using keyboard (not mouse clicks) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(0, 212, 255, 0.7);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Enhanced focus ring for modal close/action buttons */
+[role="dialog"] button:focus-visible {
+  outline: 2px solid rgba(0, 212, 255, 0.9);
+  outline-offset: 2px;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
+}
