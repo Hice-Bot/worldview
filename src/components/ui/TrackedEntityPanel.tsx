@@ -171,7 +171,7 @@ export default function TrackedEntityPanel({ entity, onClose }: TrackedEntityPan
   const typeColor = TYPE_COLORS[entity.type] || 'text-white';
 
   return (
-    <div className="fixed left-60 top-4 w-72 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg z-50 p-3">
+    <div className="fixed left-60 top-4 w-72 bg-black/90 backdrop-blur-md border border-white/10 rounded-lg z-50 p-3 pointer-events-auto">
       <div className="flex items-center justify-between mb-2">
         <span className={`text-xs font-bold uppercase tracking-widest ${typeColor}`}>
           {entity.type}{' TRACKING'}

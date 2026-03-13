@@ -82,7 +82,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
   return (
     <>
       {/* Desktop: fixed 288px right panel at top */}
-      <div className="fixed right-0 top-0 w-72 max-h-[50vh] bg-black/85 backdrop-blur-md border-l border-b border-white/10 z-50 hidden lg:flex flex-col">
+      <div className="fixed right-0 top-0 w-72 max-h-[50vh] bg-black/85 backdrop-blur-md border-l border-b border-white/10 z-50 hidden lg:flex flex-col pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2">

@@ -91,7 +91,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   } = props;
 
   return (
-    <div className="fixed left-0 top-0 bottom-0 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 z-50 overflow-y-auto hidden lg:block">
+    <div className="fixed left-0 top-0 bottom-8 w-56 bg-black/80 backdrop-blur-md border-r border-white/10 z-50 overflow-y-auto hidden lg:block pointer-events-auto">
       {/* Header with pulsing green indicator */}
       <div className="p-3 border-b border-white/10">
         <h1 className="text-xs font-bold text-white/80 uppercase tracking-widest flex items-center">

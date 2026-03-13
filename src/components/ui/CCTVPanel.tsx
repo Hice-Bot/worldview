@@ -214,7 +214,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
   return (
     <>
       {/* Desktop panel: fixed 320px right-side panel, below IntelFeed */}
-      <div className="fixed right-0 top-[50vh] bottom-8 w-80 bg-black/80 backdrop-blur-md border-l border-white/10 z-50 overflow-hidden hidden lg:flex lg:flex-col">
+      <div className="fixed right-0 top-[50vh] bottom-8 w-80 bg-black/80 backdrop-blur-md border-l border-white/10 z-50 overflow-hidden hidden lg:flex lg:flex-col pointer-events-auto">
         {panelContent}
       </div>
 
