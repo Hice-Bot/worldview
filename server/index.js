@@ -208,18 +208,71 @@ app.get('/api/satellites', async (req, res) => {
 app.get('/api/traffic/roads', async (req, res) => {
   try {
     const { south, west, north, east } = req.query;
-    const cacheKey = `traffic_${south}_${west}_${north}_${east}`;
-    const cached = cache.get(cacheKey);
-    if (cached) return res.json(cached);
 
+    // --- BBOX PARAMETER VALIDATION ---
+
+    // If any bbox params missing, return Sydney CBD fallback
     if (!south || !west || !north || !east) {
-      // Return Sydney CBD fallback data
+      const fallbackKey = 'traffic_fallback_sydney';
+      const cached = cache.get(fallbackKey);
+      if (cached) return res.json(cached);
       const { sydneyRoads } = await import('./data/sydneyRoads.js');
-      cache.set(cacheKey, sydneyRoads, 86400);
+      cache.set(fallbackKey, sydneyRoads, 86400);
       return res.json(sydneyRoads);
     }
 
-    const query = `[out:json][timeout:15];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential)$"](${south},${west},${north},${east});out geom;`;
+    // Parse to numbers and validate
+    let s = parseFloat(south);
+    let w = parseFloat(west);
+    let n = parseFloat(north);
+    let e = parseFloat(east);
+
+    // Check for NaN (non-numeric input)
+    if (isNaN(s) || isNaN(w) || isNaN(n) || isNaN(e)) {
+      return res.status(400).json({
+        error: 'Invalid bounding box coordinates. All values must be numeric.',
+        params: { south, west, north, east },
+      });
+    }
+
+    // Clamp to valid geographic ranges
+    s = Math.max(-90, Math.min(90, s));
+    n = Math.max(-90, Math.min(90, n));
+    w = Math.max(-180, Math.min(180, w));
+    e = Math.max(-180, Math.min(180, e));
+
+    // Ensure south < north (swap if inverted)
+    if (s > n) {
+      [s, n] = [n, s];
+    }
+
+    // Ensure west < east (swap if inverted, unless it's a wrap-around)
+    if (w > e) {
+      [w, e] = [e, w];
+    }
+
+    // Clamp extremely large bounding boxes to max ~2 degrees span
+    // to prevent overloading Overpass API
+    const MAX_BBOX_SPAN = 2.0; // degrees
+    const latSpan = n - s;
+    const lonSpan = e - w;
+
+    if (latSpan > MAX_BBOX_SPAN) {
+      const mid = (s + n) / 2;
+      s = mid - MAX_BBOX_SPAN / 2;
+      n = mid + MAX_BBOX_SPAN / 2;
+    }
+    if (lonSpan > MAX_BBOX_SPAN) {
+      const mid = (w + e) / 2;
+      w = mid - MAX_BBOX_SPAN / 2;
+      e = mid + MAX_BBOX_SPAN / 2;
+    }
+
+    const cacheKey = `traffic_${s}_${w}_${n}_${e}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return res.json(cached);
+
+    const query = `[out:json][timeout:15];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|residential)$"](${s},${w},${n},${e});out geom;`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
