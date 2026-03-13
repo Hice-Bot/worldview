@@ -1,7 +1,11 @@
 const { chromium } = require('playwright');
 
 (async () => {
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    channel: 'chromium',
+    executablePath: '/home/jef/.cache/ms-playwright/chromium-1212/chrome-linux64/chrome',
+  });
   const page = await browser.newPage();
 
   const errors = [];
