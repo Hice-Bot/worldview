@@ -1,5 +1,51 @@
 ## WorldView Development Progress
 
+### Session 35 - 2026-03-13
+
+#### Completed Features:
+- Feature #88: Full CCTV browsing and fly-to workflow (PASSING)
+  - Complete workflow verified: enable CCTV → browse panel → select camera → fly to
+  - Enhanced FLY TO LOCATION with street-level directional offset (200m altitude)
+  - Compass direction-based heading: camera.direction → heading angle → position offset
+  - Position offset ~100m behind camera facing direction for cinematic view
+  - Globe camera orientation: heading from direction, -25° pitch for street view
+  - Mobile: panel auto-minimizes after flight (setMobileOpen(false))
+  - API verified: 1,869 cameras (884 GB, 985 US), image proxy working, real coordinates
+
+- Feature #90: Layer enable-fetch-render-disable cycle for flights (PASSING)
+  - Full lifecycle verified: enable → fetch → render → disable → cleanup → re-enable
+  - useFlights hook: clears flights array when disabled, stops polling via clearTimeout
+  - FlightLayer cleanup: removes all 4 collections (Billboard, Label, Trail PolylineCollection, Route PolylineCollection)
+  - preRender listener properly removed on unmount
+  - Conditional rendering: {props.layers.flights && <FlightLayer .../>}
+  - 20s polling with exponential backoff, 4,362 real aircraft from upstream API
+
+- Feature #91: Layer enable-fetch-render-disable cycle for satellites (PASSING)
+  - Full lifecycle verified: enable → TLE fetch → SGP4 parse → propagation → disable → cleanup → re-enable
+  - useSatellites hook: clears satellites when disabled, stops polling
+  - SatelliteLayer cleanup: clears propagation interval (5Hz), orbit interval (30s), removes all entities
+  - 40 real satellites from CelesTrak, ISS (ZARYA) NORAD 25544 confirmed
+  - Valid TLE format (1/2 prefix), real NORAD IDs, categories present
+
+#### Modified Files:
+- src/App.tsx — Enhanced CCTV FLY TO handler with directional offset
+  - Computes heading from camera.direction compass string
+  - Street-level altitude (200m) with -25° pitch
+  - Position offset behind camera facing direction
+  - Clears tracked entity before flying
+
+#### Current Status:
+- 102/205 features passing (49.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with remaining workflow completeness features
+- Layer enable-fetch-render-disable cycles for other layers (earthquakes, traffic, ships, CCTV)
+- Additional UI component features
+
 ### Session 34 - 2026-03-13
 
 #### Completed Features:
