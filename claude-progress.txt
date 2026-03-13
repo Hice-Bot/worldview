@@ -1,5 +1,29 @@
 ## WorldView Development Progress
 
+### Session 41 - 2026-03-13
+
+#### Completed Features:
+- Feature #109: Satellite filter states persist during session (PASSING)
+  - ISS/Other category filters retain their state across layer toggle off/on
+  - Orbit paths toggle retains its state across layer toggle off/on
+  - Filter states passed correctly: App.tsx (useState) → OperationsPanel (UI) → GlobeViewer → SatelliteLayer (rendering)
+  - satelliteFilters state in App.tsx never reset by toggleLayer (only flight filters reset per Feature #108)
+  - setSatelliteFilters only appears in useState declaration + prop passing — no unexpected resets
+  - SatelliteLayer uses filters.iss, filters.other, filters.showPaths to control entity creation and orbit path rendering
+  - Verified with 45-point automated test covering type definitions, state management, prop chain, and API data
+  - No mock data patterns found in src/ or server/
+  - 56 modules compile and build successfully
+
+#### Current Status:
+- 113/205 features passing (55.1%)
+- Express proxy server: running on port 3001
+- Vite dev server: running on port 5173
+- Browser automation unavailable in sandbox (missing system libraries for Chromium/Firefox)
+
+#### What's Next:
+- Continue with remaining State & Persistence features
+- Other layer filter persistence features
+
 ### Session 40 - 2026-03-13
 
 #### Completed Features:
