@@ -1,5 +1,34 @@
 ## WorldView Development Progress
 
+### Session 56 - 2026-03-13
+
+#### Completed Features:
+- Feature #150: Flight count change generates intel event (PASSING)
+  - Changed airborne count threshold from 100 to 50 per spec
+  - Filters by onGround field to count airborne aircraft only
+  - Shows direction (INCREASED/DECREASED) and count delta in event message
+  - Format: HH:MM:SS | [ACFT] | AIRBORNE COUNT INCREASED BY X — Y AIRCRAFT
+
+- Feature #151: CCTV camera status changes generate events (PASSING)
+  - Added prevCctvAvailRef to track per-camera availability between refreshes
+  - Detects cameras coming online (available: false→true) and going offline (true→false)
+  - Fires CCTV intel events: "X CAMERAS CAME ONLINE" / "X CAMERAS WENT OFFLINE"
+  - Initial load reports online count with country breakdown
+
+- Feature #152: Loading indicators on layer toggles (PASSING)
+  - Added layerErrors aggregation from all 6 hook error states
+  - Error state: red pulsing dot + "ERROR" text + red-tinted border
+  - Loading state: colored pulsing dot + "LOADING" text
+  - Each of 6 layers has independent loading/error state
+  - layerErrors prop passed from App.tsx to OperationsPanel
+
+#### Current Status:
+- 159/205 features passing (77.6%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- All 3 assigned features completed and marked passing
+
 ### Session 55 - 2026-03-13
 
 #### Completed Features:
