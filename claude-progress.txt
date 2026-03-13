@@ -1,5 +1,47 @@
 ## WorldView Development Progress
 
+### Session 42 - 2026-03-13
+
+#### Completed Features:
+- Feature #115: Rapid layer toggling doesn't crash (PASSING)
+  - Added `cancelled` flag pattern to all 5 polling hooks (useFlights, useSatellites, useEarthquakes, useShips, useCameras)
+  - Prevents zombie timeouts when poll() promise resolves after effect cleanup
+  - All layer components verified: initRef guards, primitive removal, preRender cleanup
+  - TrafficLayer cancelAnimationFrame, SatelliteLayer clearInterval, FlightLayer/ShipLayer preRender removal
+  - 26/26 rapid toggling safety tests passing
+
+- Feature #116: Multiple entity clicks handled correctly (PASSING)
+  - clearTrackingEntity() called before creating new tracking for all entity types (billboard, Cesium entity, CCTV)
+  - Single trackingEntityRef ensures only one entity tracked at a time
+  - Double-click guard with 300ms debounce prevents duplicate tracking
+  - ESC key and empty-space click both properly clear all tracking state
+  - TrackingManager singleton validates entity identity before position updates
+  - 21/21 entity click handling tests passing
+
+- Feature #117: Concurrent data fetches don't crash (PASSING)
+  - All 7 hooks use independent useState/useRef (no shared mutable state between hooks)
+  - Server handles 6 concurrent API requests (flights: 4024, earthquakes: 40, CCTV: 31+ cameras)
+  - NodeCache for concurrent-safe caching, unhandledRejection/uncaughtException handlers
+  - Each layer component renders independently with own data props
+  - 45/45 concurrency tests passing
+
+#### Key Code Changes:
+- src/hooks/useFlights.ts — Added cancelled flag to prevent zombie polls
+- src/hooks/useSatellites.ts — Added cancelled flag to prevent zombie polls
+- src/hooks/useEarthquakes.ts — Added cancelled flag to prevent zombie polls
+- src/hooks/useShips.ts — Added cancelled flag to prevent zombie polls
+- src/hooks/useCameras.ts — Added cancelled flag to prevent zombie polls
+
+#### Current Status:
+- 119/205 features passing (58.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- Production build succeeds (56 modules, 367KB JS)
+
+#### What's Next:
+- Continue with remaining Double-Action & Idempotency features
+- Additional data layer features and UI improvements
+
 ### Session 41 - 2026-03-13
 
 #### Completed Features:
