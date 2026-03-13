@@ -1,5 +1,35 @@
 ## WorldView Development Progress
 
+### Session 36 - 2026-03-13
+
+#### Completed Features:
+- Feature #92: Layer enable-fetch-render-disable cycle for earthquakes (PASSING)
+  - Full lifecycle verified via code analysis and API testing:
+  - ENABLE: OperationsPanel "Seismic" toggle → layers.earthquakes=true → useEarthquakes(true) activates
+  - FETCH: Hook immediately calls /api/earthquakes → Express proxy fetches from earthquake.usgs.gov
+  - RENDER: EarthquakeLayer creates PointPrimitiveCollection with M2.5+ quakes (magnitude-based colors/sizes)
+  - PULSING: scene.preRender listener drives sinusoidal pulsing animation (per-quake phase offsets)
+  - POLLING: Recursive setTimeout with 60s interval, exponential backoff on errors (caps at 2min)
+  - DISABLE: Toggle again → layers.earthquakes=false → useEarthquakes cleanup clears timeout + empties array
+  - CLEANUP: Component unmounts (conditional render), removes PointPrimitiveCollection + LabelCollection from scene
+  - ANIMATION STOP: preRender event listener removed, preRenderRef nulled
+  - Labels for M4.5+ events with magnitude and USGS place description
+  - API verified: 33 real earthquakes from live USGS feed (count changed between requests)
+  - No mock data patterns found in src/ or server/
+  - Vite build succeeds: 56 modules, no errors
+
+#### Current Status:
+- 103/205 features passing (50.2%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with remaining workflow completeness features
+- Layer enable-fetch-render-disable cycles for traffic, ships, CCTV
+- Additional UI component features
+
 ### Session 35 - 2026-03-13
 
 #### Completed Features:
