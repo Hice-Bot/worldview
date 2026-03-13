@@ -1,5 +1,54 @@
 ## WorldView Development Progress
 
+### Session 33 - 2026-03-13
+
+#### Completed Features:
+- Feature #81: CCTV lock-on with directional offset (PASSING)
+  - Selecting CCTV camera creates temporary Cesium Entity at camera coordinates
+  - ViewFrom offset calculated from camera's compass direction (N/S/E/W/NE/NW/SE/SW)
+  - East-facing camera offsets heading by 90 degrees for cinematic street-level view
+  - Street-level tracking at 150m distance, 80m elevation
+  - Server enhanced: extractCompassDirection() parses TfL view/name fields for compass data
+  - 644/1869 cameras now have compass direction data
+  - Unlock via ESC or empty space click removes temporary tracking entity
+
+- Feature #83: Camera lock-on with type-specific viewFrom offsets (PASSING)
+  - Satellite: (0, -500000, 500000) ~700km
+  - Aircraft: (0, -30000, 30000) ~42km
+  - Ship: (0, -1200, 2100) ~2.4km
+  - Earthquake: (0, -200000, 200000) ~280km
+  - CCTV: (0, -150, 80) ~170m default (overridden by directional offset)
+  - Already implemented in previous sessions, verified and marked passing
+
+- Feature #84: Full entity track-untrack cycle for aircraft (PASSING)
+  - Complete workflow verified: click → track → view details → follow → untrack
+  - TrackedEntityPanel upgraded with type-specific detail views:
+    - Aircraft: callsign, ICAO24, altitude, speed, heading, vertical rate, route
+    - Ship: MMSI, IMO, call sign, SOG, COG, heading, destination
+    - Satellite: NORAD ID, group/category
+    - Earthquake: magnitude, depth, location, time
+    - Color-coded type badges (cyan/lime/blue/orange/amber)
+  - Camera follows with dead reckoning in real-time via trackingManager
+  - ESC and empty-space click properly untrack, camera position preserved
+  - Aircraft returns to normal billboard scale when untracked
+
+#### Modified Files:
+- server/index.js — Added extractCompassDirection() helper, updated TfL direction extraction
+- src/components/globe/EntityClickHandler.tsx — CCTV lock-on with directional offset, street-level tracking
+- src/components/ui/TrackedEntityPanel.tsx — Type-specific detail views (aircraft/satellite/ship/earthquake)
+
+#### Current Status:
+- 96/205 features passing (46.8%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+- No mock data patterns in src/ or server/
+
+#### What's Next:
+- Continue with remaining features
+- More entity tracking workflows (ships, satellites, earthquakes)
+- Additional UI polish and performance features
+
 ### Session 32 - 2026-03-06
 
 #### Completed Features:
