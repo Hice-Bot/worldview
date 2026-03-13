@@ -16,6 +16,7 @@ import {
 } from 'cesium';
 import * as satellite from 'satellite.js';
 import type { SatelliteData, SatelliteFilters } from '../../types';
+import { updateOccluderCamera, isOccluded } from '../../occlusion';
 
 interface SatelliteLayerProps {
   satellites: SatelliteData[];
@@ -28,8 +29,8 @@ const ISS_COLOR = Color.fromCssColorString('#00D4FF');
 const OTHER_COLOR = Color.fromCssColorString('#39FF14');
 const POSITION_UPDATE_MS = 200; // 5Hz
 const ORBIT_UPDATE_MS = 30000; // 30s
-// Earth radius used for occlusion calculations (meters)
-// const EARTH_RADIUS = 6371000;
+const FRAME_BUDGET_MS = 12; // Max ms for propagation per frame (leaves headroom for 60fps)
+const ORBIT_CHUNK_SIZE = 5; // Satellites per orbit computation chunk (non-blocking)
 
 // ---------- Canvas satellite icon ----------
 // 32x32: diamond body + dual solar panels with grid detail + directional arrow tip
@@ -158,25 +159,12 @@ function computeBearing(
   return Math.atan2(y, x);
 }
 
-// Far-side occlusion check: is the satellite visible from the camera?
-// Uses dot product to check if point is on the visible hemisphere
-function isVisibleFromCamera(satCartesian: Cartesian3, cameraPosition: Cartesian3): boolean {
-  // Vector from Earth center to satellite
-  const toSat = Cartesian3.normalize(satCartesian, new Cartesian3());
-  // Vector from Earth center to camera
-  const toCam = Cartesian3.normalize(cameraPosition, new Cartesian3());
-  // If dot product > 0, both are on the same hemisphere
-  const dot = Cartesian3.dot(toSat, toCam);
-  // Use a threshold slightly below 0 to include satellites near the horizon
-  return dot > -0.1;
-}
-
 /**
  * SatelliteLayer - Client-side orbital propagation using satellite.js
  * Parses TLE data, computes positions via SGP4/SDP4, renders as Cesium Entity components.
  * Two propagation cycles: orbit paths (30s), current positions (5Hz / 200ms).
  * Canvas-drawn icons with rotation by bearing.
- * Far-side satellites hidden via dot-product occlusion check.
+ * Far-side satellites hidden via EllipsoidalOccluder horizon culling.
  */
 export default function SatelliteLayer({ satellites, filters }: SatelliteLayerProps) {
   const { viewer } = useCesium();
@@ -204,9 +192,10 @@ export default function SatelliteLayer({ satellites, filters }: SatelliteLayerPr
     return satrecMap;
   }, [satellites]);
 
-  // Propagate all satellites to current time
+  // Propagate all satellites to current time with frame budget awareness
   const propagateAll = useCallback(() => {
     const now = new Date();
+    const startTime = performance.now();
     const positions = new Map<number, { lon: number; lat: number; altKm: number; bearing: number }>();
 
     for (const sat of satellites) {
@@ -218,6 +207,17 @@ export default function SatelliteLayer({ satellites, filters }: SatelliteLayerPr
 
       const bearing = computeBearing(satrec, now);
       positions.set(sat.noradId, { ...pos, bearing });
+
+      // Check frame budget - if over budget, keep existing positions for remaining sats
+      if (performance.now() - startTime > FRAME_BUDGET_MS) {
+        // Carry forward previous positions for satellites not yet computed
+        for (const [noradId, prevPos] of positionsRef.current) {
+          if (!positions.has(noradId)) {
+            positions.set(noradId, prevPos);
+          }
+        }
+        break;
+      }
     }
 
     positionsRef.current = positions;
@@ -225,86 +225,122 @@ export default function SatelliteLayer({ satellites, filters }: SatelliteLayerPr
   }, [satellites]);
 
   // Compute orbit paths (90 future positions at 1-minute intervals)
+  // Uses chunked computation to avoid blocking UI thread
+  const orbitChunkAbortRef = useRef<boolean>(false);
+
   const computeOrbitPaths = useCallback(() => {
     if (!viewer || viewer.isDestroyed()) return;
     if (!filters.showPaths) return;
 
+    // Abort any in-flight chunked computation
+    orbitChunkAbortRef.current = true;
+
     // Remove old orbit entities
     for (const entity of orbitEntitiesRef.current) {
-      viewer.entities.remove(entity);
+      if (viewer && !viewer.isDestroyed()) {
+        viewer.entities.remove(entity);
+      }
     }
     orbitEntitiesRef.current = [];
 
     const now = new Date();
 
-    for (const sat of satellites) {
+    // Filter satellites to compute orbits for
+    const satsToCompute = satellites.filter(sat => {
       const isISS = sat.noradId === ISS_NORAD;
-      if (isISS && !filters.iss) continue;
-      if (!isISS && !filters.other) continue;
+      if (isISS && !filters.iss) return false;
+      if (!isISS && !filters.other) return false;
+      return satrecsRef.current.has(sat.noradId);
+    });
 
-      const satrec = satrecsRef.current.get(sat.noradId);
-      if (!satrec) continue;
+    // Process satellites in chunks to avoid blocking UI
+    let chunkIndex = 0;
+    orbitChunkAbortRef.current = false;
 
-      const orbitPositions: Cartesian3[] = [];
-      const groundPositions: Cartesian3[] = [];
+    const processChunk = () => {
+      if (orbitChunkAbortRef.current) return;
+      if (!viewer || viewer.isDestroyed()) return;
 
-      for (let i = 0; i < 90; i++) {
-        const t = new Date(now.getTime() + i * 60000);
-        const pos = propagateSat(satrec, t);
-        if (!pos) continue;
-        orbitPositions.push(Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000));
-        groundPositions.push(Cartesian3.fromDegrees(pos.lon, pos.lat, 0));
-      }
+      const chunkEnd = Math.min(chunkIndex + ORBIT_CHUNK_SIZE, satsToCompute.length);
 
-      if (orbitPositions.length < 2) continue;
+      for (let si = chunkIndex; si < chunkEnd; si++) {
+        const sat = satsToCompute[si];
+        if (!sat) continue;
+        const isISS = sat.noradId === ISS_NORAD;
+        const satrec = satrecsRef.current.get(sat.noradId);
+        if (!satrec) continue;
 
-      const satColor = isISS ? ISS_COLOR : OTHER_COLOR;
-      const pathWidth = isISS ? 3 : 2;
+        const orbitPositions: Cartesian3[] = [];
+        const groundPositions: Cartesian3[] = [];
 
-      // Orbit path (solid polyline at satellite altitude)
-      const orbitEntity = viewer.entities.add({
-        polyline: {
-          positions: orbitPositions,
-          width: pathWidth,
-          material: satColor.withAlpha(0.6),
-          clampToGround: false,
-        },
-        id: `sat_orbit_${sat.noradId}`,
-      } as Entity.ConstructorOptions);
-      orbitEntitiesRef.current.push(orbitEntity);
+        for (let i = 0; i < 90; i++) {
+          const t = new Date(now.getTime() + i * 60000);
+          const pos = propagateSat(satrec, t);
+          if (!pos) continue;
+          orbitPositions.push(Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000));
+          groundPositions.push(Cartesian3.fromDegrees(pos.lon, pos.lat, 0));
+        }
 
-      // Ground track (dashed polyline on surface)
-      const groundEntity = viewer.entities.add({
-        polyline: {
-          positions: groundPositions,
-          width: 1,
-          material: new PolylineDashMaterialProperty({
-            color: satColor.withAlpha(0.3),
-            dashLength: 8,
-          }),
-          clampToGround: true,
-        },
-        id: `sat_ground_${sat.noradId}`,
-      } as Entity.ConstructorOptions);
-      orbitEntitiesRef.current.push(groundEntity);
+        if (orbitPositions.length < 2) continue;
 
-      // Nadir line (semi-transparent vertical from satellite to ground)
-      const curPos = positionsRef.current.get(sat.noradId);
-      if (curPos) {
-        const nadirEntity = viewer.entities.add({
+        const satColor = isISS ? ISS_COLOR : OTHER_COLOR;
+        const pathWidth = isISS ? 3 : 2;
+
+        // Orbit path (solid polyline at satellite altitude)
+        const orbitEntity = viewer.entities.add({
           polyline: {
-            positions: [
-              Cartesian3.fromDegrees(curPos.lon, curPos.lat, curPos.altKm * 1000),
-              Cartesian3.fromDegrees(curPos.lon, curPos.lat, 0),
-            ],
-            width: 1,
-            material: satColor.withAlpha(0.15),
+            positions: orbitPositions,
+            width: pathWidth,
+            material: satColor.withAlpha(0.6),
+            clampToGround: false,
           },
-          id: `sat_nadir_${sat.noradId}`,
+          id: `sat_orbit_${sat.noradId}`,
         } as Entity.ConstructorOptions);
-        orbitEntitiesRef.current.push(nadirEntity);
+        orbitEntitiesRef.current.push(orbitEntity);
+
+        // Ground track (dashed polyline on surface)
+        const groundEntity = viewer.entities.add({
+          polyline: {
+            positions: groundPositions,
+            width: 1,
+            material: new PolylineDashMaterialProperty({
+              color: satColor.withAlpha(0.3),
+              dashLength: 8,
+            }),
+            clampToGround: true,
+          },
+          id: `sat_ground_${sat.noradId}`,
+        } as Entity.ConstructorOptions);
+        orbitEntitiesRef.current.push(groundEntity);
+
+        // Nadir line (semi-transparent vertical from satellite to ground)
+        const curPos = positionsRef.current.get(sat.noradId);
+        if (curPos) {
+          const nadirEntity = viewer.entities.add({
+            polyline: {
+              positions: [
+                Cartesian3.fromDegrees(curPos.lon, curPos.lat, curPos.altKm * 1000),
+                Cartesian3.fromDegrees(curPos.lon, curPos.lat, 0),
+              ],
+              width: 1,
+              material: satColor.withAlpha(0.15),
+            },
+            id: `sat_nadir_${sat.noradId}`,
+          } as Entity.ConstructorOptions);
+          orbitEntitiesRef.current.push(nadirEntity);
+        }
       }
-    }
+
+      chunkIndex = chunkEnd;
+
+      // Schedule next chunk if more satellites remain
+      if (chunkIndex < satsToCompute.length && !orbitChunkAbortRef.current) {
+        requestAnimationFrame(processChunk);
+      }
+    };
+
+    // Start first chunk on next frame to avoid blocking current frame
+    requestAnimationFrame(processChunk);
   }, [viewer, satellites, filters]);
 
   // Main setup effect
@@ -314,6 +350,20 @@ export default function SatelliteLayer({ satellites, filters }: SatelliteLayerPr
 
     // Parse TLEs
     parseTLEs();
+
+    // Build set of current satellite NORAD IDs for stale detection
+    const currentNoradIds = new Set(satellites.map(s => s.noradId));
+
+    // Prune stale satellites: remove entities for satellites no longer in TLE list
+    for (const [noradId, entity] of entitiesRef.current) {
+      if (!currentNoradIds.has(noradId)) {
+        if (viewer && !viewer.isDestroyed()) {
+          viewer.entities.remove(entity);
+        }
+        entitiesRef.current.delete(noradId);
+        positionsRef.current.delete(noradId);
+      }
+    }
 
     // Initial propagation
     const positions = propagateAll();
@@ -380,39 +430,44 @@ export default function SatelliteLayer({ satellites, filters }: SatelliteLayerPr
 
     entitiesRef.current = entityMap;
 
-    // Start 5Hz position propagation
+    // Start 5Hz position propagation using setInterval + requestAnimationFrame
+    // setInterval ensures consistent 200ms cadence; rAF defers work to next paint
+    // to avoid blocking the rendering pipeline
     propagationIntervalRef.current = setInterval(() => {
-      if (!viewer || viewer.isDestroyed()) return;
+      requestAnimationFrame(() => {
+        if (!viewer || viewer.isDestroyed()) return;
 
-      const newPositions = propagateAll();
-      const cameraPos = viewer.camera.positionWC;
+        const newPositions = propagateAll();
+        // Update occluder camera position once per propagation batch
+        updateOccluderCamera(viewer.camera.positionWC);
 
-      for (const [noradId, entity] of entityMap) {
-        const pos = newPositions.get(noradId);
-        if (!pos) {
-          entity.show = false;
-          continue;
+        for (const [noradId, entity] of entityMap) {
+          const pos = newPositions.get(noradId);
+          if (!pos) {
+            entity.show = false;
+            continue;
+          }
+
+          const cartesian = Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000);
+
+          // Far-side occlusion check using EllipsoidalOccluder
+          const visible = !isOccluded(cartesian);
+          entity.show = visible;
+
+          if (!visible) continue;
+
+          // Update position
+          (entity as any).position = new ConstantPositionProperty(cartesian);
+
+          // Update billboard rotation
+          if (entity.billboard) {
+            (entity.billboard.rotation as any) = new ConstantProperty(-pos.bearing);
+          }
         }
-
-        const cartesian = Cartesian3.fromDegrees(pos.lon, pos.lat, pos.altKm * 1000);
-
-        // Far-side occlusion check
-        const visible = isVisibleFromCamera(cartesian, cameraPos);
-        entity.show = visible;
-
-        if (!visible) continue;
-
-        // Update position
-        (entity as any).position = new ConstantPositionProperty(cartesian);
-
-        // Update billboard rotation
-        if (entity.billboard) {
-          (entity.billboard.rotation as any) = new ConstantProperty(-pos.bearing);
-        }
-      }
+      });
     }, POSITION_UPDATE_MS);
 
-    // Start 30s orbit path computation
+    // Start 30s orbit path computation (chunked to avoid UI blocking)
     if (filters.showPaths) {
       computeOrbitPaths();
       orbitIntervalRef.current = setInterval(computeOrbitPaths, ORBIT_UPDATE_MS);
@@ -420,6 +475,9 @@ export default function SatelliteLayer({ satellites, filters }: SatelliteLayerPr
 
     // Cleanup
     return () => {
+      // Abort any in-flight chunked orbit computation
+      orbitChunkAbortRef.current = true;
+
       if (propagationIntervalRef.current) {
         clearInterval(propagationIntervalRef.current);
         propagationIntervalRef.current = null;

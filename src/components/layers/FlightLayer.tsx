@@ -22,6 +22,7 @@ import {
 import type { FlightData, AltitudeFilters, TrackedEntityInfo } from '../../types';
 import { trackingManager } from '../../trackingManager';
 import { findAirport } from '../../data/airports';
+import { updateOccluderCamera, isOccluded as checkOccluded } from '../../occlusion';
 
 interface FlightLayerProps {
   flights: FlightData[];
@@ -294,7 +295,7 @@ interface FlightEntry {
  * PolylineCollection x2: one for heading trails, one for great-circle route arcs.
  * Dead reckoning interpolation: tracked aircraft update every frame, others every 1s.
  * Altitude band coloring: Cruise=cyan, High=light blue, Mid=gold, Low=orange, Ground=red.
- * Far-side occlusion via dot-product hemisphere check.
+ * Far-side occlusion via EllipsoidalOccluder horizon culling.
  */
 export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, trackedEntity }: FlightLayerProps) {
   const { viewer } = useCesium();
@@ -357,12 +358,11 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
   }, [viewer]);
 
   // Occlusion check: is position on the far side of the globe?
+  // Uses EllipsoidalOccluder for accurate horizon culling
   const isOccluded = useCallback((position: Cartesian3): boolean => {
     if (!viewer) return false;
-    const cameraPos = viewer.camera.positionWC;
-    const camNorm = Cartesian3.normalize(cameraPos, _scratchCamNorm);
-    const posNorm = Cartesian3.normalize(position, _scratchPosNorm);
-    return Cartesian3.dot(camNorm, posNorm) < -0.1;
+    updateOccluderCamera(viewer.camera.positionWC);
+    return checkOccluded(position);
   }, [viewer]);
 
   // Update billboards/labels/polylines when flight data or filters change
@@ -810,6 +810,4 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
   return null;
 }
 
-// Scratch Cartesian3 objects to avoid allocations in hot path
-const _scratchCamNorm = new Cartesian3();
-const _scratchPosNorm = new Cartesian3();
+// (Scratch vectors for occlusion removed — now using shared EllipsoidalOccluder)

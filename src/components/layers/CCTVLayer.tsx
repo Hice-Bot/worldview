@@ -13,6 +13,7 @@ import {
   Label,
 } from 'cesium';
 import type { CameraData } from '../../types';
+import { updateOccluderCamera, isOccluded as checkOccluded } from '../../occlusion';
 
 interface CCTVLayerProps {
   cameras: CameraData[];
@@ -119,9 +120,7 @@ interface CameraEntry {
   position: Cartesian3;
 }
 
-// Scratch vectors for occlusion
-const _scratchCamNorm = new Cartesian3();
-const _scratchPosNorm = new Cartesian3();
+// (Scratch vectors for occlusion removed — now using shared EllipsoidalOccluder)
 
 /**
  * CCTVLayer - Renders CCTV camera locations on the globe using imperative
@@ -172,12 +171,11 @@ export default function CCTVLayer({ cameras, selectedCamera }: CCTVLayerProps) {
   }, [viewer]);
 
   // Occlusion check: is position on the far side of the globe?
+  // Uses EllipsoidalOccluder for accurate horizon culling
   const isOccluded = useCallback((position: Cartesian3): boolean => {
     if (!viewer) return false;
-    const cameraPos = viewer.camera.positionWC;
-    const camNorm = Cartesian3.normalize(cameraPos, _scratchCamNorm);
-    const posNorm = Cartesian3.normalize(position, _scratchPosNorm);
-    return Cartesian3.dot(camNorm, posNorm) < -0.1;
+    updateOccluderCamera(viewer.camera.positionWC);
+    return checkOccluded(position);
   }, [viewer]);
 
   // Distance-based scaling: 1.2x at 5km to 0.4x at 500km

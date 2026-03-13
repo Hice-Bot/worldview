@@ -18,6 +18,7 @@ import {
 } from 'cesium';
 import type { ShipData, TrackedEntityInfo } from '../../types';
 import { trackingManager } from '../../trackingManager';
+import { updateOccluderCamera, isOccluded as checkOccluded } from '../../occlusion';
 
 interface ShipLayerProps {
   ships: ShipData[];
@@ -217,16 +218,14 @@ function generateTrailPositions(
   return positions;
 }
 
-// Scratch Cartesian3 for occlusion checks
-const _scratchCamNorm = new Cartesian3();
-const _scratchPosNorm = new Cartesian3();
+// (Scratch vectors for occlusion removed — now using shared EllipsoidalOccluder)
 
 /**
  * ShipLayer - AIS vessel tracking via imperative Cesium primitive collections.
  * BillboardCollection + LabelCollection + PolylineCollection.
  * Dead reckoning interpolation: tracked vessel every frame, others every 2s.
  * Color by AIS ship type code.
- * Far-side occlusion via dot-product hemisphere check.
+ * Far-side occlusion via EllipsoidalOccluder horizon culling.
  */
 export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
   const { viewer } = useCesium();
@@ -281,12 +280,11 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
   }, [viewer]);
 
   // Occlusion check: is position on the far side of the globe?
+  // Uses EllipsoidalOccluder for accurate horizon culling
   const isOccluded = useCallback((position: Cartesian3): boolean => {
     if (!viewer) return false;
-    const cameraPos = viewer.camera.positionWC;
-    const camNorm = Cartesian3.normalize(cameraPos, _scratchCamNorm);
-    const posNorm = Cartesian3.normalize(position, _scratchPosNorm);
-    return Cartesian3.dot(camNorm, posNorm) < -0.1;
+    updateOccluderCamera(viewer.camera.positionWC);
+    return checkOccluded(position);
   }, [viewer]);
 
   // Update billboards/labels/trails when ship data changes
