@@ -108,6 +108,13 @@ app.get('/api/earthquakes', async (_req, res) => {
 
     const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
     const data = await response.json();
+
+    // Validate GeoJSON format
+    if (!data || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+      console.error('[SEIS] Validation failed: upstream response is not valid GeoJSON FeatureCollection');
+      return res.status(502).json({ error: 'Upstream earthquake data is not valid GeoJSON' });
+    }
+
     cache.set('earthquakes', data, 60); // 60s TTL
     res.json(data);
   } catch (error) {
