@@ -1,5 +1,34 @@
 ## WorldView Development Progress
 
+### Session 71 - 2026-03-13
+
+#### Completed Features:
+- Feature #197: Satellite propagation performance (PASSING)
+  - Frame budget awareness (12ms) with carry-forward for remaining satellites when over budget
+  - Chunked orbit path computation (5 satellites per frame) via requestAnimationFrame
+  - Stale satellite pruning on TLE list change (removes entities for removed NORAD IDs)
+  - Position updates deferred to requestAnimationFrame inside setInterval for non-blocking rendering
+  - Switched to centralized EllipsoidalOccluder for accurate horizon culling
+
+- Feature #198: Ship layer BillboardCollection performance (PASSING)
+  - Already fully implemented with BillboardCollection + LabelCollection + PolylineCollection
+  - MMSI-keyed Map for O(1) incremental updates
+  - Dead reckoning: tracked vessel every frame, others every 2s bulk, occlusion at 2Hz
+  - Stale ship pruning via currentIds set diffing
+  - Real AIS data with hundreds of vessels (3MB+ response)
+
+- Feature #199: CCTV image lazy loading (PASSING)
+  - loading="lazy" on all 3 img elements (desktop preview, mobile preview, thumbnails)
+  - Images below fold defer loading until scrolled into view
+  - Proxied through /api/cctv/image for CORS bypass, browser-cacheable URLs
+  - SIGNAL LOST fallback on image load failure (onError handler)
+  - 1,869 real cameras from TfL + Austin APIs
+
+#### Current Status:
+- 203/205 features passing (99.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+
 ### Session 70 - 2026-03-13
 
 #### Completed Features:
