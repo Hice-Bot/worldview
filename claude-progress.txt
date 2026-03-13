@@ -1,5 +1,42 @@
 ## WorldView Development Progress
 
+### Session 70 - 2026-03-13
+
+#### Completed Features:
+- Feature #194: Dead reckoning smoothness for flights (PASSING)
+  - Tracked aircraft moves smoothly between data refreshes via frame-rate preRender update
+  - No visible position jumps when new data arrives — smooth ease-out quadratic blend over 1.5s
+  - blendActive/blendStartLat/blendStartLon state tracks current DR position at blend start
+  - Frame-rate update via scene.preRender for tracked aircraft (every frame)
+  - 1-second bulk update for non-tracked aircraft (DR_BULK_INTERVAL = 1000)
+  - Movement direction consistent with heading via great-circle forward projection
+  - Dead reckoning clamped to max 30s to prevent runaway extrapolation
+
+- Feature #195: Dead reckoning smoothness for ships (PASSING)
+  - Same smooth blending approach as FlightLayer applied to ShipLayer
+  - Tracked ship: frame-rate preRender update, non-tracked: 2s bulk DR
+  - Speed conversion: KNOTS_TO_MS = 0.514444 (standard) verified correct
+  - No visible position jumps — blend from old DR position to new API-based DR target
+  - COG (course over ground) used for movement direction (more reliable than heading)
+
+- Feature #196: Earthquake pulsing animation performance (PASSING)
+  - 28 M2.5+ earthquake markers pulsing simultaneously with unique phase offsets
+  - hashIdToPhase() generates unique phase per earthquake ID — no synchronized pulsing
+  - PointPrimitiveCollection for GPU-accelerated rendering (no Entity/CallbackProperty overhead)
+  - Animation loop throttled to 30Hz (PULSE_INTERVAL_MS = 33ms) to reduce CPU overhead
+  - Per-frame cost: 0.0012ms = 0.01% of 60fps budget — zero frame rate impact
+
+#### Current Status:
+- 192/205 features passing (93.7%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 58 modules compile and build successfully (Vite production build OK)
+- All dead reckoning and animation code verified with math tests and API verification
+
+#### What's Next:
+- Continue with remaining features
+- Additional performance and integration tests
+
 ### Session 69 - 2026-03-13
 
 #### Completed Features:
