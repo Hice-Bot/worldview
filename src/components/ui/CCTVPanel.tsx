@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
 import type { CameraData } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 interface CCTVPanelProps {
   cameras: CameraData[];
@@ -41,12 +42,19 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const mobileModalRef = useRef<HTMLDivElement>(null);
   const cctvBadgeRef = useRef<HTMLButtonElement>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   // Focus trap: traps Tab within modal, restores focus to badge on close
   useFocusTrap(mobileModalRef, mobileOpen && !isMobileClosing);
 
   // Animated close handler for mobile modal
+  // With reduced motion: close instantly (no animation delay)
   const handleMobileClose = useCallback(() => {
+    if (prefersReducedMotion) {
+      setMobileOpen(false);
+      cctvBadgeRef.current?.focus();
+      return;
+    }
     setIsMobileClosing(true);
     setTimeout(() => {
       setMobileOpen(false);
@@ -54,7 +62,7 @@ export default function CCTVPanel({ cameras, selectedCamera, onSelectCamera, onF
       // Restore focus to the badge trigger
       cctvBadgeRef.current?.focus();
     }, 250);
-  }, []);
+  }, [prefersReducedMotion]);
 
   const handleMobileOpen = useCallback(() => {
     setMobileOpen(true);

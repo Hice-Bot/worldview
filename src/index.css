@@ -153,3 +153,61 @@ textarea:focus-visible,
   outline-offset: 2px;
   box-shadow: 0 0 8px rgba(0, 212, 255, 0.3);
 }
+
+/* Reduced motion support — respect user's OS-level preference.
+ * Disables decorative animations while keeping critical functionality:
+ * - Cesium flyTo camera animations remain (controlled via JS, not CSS)
+ * - Loading state indicators remain visible (static, no pulse)
+ * - Data-driven animations (satellite propagation, traffic vehicles) remain
+ * - Modal open/close still works (instant instead of slide)
+ * - Transitions reduced to near-instant for button feedback
+ */
+@media (prefers-reduced-motion: reduce) {
+  /* Disable all CSS keyframe animations */
+  .modal-enter {
+    animation: none;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .modal-exit {
+    animation: none;
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  .backdrop-enter {
+    animation: none;
+    opacity: 1;
+  }
+
+  .backdrop-exit {
+    animation: none;
+    opacity: 0;
+  }
+
+  /* Disable Tailwind animate-pulse and animate-spin globally */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+
+  /* Reduce transitions to near-instant (keep slight transition for state clarity) */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Keep focus-visible outlines responsive — these are accessibility aids, not decorative */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    transition-duration: 0ms !important;
+  }
+}

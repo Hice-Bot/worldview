@@ -8,6 +8,7 @@ import type {
   SatelliteFilters,
 } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 interface OperationsPanelProps {
   layers: LayerState;
@@ -428,12 +429,19 @@ export default function OperationsPanel(props: OperationsPanelProps) {
   const [isClosing, setIsClosing] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   // Focus trap: traps Tab within modal, restores focus to FAB on close
   useFocusTrap(modalRef, mobileOpen && !isClosing);
 
   // Animated close handler - play exit animation then unmount
+  // With reduced motion: close instantly (no animation delay)
   const handleClose = useCallback(() => {
+    if (prefersReducedMotion) {
+      setMobileOpen(false);
+      fabRef.current?.focus();
+      return;
+    }
     setIsClosing(true);
     // Wait for animation to complete before unmounting
     setTimeout(() => {
@@ -442,7 +450,7 @@ export default function OperationsPanel(props: OperationsPanelProps) {
       // Restore focus to the FAB trigger
       fabRef.current?.focus();
     }, 250); // matches modal-exit duration
-  }, []);
+  }, [prefersReducedMotion]);
 
   const handleOpen = useCallback(() => {
     setMobileOpen(true);

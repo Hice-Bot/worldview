@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { IntelEvent } from '../../types';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 interface IntelFeedProps {
   events: IntelEvent[];
@@ -38,12 +39,19 @@ export default function IntelFeed({ events }: IntelFeedProps) {
   const badgeRef = useRef<HTMLButtonElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   // Focus trap: traps Tab within modal, restores focus to badge on close
   useFocusTrap(modalRef, mobileOpen && !isClosing);
 
   // Animated close handler for mobile modal
+  // With reduced motion: close instantly (no animation delay)
   const handleMobileClose = useCallback(() => {
+    if (prefersReducedMotion) {
+      setMobileOpen(false);
+      badgeRef.current?.focus();
+      return;
+    }
     setIsClosing(true);
     setTimeout(() => {
       setMobileOpen(false);
@@ -51,7 +59,7 @@ export default function IntelFeed({ events }: IntelFeedProps) {
       // Restore focus to the badge trigger
       badgeRef.current?.focus();
     }, 250);
-  }, []);
+  }, [prefersReducedMotion]);
 
   const handleMobileOpen = useCallback(() => {
     setMobileOpen(true);
