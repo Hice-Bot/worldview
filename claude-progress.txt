@@ -3,6 +3,16 @@
 ### Session 62 - 2026-03-13
 
 #### Completed Features:
+- Feature #167: FAB and modal transitions smooth (PASSING)
+  - CSS keyframe animations: modal-slide-in (translateY 100% to 0), modal-slide-out (reverse)
+  - Backdrop animations: backdrop-fade-in/out with opacity transitions
+  - Applied to all 3 mobile modals: OperationsPanel, IntelFeed, CCTVPanel
+  - Animated close: isClosing state triggers exit animation, 250ms setTimeout before unmount
+  - cubic-bezier(0.32, 0.72, 0, 1) easing for natural iOS-like feel
+  - FAB: active:scale-90 touch feedback, duration-200 transition
+  - Touch events: onTouchEnd with e.preventDefault() on all FABs and close buttons
+  - 42/42 verification checks passing
+
 - Feature #168: ESC key to unlock camera (PASSING)
   - Already implemented in EntityClickHandler.tsx (Session 9)
   - ESC keydown listener registered on document via addEventListener
