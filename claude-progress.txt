@@ -1,5 +1,34 @@
 ## WorldView Development Progress
 
+### Session 43 - 2026-03-13
+
+#### Completed Features:
+- Feature #121: Concurrent tile switching doesn't corrupt globe (PASSING)
+  - GlobeViewer tile management useEffect already has `cancelled` flag for async race protection
+  - When user rapidly switches Google 3D ↔ OSM, stale async tileset loads are discarded
+  - Stale tilesets destroyed via try/catch to prevent memory leaks
+  - OSM path is synchronous (no race), Google 3D path protected by cancelled check in .then()
+  - .catch() also checks cancelled to ignore errors from stale requests
+  - useEffect cleanup sets cancelled=true when deps change (mapTiles or google3dAvailable)
+
+- Feature #122: Rapid flyTo requests handled cleanly (PASSING)
+  - All 3 flyTo call sites in App.tsx preceded by viewer.camera.cancelFlight()
+  - handleResetView: cancelFlight() → flyTo (line 271-273)
+  - handleLocateMe/flyToLocation: cancelFlight() → flyTo (line 297-300)
+  - CCTV onFlyTo: cancelFlight() → flyTo (line 423-445)
+  - trackedEntity cleared before flyTo to prevent entity tracking interference
+  - cancelFlight() is synchronous — immediately stops any in-progress animation
+  - Last flyTo wins, no jitter from competing animations
+
+#### Key Code Changes:
+- src/components/globe/EntityClickHandler.tsx — ESC key handler made idempotent (no-op when nothing tracked)
+
+#### Current Status:
+- 121/205 features passing (59.0%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
 ### Session 42 - 2026-03-13
 
 #### Completed Features:
