@@ -629,14 +629,23 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
     handler.setInputAction(handleClick, ScreenSpaceEventType.LEFT_CLICK);
 
     // ESC key handler to unlock tracking
+    // Idempotent: pressing ESC when nothing is tracked is a safe no-op
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onTrackEntity(null);
-        onCctvClick(null);
-        if (viewer.trackedEntity) {
-          viewer.trackedEntity = undefined;
+        // Only perform unlock actions if something is currently tracked
+        const hasTracking = !!(
+          currentTrackingIdRef.current ||
+          trackingEntityRef.current ||
+          viewer.trackedEntity
+        );
+        if (hasTracking) {
+          onTrackEntity(null);
+          onCctvClick(null);
+          if (viewer.trackedEntity) {
+            viewer.trackedEntity = undefined;
+          }
+          clearTrackingEntity();
         }
-        clearTrackingEntity();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
