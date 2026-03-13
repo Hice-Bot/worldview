@@ -319,6 +319,29 @@ export default function App() {
     setTrackedEntity(entity);
   }, []);
 
+  // Update tracked entity data when data refreshes arrive (Feature #183)
+  // This keeps TrackedEntityPanel showing fresh altitude/speed/position data
+  useEffect(() => {
+    if (!trackedEntity) return;
+    if (trackedEntity.type === 'aircraft') {
+      const updated = flights.find((f) => f.icao24 === trackedEntity.id);
+      if (updated) {
+        setTrackedEntity((prev) => {
+          if (!prev || prev.type !== 'aircraft' || prev.id !== updated.icao24) return prev;
+          return { ...prev, data: { ...updated } as unknown as Record<string, unknown> };
+        });
+      }
+    } else if (trackedEntity.type === 'ship') {
+      const updated = ships.find((s) => s.mmsi === trackedEntity.id);
+      if (updated) {
+        setTrackedEntity((prev) => {
+          if (!prev || prev.type !== 'ship' || prev.id !== updated.mmsi) return prev;
+          return { ...prev, data: { ...updated } as unknown as Record<string, unknown> };
+        });
+      }
+    }
+  }, [flights, ships, trackedEntity?.id, trackedEntity?.type]);
+
   // Reset view handler - smooth flyTo animation to default Sydney view
   const handleResetView = useCallback(() => {
     setTrackedEntity(null);

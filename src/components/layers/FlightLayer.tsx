@@ -614,9 +614,11 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
     }
 
     // Remove stale aircraft no longer in the data
+    // Preserve tracked entity across data gaps (Feature #183) — don't remove if currently tracked
+    const trackedId = (trackedEntity?.type === 'aircraft') ? trackedEntity.id : null;
     const toRemove: string[] = [];
     existingMap.forEach((_entry, icao24) => {
-      if (!currentIds.has(icao24)) {
+      if (!currentIds.has(icao24) && icao24 !== trackedId) {
         toRemove.push(icao24);
       }
     });

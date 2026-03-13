@@ -458,9 +458,11 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
     }
 
     // Remove stale ships no longer in the data
+    // Preserve tracked entity across data gaps (Feature #183) — don't remove if currently tracked
+    const trackedMmsi = (trackedEntity?.type === 'ship') ? trackedEntity.id : null;
     const toRemove: string[] = [];
     existingMap.forEach((_entry, mmsi) => {
-      if (!currentIds.has(mmsi)) {
+      if (!currentIds.has(mmsi) && mmsi !== trackedMmsi) {
         toRemove.push(mmsi);
       }
     });
