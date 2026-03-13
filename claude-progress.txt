@@ -1,5 +1,41 @@
 ## WorldView Development Progress
 
+### Session 52 - 2026-03-13
+
+#### Completed Features:
+- Feature #139: Traffic bounding box parameter validation (PASSING)
+  - Added server-side bbox validation to /api/traffic/roads endpoint
+  - Non-numeric coordinates return 400 error with descriptive message
+  - Coordinates clamped to valid geographic ranges (-90..90 lat, -180..180 lon)
+  - Inverted south/north or west/east automatically swapped
+  - Large bbox clamped to max 2-degree span to prevent Overpass API overload
+  - Missing params still fallback to Sydney CBD data
+
+- Feature #140: Flight data structure field validation (PASSING)
+  - Added server-side validateFlightData() function to filter and sanitize aircraft
+  - Filters out aircraft with empty/missing icao24, invalid lat/lon, NaN coordinates
+  - Sanitizes NaN altitude/velocity/heading to 0, normalizes heading to 0-360
+  - Applied to all 4 flight endpoints (FR24 primary, adsb.fi fallback, live OpenSky, live adsb.fi)
+  - Client FlightLayer updated with safe numeric coercion for all rendering fields
+  - Fixed lat/lon check from truthy (!flight.lat) to proper type check (typeof !== 'number')
+  - Previously 4 aircraft had bad icao24, now 0 after validation
+
+- Feature #141: Earthquake magnitude filter M2.5+ (PASSING)
+  - Server uses USGS 2.5_day.geojson feed (inherent M2.5+ filter from source)
+  - Client EarthquakeLayer has explicit magnitude >= 2.5 guard on line 108
+  - All 30 earthquakes verified as M2.5+ with valid coordinates
+  - Min magnitude 2.5, max 6.3 in current feed
+
+#### Current Status:
+- 149/205 features passing (72.7%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining Search & Filter Edge Cases features
+- More data layer validation and edge case handling
+
 ### Session 51 - 2026-03-13
 
 #### Completed Features:
