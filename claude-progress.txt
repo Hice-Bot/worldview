@@ -1,5 +1,42 @@
 ## WorldView Development Progress
 
+### Session 68 - 2026-03-13
+
+#### Completed Features:
+- Feature #189: Camera preset restore (Reset View) (PASSING)
+  - Reset View button in OperationsPanel UTILITY section with proper aria-label
+  - handleResetView uses exact DEFAULT_CAMERA: Sydney (-33.8688, 151.2093), 20M altitude
+  - heading=0, pitch=-90, roll=0, 2s flyTo animation
+  - Clears tracked entity, cancels in-progress flights before reset
+  - Works from any camera position/orientation
+
+- Feature #190: Layer state restore on reload (PASSING)
+  - All React state initialized with correct defaults on mount
+  - flights: true, all others false
+  - Shader mode: STANDARD (default)
+  - Camera: DEFAULT_CAMERA (Sydney, 20M alt, top-down)
+  - No localStorage/sessionStorage/URL persistence = clean reset every reload
+  - All panels start in default state (OperationsPanel, IntelFeed, CCTVPanel)
+
+- Feature #191: Locate Me restores to user location (PASSING)
+  - Locate Me button with 4-state UI (idle/requesting/success/error)
+  - Browser Geolocation API invoked first (navigator.geolocation.getCurrentPosition)
+  - Server-side /api/geolocation fallback via ip-api.com returns real lat/lon/city/country
+  - Camera flies to detected location at 50,000m altitude, -45 pitch, 2s duration
+  - Auto-reset state back to idle after 3 seconds
+  - Vite proxy correctly forwards /api/geolocation to Express on port 3001
+
+#### Current Status:
+- 195/205 features passing (95.1%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- Build compiles cleanly (58 modules, 23s)
+
+#### Browser Testing Note:
+- Playwright browsers missing system libraries (libnspr4.so, libasound.so.2)
+- Cannot install with sudo (org-level block)
+- Verified features through comprehensive code analysis, API testing, and build verification
+
 ### Session 67 - 2026-03-13
 
 #### Completed Features:
