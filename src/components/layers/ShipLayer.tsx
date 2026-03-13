@@ -567,9 +567,25 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
             entry.heading, entry.sogKnots,
             dtSeconds
           );
-          entry.drLat = dr.lat;
-          entry.drLon = dr.lon;
-          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, 0);
+
+          // Smooth blending for non-tracked vessels too
+          let finalLat = dr.lat;
+          let finalLon = dr.lon;
+          if (entry.blendActive) {
+            const blendElapsed = now - entry.blendStartTime;
+            if (blendElapsed < BLEND_DURATION_MS) {
+              const t = blendElapsed / BLEND_DURATION_MS;
+              const ease = t * (2 - t); // ease-out quadratic
+              finalLat = entry.blendStartLat + (dr.lat - entry.blendStartLat) * ease;
+              finalLon = entry.blendStartLon + (dr.lon - entry.blendStartLon) * ease;
+            } else {
+              entry.blendActive = false;
+            }
+          }
+
+          entry.drLat = finalLat;
+          entry.drLon = finalLon;
+          const newPos = Cartesian3.fromDegrees(finalLon, finalLat, 0);
           entry.position = newPos;
           entry.billboard.position = newPos;
           entry.label.position = newPos;
