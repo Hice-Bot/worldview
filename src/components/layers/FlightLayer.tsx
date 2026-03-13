@@ -258,6 +258,9 @@ function deadReckonPosition(
   };
 }
 
+// --- Smooth blend duration: how long to interpolate from old DR to new API position ---
+const BLEND_DURATION_MS = 1500; // 1.5 seconds to smoothly blend to new data
+
 // --- Per-aircraft tracking entry with dead reckoning state ---
 interface FlightEntry {
   billboard: Billboard;
@@ -278,6 +281,12 @@ interface FlightEntry {
   drLat: number;          // current dead-reckoned latitude
   drLon: number;          // current dead-reckoned longitude
   drAlt: number;          // current dead-reckoned altitude
+  // Smooth blending state — prevents jumps when new data arrives
+  blendStartLat: number;  // DR position at moment new data arrived
+  blendStartLon: number;
+  blendStartAlt: number;
+  blendStartTime: number; // timestamp when blend started
+  blendActive: boolean;   // true while blending from old DR to new base
 }
 
 /**
@@ -514,8 +523,16 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         }
 
         // Update dead reckoning base state with fresh API data
+        // Smooth blending: record current DR position as blend start to avoid visible jumps
         existing.flight = flight;
         existing.position = position;
+        // Start blending from current dead-reckoned position to new API position
+        existing.blendStartLat = existing.drLat;
+        existing.blendStartLon = existing.drLon;
+        existing.blendStartAlt = existing.drAlt;
+        existing.blendStartTime = now;
+        existing.blendActive = true;
+        // Update base to new API data for future DR extrapolation
         existing.baseLat = flight.lat;
         existing.baseLon = flight.lon;
         existing.baseAlt = altMeters;
@@ -523,9 +540,7 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
         existing.velocityMs = velMs;
         existing.verticalRate = vRate;
         existing.lastDataTime = now;
-        existing.drLat = flight.lat;
-        existing.drLon = flight.lon;
-        existing.drAlt = altMeters;
+        // Don't snap drLat/drLon — let the preRender blend handle the transition
       } else {
         // Add new billboard
         const bb = bbCollection.add({
@@ -609,6 +624,12 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
           drLat: flight.lat,
           drLon: flight.lon,
           drAlt: altMeters,
+          // No blend needed for new aircraft
+          blendStartLat: flight.lat,
+          blendStartLon: flight.lon,
+          blendStartAlt: altMeters,
+          blendStartTime: now,
+          blendActive: false,
         });
       }
     }
@@ -668,19 +689,38 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
             entry.heading, entry.velocityMs, entry.verticalRate,
             dtSeconds
           );
-          entry.drLat = dr.lat;
-          entry.drLon = dr.lon;
-          entry.drAlt = dr.alt;
-          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, dr.alt);
+
+          // Smooth blending: interpolate from old DR position to new DR target
+          let finalLat = dr.lat;
+          let finalLon = dr.lon;
+          let finalAlt = dr.alt;
+          if (entry.blendActive) {
+            const blendElapsed = now - entry.blendStartTime;
+            if (blendElapsed < BLEND_DURATION_MS) {
+              // Smooth ease-out blend factor (0→1)
+              const t = blendElapsed / BLEND_DURATION_MS;
+              const ease = t * (2 - t); // ease-out quadratic
+              finalLat = entry.blendStartLat + (dr.lat - entry.blendStartLat) * ease;
+              finalLon = entry.blendStartLon + (dr.lon - entry.blendStartLon) * ease;
+              finalAlt = entry.blendStartAlt + (dr.alt - entry.blendStartAlt) * ease;
+            } else {
+              entry.blendActive = false; // Blend complete
+            }
+          }
+
+          entry.drLat = finalLat;
+          entry.drLon = finalLon;
+          entry.drAlt = finalAlt;
+          const newPos = Cartesian3.fromDegrees(finalLon, finalLat, finalAlt);
           entry.position = newPos;
           entry.billboard.position = newPos;
           entry.label.position = newPos;
           // Update tracking manager for smooth camera following
-          trackingManager.updatePosition(trackedId, 'aircraft', dr.lon, dr.lat, dr.alt);
+          trackingManager.updatePosition(trackedId, 'aircraft', finalLon, finalLat, finalAlt);
           // Update heading trail from dead-reckoned position
           if (entry.headingTrail) {
             const trailPositions = computeHeadingTrail(
-              dr.lon, dr.lat, dr.alt,
+              finalLon, finalLat, finalAlt,
               entry.heading, entry.velocityMs
             );
             if (trailPositions.length >= 2) {
@@ -702,17 +742,35 @@ export default function FlightLayer({ flights, altitudeFilters, showRoutePaths, 
             entry.heading, entry.velocityMs, entry.verticalRate,
             dtSeconds
           );
-          entry.drLat = dr.lat;
-          entry.drLon = dr.lon;
-          entry.drAlt = dr.alt;
-          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, dr.alt);
+
+          // Smooth blending for non-tracked aircraft too
+          let finalLat = dr.lat;
+          let finalLon = dr.lon;
+          let finalAlt = dr.alt;
+          if (entry.blendActive) {
+            const blendElapsed = now - entry.blendStartTime;
+            if (blendElapsed < BLEND_DURATION_MS) {
+              const t = blendElapsed / BLEND_DURATION_MS;
+              const ease = t * (2 - t); // ease-out quadratic
+              finalLat = entry.blendStartLat + (dr.lat - entry.blendStartLat) * ease;
+              finalLon = entry.blendStartLon + (dr.lon - entry.blendStartLon) * ease;
+              finalAlt = entry.blendStartAlt + (dr.alt - entry.blendStartAlt) * ease;
+            } else {
+              entry.blendActive = false;
+            }
+          }
+
+          entry.drLat = finalLat;
+          entry.drLon = finalLon;
+          entry.drAlt = finalAlt;
+          const newPos = Cartesian3.fromDegrees(finalLon, finalLat, finalAlt);
           entry.position = newPos;
           entry.billboard.position = newPos;
           entry.label.position = newPos;
           // Update heading trail from dead-reckoned position
           if (entry.headingTrail) {
             const trailPositions = computeHeadingTrail(
-              dr.lon, dr.lat, dr.alt,
+              finalLon, finalLat, finalAlt,
               entry.heading, entry.velocityMs
             );
             if (trailPositions.length >= 2) {

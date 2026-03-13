@@ -28,6 +28,7 @@ interface ShipLayerProps {
 const EARTH_RADIUS = 6371000; // meters
 const KNOTS_TO_MS = 0.514444; // knots to m/s conversion
 const DR_BULK_INTERVAL = 2000; // Dead reckoning bulk update: 2s for non-tracked vessels
+const BLEND_DURATION_MS = 1500; // Smooth blend from old DR to new API position (1.5s)
 const OCCLUSION_INTERVAL = 500; // Occlusion check: 2Hz
 const MIN_SOG_FOR_TRAIL = 0.5; // Minimum SOG (knots) to show vessel trail
 const TRAIL_LENGTH_SECONDS = 120; // Trail shows 2 minutes of past position
@@ -178,6 +179,11 @@ interface ShipEntry {
   lastDataTime: number; // Timestamp when data was received from API
   drLat: number;        // Current dead-reckoned latitude
   drLon: number;        // Current dead-reckoned longitude
+  // Smooth blending state — prevents jumps when new data arrives
+  blendStartLat: number;
+  blendStartLon: number;
+  blendStartTime: number;
+  blendActive: boolean;
   // Trail state
   trail: any | null;    // Reference to Polyline in PolylineCollection, null if no trail
 }
@@ -344,15 +350,20 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         existing.label.fillColor = finalColor;
 
         // Update dead reckoning base state with fresh API data
+        // Smooth blending: record current DR position as blend start to avoid visible jumps
         existing.ship = ship;
         existing.position = position;
+        existing.blendStartLat = existing.drLat;
+        existing.blendStartLon = existing.drLon;
+        existing.blendStartTime = now;
+        existing.blendActive = true;
+        // Update base to new API data for future DR extrapolation
         existing.baseLat = ship.lat;
         existing.baseLon = ship.lon;
         existing.heading = drHeading;
         existing.sogKnots = ship.sog || 0;
         existing.lastDataTime = now;
-        existing.drLat = ship.lat;
-        existing.drLon = ship.lon;
+        // Don't snap drLat/drLon — let the preRender blend handle the transition
 
         // Update trail: only for moving vessels (SOG > 0.5 kt) when zoomed in
         if (trailCollection) {
@@ -452,6 +463,11 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           lastDataTime: now,
           drLat: ship.lat,
           drLon: ship.lon,
+          // No blend needed for new ships
+          blendStartLat: ship.lat,
+          blendStartLon: ship.lon,
+          blendStartTime: now,
+          blendActive: false,
           trail: trailRef,
         });
       }
@@ -512,14 +528,30 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
             entry.heading, entry.sogKnots,
             dtSeconds
           );
-          entry.drLat = dr.lat;
-          entry.drLon = dr.lon;
-          const newPos = Cartesian3.fromDegrees(dr.lon, dr.lat, 0);
+
+          // Smooth blending: interpolate from old DR position to new DR target
+          let finalLat = dr.lat;
+          let finalLon = dr.lon;
+          if (entry.blendActive) {
+            const blendElapsed = now - entry.blendStartTime;
+            if (blendElapsed < BLEND_DURATION_MS) {
+              const t = blendElapsed / BLEND_DURATION_MS;
+              const ease = t * (2 - t); // ease-out quadratic
+              finalLat = entry.blendStartLat + (dr.lat - entry.blendStartLat) * ease;
+              finalLon = entry.blendStartLon + (dr.lon - entry.blendStartLon) * ease;
+            } else {
+              entry.blendActive = false; // Blend complete
+            }
+          }
+
+          entry.drLat = finalLat;
+          entry.drLon = finalLon;
+          const newPos = Cartesian3.fromDegrees(finalLon, finalLat, 0);
           entry.position = newPos;
           entry.billboard.position = newPos;
           entry.label.position = newPos;
           // Update tracking manager for smooth camera following
-          trackingManager.updatePosition(trackedId, 'ship', dr.lon, dr.lat, 0);
+          trackingManager.updatePosition(trackedId, 'ship', finalLon, finalLat, 0);
         }
       }
 
