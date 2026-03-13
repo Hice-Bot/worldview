@@ -179,7 +179,7 @@ interface ShipEntry {
   drLat: number;        // Current dead-reckoned latitude
   drLon: number;        // Current dead-reckoned longitude
   // Trail state
-  trailIndex: number;   // Index in PolylineCollection, -1 if no trail
+  trail: any | null;    // Reference to Polyline in PolylineCollection, null if no trail
 }
 
 // ============================================================================
@@ -360,22 +360,19 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           if (shouldHaveTrail) {
             const trailPositions = generateTrailPositions(ship.lat, ship.lon, drHeading, ship.sog || 0);
             if (trailPositions.length > 1) {
-              if (existing.trailIndex >= 0) {
+              if (existing.trail) {
                 // Update existing trail
                 try {
-                  const polyline = trailCollection.get(existing.trailIndex);
-                  if (polyline) {
-                    polyline.positions = trailPositions;
-                    polyline.show = !occluded;
-                  }
+                  existing.trail.positions = trailPositions;
+                  existing.trail.show = !occluded;
                 } catch {
-                  // Trail index invalid, will recreate
-                  existing.trailIndex = -1;
+                  // Trail reference invalid, will recreate
+                  existing.trail = null;
                 }
               }
-              if (existing.trailIndex < 0) {
+              if (!existing.trail) {
                 // Create new trail
-                trailCollection.add({
+                existing.trail = trailCollection.add({
                   positions: trailPositions,
                   width: 1.5,
                   material: Material.fromType('Color', {
@@ -383,14 +380,12 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
                   }),
                   show: !occluded,
                 });
-                existing.trailIndex = trailCollection.length - 1;
               }
             }
-          } else if (existing.trailIndex >= 0) {
+          } else if (existing.trail) {
             // Hide trail for stopped vessel or when zoomed out
             try {
-              const polyline = trailCollection.get(existing.trailIndex);
-              if (polyline) polyline.show = false;
+              existing.trail.show = false;
             } catch { /* ignore */ }
           }
         }
@@ -429,11 +424,11 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         });
 
         // Create trail for moving vessels only (when zoomed in)
-        let trailIdx = -1;
+        let trailRef: any = null;
         if (trailCollection && showTrails && (ship.sog || 0) > MIN_SOG_FOR_TRAIL) {
           const trailPositions = generateTrailPositions(ship.lat, ship.lon, drHeading, ship.sog || 0);
           if (trailPositions.length > 1) {
-            trailCollection.add({
+            trailRef = trailCollection.add({
               positions: trailPositions,
               width: 1.5,
               material: Material.fromType('Color', {
@@ -441,7 +436,6 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
               }),
               show: !occluded,
             });
-            trailIdx = trailCollection.length - 1;
           }
         }
 
@@ -458,7 +452,7 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
           lastDataTime: now,
           drLat: ship.lat,
           drLon: ship.lon,
-          trailIndex: trailIdx,
+          trail: trailRef,
         });
       }
     }
@@ -475,6 +469,9 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
       if (entry) {
         bbCollection.remove(entry.billboard);
         lblCollection.remove(entry.label);
+        if (entry.trail && trailCollection) {
+          try { trailCollection.remove(entry.trail); } catch { /* ignore */ }
+        }
         existingMap.delete(id);
       }
     }

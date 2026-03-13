@@ -1,5 +1,45 @@
 ## WorldView Development Progress
 
+### Session 45 - 2026-03-13
+
+#### Completed Features:
+- Feature #123: Layer disable removes entities from globe (PASSING)
+  - All 6 layers use conditional rendering in GlobeViewer: `{props.layers.X && <XLayer />}`
+  - When layer disabled, component unmounts triggering cleanup: primitives.remove() for all collections
+  - All data hooks clear arrays and stop polling when enabled=false
+  - FlightLayer: removes BillboardCollection, LabelCollection, 2x PolylineCollection, preRender listener
+  - SatelliteLayer: removes all Entity objects + orbit entities, clears propagation/orbit intervals
+  - EarthquakeLayer: removes PointPrimitiveCollection, LabelCollection, preRender listener
+  - CCTVLayer: removes BillboardCollection, LabelCollection, preRender listener
+  - ShipLayer: removes BillboardCollection, LabelCollection, PolylineCollection, preRender listener
+  - TrafficLayer: removes PolylineCollection, PointPrimitiveCollection, cancels requestAnimationFrame
+
+- Feature #124: Entity deselect clears TrackedEntityPanel (PASSING)
+  - ESC key triggers onTrackEntity(null) → setTrackedEntity(null) → panel unmounts
+  - Empty space click (picks.length === 0) triggers same deselect flow
+  - Panel uses conditional rendering: `{trackedEntity && <TrackedEntityPanel />}` — unmounts fully on null
+  - No stale data: old entity object GC'd since panel unmounts entirely
+  - Close button, Reset View, Locate Me all also clear trackedEntity
+  - clearTrackingEntity() removes temporary entity from viewer.entities + clears trackingManager
+
+- Feature #125: Stale aircraft pruned on refresh (PASSING)
+  - flightMapRef stores Map<icao24, FlightEntry> with billboard/label/trail/route refs
+  - Each refresh builds currentIds Set from fresh flights array
+  - Iterates existingMap, collects IDs not in currentIds as stale
+  - Removes stale aircraft: billboard, label, headingTrail, routeArcCompleted, routeArcRemaining
+  - Deletes stale entries from existingMap preventing ghost accumulation
+  - Same pattern used in ShipLayer for stale ship pruning
+
+#### Current Status:
+- 126/205 features passing (61.5%)
+- Express proxy server: working on port 3001
+- Vite dev server: working on port 5173
+- 56 modules compile and build successfully
+
+#### What's Next:
+- Continue with remaining Data Cleanup & Cascade features
+- More layer lifecycle and state management features
+
 ### Session 44 - 2026-03-13
 
 #### Completed Features:
