@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ShipData } from '../types';
 
 /**
@@ -7,6 +7,7 @@ import type { ShipData } from '../types';
  * Resets to normal 30s interval on successful fetch.
  * AIS vessel data via burst collection pattern.
  * Filters: moving vessels only (SOG >0.5), exclude (0,0) coordinates.
+ * AbortController cancels in-flight requests when layer is disabled mid-fetch.
  */
 export function useShips(enabled: boolean) {
   const [ships, setShips] = useState<ShipData[]>([]);
@@ -18,28 +19,6 @@ export function useShips(enabled: boolean) {
   const ERROR_START = 30_000;
   const ERROR_CAP = 120_000;
 
-  const fetchShips = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/ships');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      // Filter: moving vessels only, exclude (0,0)
-      const filtered = (Array.isArray(data) ? data : []).filter(
-        (s: ShipData) => s.sog > 0.5 && !(s.lat === 0 && s.lon === 0)
-      );
-      setShips(filtered);
-      setError(null);
-      backoffRef.current = BASE_INTERVAL; // Reset on success
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      backoffRef.current = Math.min(backoffRef.current * 2, ERROR_CAP);
-      if (backoffRef.current < ERROR_START) backoffRef.current = ERROR_START;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!enabled) {
       setShips([]);
@@ -47,6 +26,32 @@ export function useShips(enabled: boolean) {
     }
 
     let cancelled = false;
+    const abortController = new AbortController();
+
+    const fetchShips = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/ships', { signal: abortController.signal });
+        if (cancelled) return;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        // Filter: moving vessels only, exclude (0,0)
+        const filtered = (Array.isArray(data) ? data : []).filter(
+          (s: ShipData) => s.sog > 0.5 && !(s.lat === 0 && s.lon === 0)
+        );
+        setShips(filtered);
+        setError(null);
+        backoffRef.current = BASE_INTERVAL; // Reset on success
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        backoffRef.current = Math.min(backoffRef.current * 2, ERROR_CAP);
+        if (backoffRef.current < ERROR_START) backoffRef.current = ERROR_START;
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
     fetchShips();
 
@@ -63,9 +68,10 @@ export function useShips(enabled: boolean) {
 
     return () => {
       cancelled = true;
+      abortController.abort();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [enabled, fetchShips]);
+  }, [enabled]);
 
   return { ships, loading, error };
 }
