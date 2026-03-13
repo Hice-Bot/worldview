@@ -1,5 +1,40 @@
 ## WorldView Development Progress
 
+### Session 55 - 2026-03-13
+
+#### Completed Features:
+- Feature #156: Intel feed event type colors (PASSING)
+  - 6 event types with distinct Tailwind CSS colors:
+    - ACFT: cyan-400 (aircraft)
+    - SEIS: red-400 (seismic)
+    - SATS: lime-400 (satellites)
+    - SYS: amber-400 (system)
+    - CCTV: purple-400 (cameras)
+    - AIS: orange-400 (ships)
+  - Each type has matching text color AND semi-transparent background (10% opacity)
+  - Type labels rendered bold with [TYPE] brackets
+  - All 6 colors visually distinct and readable on dark background
+  - All 6 event types are generated in App.tsx via addIntelEvent()
+
+- Feature #157: Intel feed shows most recent 20 entries (PASSING)
+  - addIntelEvent prepends new events and slices to 20: [...newEvent, ...prev].slice(0, 20)
+  - displayEvents = events.slice(0, 20) as safety cap in IntelFeed component
+  - Oldest events automatically truncated when count exceeds 20
+  - Scrollable container (overflow-y-auto) for event list
+  - Auto-scroll to top (scrollTop = 0) when new events arrive
+  - Mobile badge count excludes SYS events via badgeCount filter
+  - Desktop header shows X/20 counter
+
+#### Current Status:
+- 154/205 features passing (75.1%)
+- Express proxy server: running on port 3001
+- Vite dev server: running on port 5173
+- Both features were already fully implemented in prior sessions, verified and marked passing
+
+#### What's Next:
+- Continue with remaining Feedback & Notification features
+- Additional UI/UX polish features
+
 ### Session 54 - 2026-03-13
 
 #### Completed Features:
