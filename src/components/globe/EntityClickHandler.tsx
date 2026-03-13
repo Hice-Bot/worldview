@@ -7,6 +7,7 @@ import {
   Cartesian3,
   defined,
   CallbackProperty,
+  Math as CesiumMath,
 } from 'cesium';
 import type { EntityType, TrackedEntityInfo, CameraData } from '../../types';
 import { trackingManager } from '../../trackingManager';
@@ -325,8 +326,46 @@ const VIEW_FROM_OFFSETS: Record<EntityType, Cartesian3> = {
   aircraft: new Cartesian3(0, -30000, 30000),       // ~42km
   ship: new Cartesian3(0, -1200, 2100),             // ~2.4km
   earthquake: new Cartesian3(0, -200000, 200000),   // ~280km
-  cctv: new Cartesian3(0, -200000, 200000),         // ~280km
+  cctv: new Cartesian3(0, -150, 80),                // ~170m street-level (default, overridden by directional offset)
 };
+
+/**
+ * Compass direction to heading angle in degrees (clockwise from North)
+ */
+const COMPASS_TO_HEADING: Record<string, number> = {
+  N: 0, NE: 45, E: 90, SE: 135,
+  S: 180, SW: 225, W: 270, NW: 315,
+};
+
+/**
+ * Calculates a street-level ViewFrom offset based on camera's compass direction.
+ * The offset positions the viewer as if they are looking from behind the camera,
+ * offset in the direction the camera faces.
+ *
+ * @param direction - compass direction string (e.g., "N", "SE", "W")
+ * @returns Cartesian3 viewFrom offset for street-level cinematic view
+ */
+function computeCctvViewFromOffset(direction: string): Cartesian3 {
+  const headingDeg = COMPASS_TO_HEADING[direction.toUpperCase()];
+  if (headingDeg === undefined) {
+    // No direction available — default offset (behind and above)
+    return new Cartesian3(0, -150, 80);
+  }
+
+  // Offset distance from the camera position (meters)
+  const distance = 150;
+  const elevation = 80; // meters above camera
+
+  // Convert heading to radians. Heading is clockwise from North.
+  // In the local ENU frame: x = East, y = North, z = Up
+  // We want to offset the viewer BEHIND the camera (opposite to the direction it faces)
+  // so the viewer looks in the same direction as the camera.
+  const headingRad = CesiumMath.toRadians(headingDeg + 180); // opposite direction
+  const offsetX = distance * Math.sin(headingRad); // East component
+  const offsetY = distance * Math.cos(headingRad); // North component
+
+  return new Cartesian3(offsetX, offsetY, elevation);
+}
 
 /**
  * EntityClickHandler - Handles click detection and camera lock-on.
@@ -410,15 +449,60 @@ export default function EntityClickHandler({ onTrackEntity, onCctvClick }: Entit
         return;
       }
 
-      // Handle CCTV entities separately
+      // Handle CCTV entities — create tracking entity with directional offset
       if (entityType === 'cctv') {
         const cameraData = extractCameraData(picked);
         onCctvClick(cameraData);
-        onTrackEntity(null);
-        if (viewer.trackedEntity) {
-          viewer.trackedEntity = undefined;
+
+        if (cameraData) {
+          // Build TrackedEntityInfo for CCTV
+          const cctvTrackedInfo: TrackedEntityInfo = {
+            type: 'cctv',
+            id: cameraData.id,
+            name: cameraData.name,
+            data: cameraData as unknown as Record<string, unknown>,
+          };
+          onTrackEntity(cctvTrackedInfo);
+
+          // Remove old tracking entity
+          clearTrackingEntity();
+
+          // Create temporary entity at camera coordinates for street-level tracking
+          const pos = Cartesian3.fromDegrees(cameraData.lon, cameraData.lat, 10);
+          Cartesian3.clone(pos, trackingPositionRef.current);
+
+          const posCallback = new CallbackProperty(() => trackingPositionRef.current, false);
+
+          // Calculate directional ViewFrom offset based on camera compass direction
+          const viewFromOffset = computeCctvViewFromOffset(cameraData.direction);
+
+          const trackEntity = viewer.entities.add({
+            position: posCallback as unknown as Cartesian3,
+            point: { pixelSize: 1, show: false },
+            viewFrom: viewFromOffset,
+          });
+
+          trackingEntityRef.current = trackEntity;
+
+          // Register with tracking manager
+          trackingManager.setTracking(
+            trackingPositionRef.current,
+            cctvTrackedInfo.id,
+            'cctv'
+          );
+
+          try {
+            viewer.trackedEntity = trackEntity;
+          } catch {
+            // Entity may not be trackable
+          }
+        } else {
+          onTrackEntity(null);
+          if (viewer.trackedEntity) {
+            viewer.trackedEntity = undefined;
+          }
+          clearTrackingEntity();
         }
-        clearTrackingEntity();
         return;
       }
 

@@ -281,6 +281,29 @@ app.get('/api/traffic/roads', async (req, res) => {
 });
 
 // ============================================================================
+// CCTV Helper - Extract compass direction from TfL view/name fields
+// ============================================================================
+function extractCompassDirection(view, name) {
+  // Check view field first (e.g. "ZOOM WEST-The Grove", "EAST ON A40")
+  const combined = `${view} ${name}`.toUpperCase();
+  // Match multi-word directions first, then single
+  const patterns = [
+    { re: /\bNORTH\s*EAST\b|\bNE\b/, dir: 'NE' },
+    { re: /\bNORTH\s*WEST\b|\bNW\b/, dir: 'NW' },
+    { re: /\bSOUTH\s*EAST\b|\bSE\b/, dir: 'SE' },
+    { re: /\bSOUTH\s*WEST\b|\bSW\b/, dir: 'SW' },
+    { re: /\bNORTH\b|\bN\b(?![\w])/, dir: 'N' },
+    { re: /\bSOUTH\b|\bS\b(?![\w])/, dir: 'S' },
+    { re: /\bEAST\b|\bE\b(?![\w])/, dir: 'E' },
+    { re: /\bWEST\b|\bW\b(?![\w])/, dir: 'W' },
+  ];
+  for (const { re, dir } of patterns) {
+    if (re.test(combined)) return dir;
+  }
+  return '';
+}
+
+// ============================================================================
 // CCTV Endpoint - Multi-source (TfL + Austin + NSW)
 // ============================================================================
 app.get('/api/cctv', async (req, res) => {
@@ -303,7 +326,7 @@ app.get('/api/cctv', async (req, res) => {
           available: true,
           region: 'London',
           country: 'GB',
-          direction: cam.additionalProperties?.find(p => p.key === 'direction')?.value || '',
+          direction: extractCompassDirection(cam.additionalProperties?.find(p => p.key === 'view')?.value || '', cam.commonName || ''),
         }))),
       // Austin TX — location is GeoJSON Point: {type:"Point", coordinates:[lon, lat]}
       fetch('https://data.austintexas.gov/resource/b4k4-adkb.json?$limit=2000')
