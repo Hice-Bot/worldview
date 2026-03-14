@@ -51,7 +51,7 @@ All external API calls go through the Express proxy to:
 | Earthquakes | USGS GeoJSON | 300s |
 | Traffic | OSM Overpass API | 60s |
 | Ships | AISStream.io WebSocket burst | 120s |
-| CCTV | TfL JamCams + Austin + NSW | 120s |
+| CCTV | TfL JamCams + NYC TMC + Caltrans + NCDOT + Austin + NSW | 120s |
 
 ### Rendering
 - FlightLayer & ShipLayer use imperative BillboardCollection/LabelCollection (NOT Entity components) for 27K+ entity performance

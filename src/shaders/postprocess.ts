@@ -191,7 +191,7 @@ export const FLIR_FRAGMENT_SHADER = `
 
     // --- Step 3: Sobel edge detection on neighboring pixel luminance ---
     // Pixel size approximation
-    vec2 texel = vec2(1.0 / 1920.0, 1.0 / 1080.0);
+    vec2 texel = 1.0 / czm_viewport.zw;
 
     // Sample 3x3 neighborhood luminance
     float tl = getLum(uv, vec2(-texel.x, texel.y));   // top-left

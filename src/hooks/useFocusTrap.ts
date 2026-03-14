@@ -32,7 +32,7 @@ export function useFocusTrap(
     const focusTimer = setTimeout(() => {
       const focusable = getFocusableElements(container);
       if (focusable.length > 0) {
-        focusable[0].focus();
+        focusable[0]!.focus();
       } else {
         // If no focusable elements, make the container itself focusable
         container.setAttribute('tabindex', '-1');
@@ -46,8 +46,8 @@ export function useFocusTrap(
       const focusable = getFocusableElements(container);
       if (focusable.length === 0) return;
 
-      const firstFocusable = focusable[0];
-      const lastFocusable = focusable[focusable.length - 1];
+      const firstFocusable = focusable[0]!;
+      const lastFocusable = focusable[focusable.length - 1]!;
 
       if (e.shiftKey) {
         // Shift+Tab: if on first element, wrap to last

@@ -7,6 +7,7 @@ import {
   BillboardCollection,
   LabelCollection,
   PolylineCollection,
+  Polyline,
   LabelStyle,
   VerticalOrigin,
   HorizontalOrigin,
@@ -186,7 +187,7 @@ interface ShipEntry {
   blendStartTime: number;
   blendActive: boolean;
   // Trail state
-  trail: any | null;    // Reference to Polyline in PolylineCollection, null if no trail
+  trail: Polyline | null;
 }
 
 // ============================================================================
@@ -433,7 +434,7 @@ export default function ShipLayer({ ships, trackedEntity }: ShipLayerProps) {
         });
 
         // Create trail for moving vessels only (when zoomed in)
-        let trailRef: any = null;
+        let trailRef: Polyline | null = null;
         if (trailCollection && showTrails && (ship.sog || 0) > MIN_SOG_FOR_TRAIL) {
           const trailPositions = generateTrailPositions(ship.lat, ship.lon, drHeading, ship.sog || 0);
           if (trailPositions.length > 1) {

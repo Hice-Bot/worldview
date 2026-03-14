@@ -17,7 +17,6 @@ import { useTraffic } from './hooks/useTraffic';
 import { useShips } from './hooks/useShips';
 import type {
   LayerState,
-  LayerLoading,
   ShaderMode,
   MapTileMode,
   CameraState,

@@ -133,7 +133,7 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
             viewer.scene.globe.show = false;
             // Remove any OSM imagery layer
             if (osmLayerRef.current) {
-              viewer.imageryLayers.remove(osmLayerRef.current, true);
+              try { viewer.imageryLayers.remove(osmLayerRef.current, true); } catch { /* already removed */ }
               osmLayerRef.current = null;
             }
           })
@@ -151,7 +151,7 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
         viewer.scene.globe.show = false;
         // Remove OSM layer if present
         if (osmLayerRef.current) {
-          viewer.imageryLayers.remove(osmLayerRef.current, true);
+          try { viewer.imageryLayers.remove(osmLayerRef.current, true); } catch { /* already removed */ }
           osmLayerRef.current = null;
         }
       }
@@ -167,12 +167,19 @@ const GlobeViewer = forwardRef<CesiumViewer | null, GlobeViewerProps>(
 
         // Add OSM imagery layer if not already present
         if (!osmLayerRef.current) {
-          // Remove all default imagery layers first
-          viewer.imageryLayers.removeAll();
-          const osmProvider = new OpenStreetMapImageryProvider({
-            url: 'https://tile.openstreetmap.org/',
-          });
-          osmLayerRef.current = viewer.imageryLayers.addImageryProvider(osmProvider);
+          try {
+            // Remove only non-OSM layers (don't use removeAll — it can corrupt viewer state)
+            const layers = viewer.imageryLayers;
+            for (let i = layers.length - 1; i >= 0; i--) {
+              layers.remove(layers.get(i), true);
+            }
+            const osmProvider = new OpenStreetMapImageryProvider({
+              url: 'https://tile.openstreetmap.org/',
+            });
+            osmLayerRef.current = viewer.imageryLayers.addImageryProvider(osmProvider);
+          } catch (err) {
+            console.error('Failed to create OSM imagery provider:', err);
+          }
         }
 
         // Notify parent if user selected GOOGLE_3D but key is unavailable

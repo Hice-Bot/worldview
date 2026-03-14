@@ -53,7 +53,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:4173'] }));
 app.use(express.json());
 
 // Cache instances with per-route TTL
@@ -128,7 +128,9 @@ app.get('/api/health', (_req, res) => {
 // ============================================================================
 app.get('/api/geolocation', async (_req, res) => {
   try {
-    const response = await fetch('http://ip-api.com/json/');
+    const response = await fetch('http://ip-api.com/json/', {
+      signal: AbortSignal.timeout(10000),
+    });
     const data = await response.json();
     res.json({
       lat: data.lat,
@@ -148,7 +150,9 @@ app.get('/api/geolocation', async (_req, res) => {
 app.get('/api/earthquakes', async (_req, res) => {
   try {
     const data = await cachedFetch('earthquakes', 60, async () => {
-      const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
+      const response = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson', {
+        signal: AbortSignal.timeout(15000),
+      });
       const json = await response.json();
 
       // Validate GeoJSON format
@@ -503,8 +507,73 @@ function extractCompassDirection(view, name) {
 }
 
 // ============================================================================
-// CCTV Endpoint - Multi-source (TfL + Austin + NSW)
+// CCTV Endpoint - Multi-source (TfL + NYC + Caltrans + Austin + NSW)
 // ============================================================================
+
+// Fetch NCDOT camera details with concurrency-limited parallelism
+async function fetchNcdotCameras() {
+  const listRes = await fetch('https://eapps.ncdot.gov/services/traffic-prod/v1/cameras/', {
+    headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://drivenc.gov/' },
+    signal: AbortSignal.timeout(15000),
+  });
+  const list = await listRes.json();
+  if (!Array.isArray(list)) return [];
+
+  // Fetch detail for each camera (concurrency limit 30)
+  const CONCURRENCY = 30;
+  const results = [];
+  for (let i = 0; i < list.length; i += CONCURRENCY) {
+    const batch = list.slice(i, i + CONCURRENCY);
+    const details = await Promise.allSettled(
+      batch.map(cam =>
+        fetch(`https://eapps.ncdot.gov/services/traffic-prod/v1/cameras/${cam.id}`, {
+          headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://drivenc.gov/' },
+          signal: AbortSignal.timeout(10000),
+        }).then(r => r.json())
+      )
+    );
+    for (const d of details) {
+      if (d.status !== 'fulfilled' || !d.value) continue;
+      const c = d.value;
+      if (!c.latitude || !c.longitude) continue;
+      results.push({
+        id: `ncdot_${c.id}`,
+        name: c.locationName || c.displayName || 'Unknown',
+        lat: c.latitude,
+        lon: c.longitude,
+        imageUrl: c.imageURL || '',
+        available: c.status === 'OK',
+        region: 'North Carolina',
+        country: 'US',
+        direction: '',
+      });
+    }
+  }
+  return results;
+}
+
+// Parse Caltrans CCTV district JSON into camera objects
+function parseCaltransCameras(data, district) {
+  return (data?.data || []).map(item => {
+    const cctv = item.cctv || {};
+    const loc = cctv.location || {};
+    const lat = parseFloat(loc.latitude) || 0;
+    const lon = parseFloat(loc.longitude) || 0;
+    if (!lat || !lon) return null;
+    return {
+      id: `caltrans_d${district}_${cctv.index || Math.random()}`,
+      name: loc.locationName || 'Unknown',
+      lat,
+      lon,
+      imageUrl: cctv.imageData?.static?.currentImageURL || '',
+      available: cctv.inService === 'true',
+      region: loc.nearbyPlace || `CA D${district}`,
+      country: 'US',
+      direction: loc.direction || '',
+    };
+  }).filter(Boolean);
+}
+
 app.get('/api/cctv', async (req, res) => {
   try {
     const country = req.query.country;
@@ -513,7 +582,7 @@ app.get('/api/cctv', async (req, res) => {
     const cameras = await cachedFetch(cacheKey, 300, async () => {
       const sources = await Promise.allSettled([
         // TfL London
-        fetch('https://api.tfl.gov.uk/Place/Type/JamCam')
+        fetch('https://api.tfl.gov.uk/Place/Type/JamCam', { signal: AbortSignal.timeout(15000) })
           .then(r => r.json())
           .then(data => (data || []).map(cam => ({
             id: cam.id || cam.commonName,
@@ -526,8 +595,36 @@ app.get('/api/cctv', async (req, res) => {
             country: 'GB',
             direction: extractCompassDirection(cam.additionalProperties?.find(p => p.key === 'view')?.value || '', cam.commonName || ''),
           }))),
+        // NYC Traffic Management Center (~950 cameras)
+        fetch('https://webcams.nyctmc.org/api/cameras', { signal: AbortSignal.timeout(15000) })
+          .then(r => r.json())
+          .then(data => (data || []).filter(cam => cam.latitude && cam.longitude).map(cam => ({
+            id: cam.id || cam.name,
+            name: cam.name || 'Unknown',
+            lat: cam.latitude,
+            lon: cam.longitude,
+            imageUrl: cam.imageUrl || `https://webcams.nyctmc.org/api/cameras/${cam.id}/image`,
+            available: cam.isOnline === 'true' || cam.isOnline === true,
+            region: cam.area || 'New York City',
+            country: 'US',
+            direction: '',
+          }))),
+        // Caltrans Bay Area D04 (~700 cameras)
+        fetch('https://cwwp2.dot.ca.gov/data/d4/cctv/cctvStatusD04.json', { signal: AbortSignal.timeout(15000) })
+          .then(r => r.json())
+          .then(data => parseCaltransCameras(data, '04')),
+        // Caltrans Los Angeles D07 (~480 cameras)
+        fetch('https://cwwp2.dot.ca.gov/data/d7/cctv/cctvStatusD07.json', { signal: AbortSignal.timeout(15000) })
+          .then(r => r.json())
+          .then(data => parseCaltransCameras(data, '07')),
+        // Caltrans San Diego D11 (~320 cameras)
+        fetch('https://cwwp2.dot.ca.gov/data/d11/cctv/cctvStatusD11.json', { signal: AbortSignal.timeout(15000) })
+          .then(r => r.json())
+          .then(data => parseCaltransCameras(data, '11')),
+        // NCDOT — North Carolina (746 cameras)
+        fetchNcdotCameras(),
         // Austin TX — location is GeoJSON Point: {type:"Point", coordinates:[lon, lat]}
-        fetch('https://data.austintexas.gov/resource/b4k4-adkb.json?$limit=2000')
+        fetch('https://data.austintexas.gov/resource/b4k4-adkb.json?$limit=2000', { signal: AbortSignal.timeout(15000) })
           .then(r => r.json())
           .then(data => (data || []).filter(cam => cam.location && cam.location.coordinates).map(cam => ({
             id: cam.camera_id || cam.location_name,
@@ -544,6 +641,7 @@ app.get('/api/cctv', async (req, res) => {
         ...(process.env.NSW_TRANSPORT_API_KEY ? [
           fetch('https://api.transport.nsw.gov.au/v1/live/cameras', {
             headers: { Authorization: `apikey ${process.env.NSW_TRANSPORT_API_KEY}` },
+            signal: AbortSignal.timeout(15000),
           })
             .then(r => r.json())
             .then(data => (data?.features || []).map(cam => ({
@@ -561,7 +659,11 @@ app.get('/api/cctv', async (req, res) => {
       ]);
 
       let result = [];
-      const providerNames = ['TfL London', 'Austin TX', ...(process.env.NSW_TRANSPORT_API_KEY ? ['NSW Transport'] : [])];
+      const providerNames = [
+        'TfL London', 'NYC TMC', 'Caltrans D04', 'Caltrans D07', 'Caltrans D11',
+        'NCDOT', 'Austin TX',
+        ...(process.env.NSW_TRANSPORT_API_KEY ? ['NSW Transport'] : []),
+      ];
       for (let i = 0; i < sources.length; i++) {
         const source = sources[i];
         if (source.status === 'fulfilled' && Array.isArray(source.value)) {
@@ -570,6 +672,8 @@ app.get('/api/cctv', async (req, res) => {
           console.error(`[CCTV] Provider ${providerNames[i] || i} failed:`, source.reason?.message || source.reason);
         }
       }
+
+      console.log(`[CCTV] Loaded ${result.length} cameras from ${providerNames.length} providers`);
 
       // Apply country filter
       if (country) {
@@ -614,6 +718,25 @@ app.get('/api/cctv/image', async (req, res) => {
       return res.status(400).json({ error: 'Invalid URL format' });
     }
 
+    // SSRF protection: block requests to private/internal networks
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const isPrivate =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '[::1]' ||
+      /^10\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^169\.254\./.test(hostname) ||
+      /^127\./.test(hostname) ||
+      hostname.endsWith('.local') ||
+      hostname.endsWith('.internal');
+    if (isPrivate) {
+      return res.status(400).json({ error: 'URL points to a private/internal address' });
+    }
+
     const response = await fetch(String(imageUrl), {
       signal: AbortSignal.timeout(15000), // 15s timeout for slow image fetches
     });
@@ -637,13 +760,12 @@ app.get('/api/cctv/image', async (req, res) => {
 
 // ============================================================================
 // Ships Endpoint - AIS vessel data
-// Primary: Finnish Digitraffic (free, no auth, ~18K vessels in Baltic/Nordic)
-// Fallback: AISStream.io WebSocket burst (if API key configured)
+// Primary: AISStream.io WebSocket burst (global, if API key configured)
+// Fallback: Finnish Digitraffic (free, no auth, Baltic/Nordic only)
 // ============================================================================
 
 // AIS Navigation Status codes
 const NAV_STATUS_ANCHORED = 1;
-const NAV_STATUS_NOT_UNDER_COMMAND = 2;
 const NAV_STATUS_MOORED = 5;
 const NAV_STATUS_AGROUND = 6;
 
@@ -652,7 +774,18 @@ app.get('/api/ships', async (_req, res) => {
     const data = await cachedFetch('ships', 120, async () => {
     let ships = [];
 
-    // Primary: Finnish Digitraffic AIS API (free, no auth, gzip required)
+    // Primary: AISStream.io WebSocket burst (global coverage, requires API key)
+    if (process.env.AISSTREAM_API_KEY) {
+      try {
+        ships = await collectAISStreamBurst(process.env.AISSTREAM_API_KEY, 15000);
+        console.log(`[SHIPS] AISStream: ${ships.length} vessels (global)`);
+        if (ships.length > 0) return ships;
+      } catch (primaryError) {
+        console.error('[SHIPS] AISStream failed:', primaryError.message);
+      }
+    }
+
+    // Fallback: Finnish Digitraffic AIS API (free, no auth, Baltic/Nordic region)
     try {
       // Fetch vessel positions and metadata concurrently
       const [posResponse, metaResponse] = await Promise.all([
@@ -726,20 +859,9 @@ app.get('/api/ships', async (_req, res) => {
         });
 
       console.log(`[SHIPS] Digitraffic: ${ships.length} moving vessels (filtered from ${features.length} total, ${metaMap.size} metadata records)`);
-    } catch (primaryError) {
-      console.error('[SHIPS] Digitraffic failed:', primaryError.message);
-
-      // Fallback: AISStream.io WebSocket burst (requires API key)
-      if (process.env.AISSTREAM_API_KEY) {
-        try {
-          ships = await collectAISStreamBurst(process.env.AISSTREAM_API_KEY, 15000);
-          console.log(`[SHIPS] AISStream fallback: ${ships.length} vessels`);
-        } catch (fallbackError) {
-          console.error('[SHIPS] AISStream fallback failed:', fallbackError.message);
-        }
-      } else {
-        console.warn('[SHIPS] No fallback available (AISSTREAM_API_KEY not set)');
-      }
+    } catch (digitrafficError) {
+      console.error('[SHIPS] Digitraffic failed:', digitrafficError.message);
+      console.warn('[SHIPS] All ship data sources exhausted');
     }
 
     return ships;

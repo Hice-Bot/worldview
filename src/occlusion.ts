@@ -52,14 +52,3 @@ export function updateOccluderCamera(cameraPositionWC: Cartesian3): void {
 export function isOccluded(position: Cartesian3): boolean {
   return !occluder.isPointVisible(position);
 }
-
-/**
- * Combined convenience: update camera and test a single point.
- */
-export function isOccludedFromCamera(
-  position: Cartesian3,
-  cameraPositionWC: Cartesian3
-): boolean {
-  occluder.cameraPosition = cameraPositionWC;
-  return !occluder.isPointVisible(position);
-}

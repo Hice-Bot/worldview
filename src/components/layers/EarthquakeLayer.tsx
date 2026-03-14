@@ -212,6 +212,7 @@ export default function EarthquakeLayer({ earthquakes, trackedEntity }: Earthqua
       // Fast loop with cached length, no array bounds checks
       for (let i = 0; i < len; i++) {
         const item = points[i];
+        if (!item) continue;
         // Sinusoidal pulsing: size oscillates around baseSize
         // Each marker has unique phase offset via hashIdToPhase() — no synchronized pulsing
         const pulse = Math.sin(nowSec * item.speed + item.phase);
